@@ -1,6 +1,6 @@
-[submodule "structure"]
-	path = ./repos/structure/
-	url = https://github.com/genogrove/structure
-[submodule "pygenogrove"]
-	path = ./repos/pygenogrove
+[submodule "repos/pygenogrove"]
+	path = repos/pygenogrove
 	url = https://github.com/genogrove/pygenogrove
+[submodule "repos/structure"]
+	path = repos/structure
+	url = https://github.com/genogrove/structure
