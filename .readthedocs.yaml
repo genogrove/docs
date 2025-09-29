@@ -12,7 +12,7 @@ build:
   apt_packages:
     - doxygen
   jobs:
-    pre-build:
+    pre_build:
       - doxygen Doxyfile
 
 # Build documentation in the "docs/" directory with Sphinx
