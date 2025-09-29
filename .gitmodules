@@ -4,3 +4,6 @@
 [submodule "repos/structure"]
 	path = repos/structure
 	url = https://github.com/genogrove/structure
+[submodule "repos/data_type"]
+	path = repos/data_type
+	url = https://github.com/genogrove/data_type
