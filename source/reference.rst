@@ -7,10 +7,10 @@ API Reference
         .. doxygenindex::
             :project: genogrove
     
-    .. md-tab-item:: Python
+..    .. md-tab-item:: Python
 
-        .. automodule:: genogrove
-            :members:
-            :undoc-members:
-            :show-inheritance:
+..         .. automodule:: genogrove
+..             :members:
+..             :undoc-members:
+..             :show-inheritance:
 

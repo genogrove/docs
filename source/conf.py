@@ -21,7 +21,8 @@ sys.path.insert(0, os.path.abspath('../build'))  # if you’ll import your pytho
 
 extensions = ["breathe", 
               "sphinx_immaterial",
-              "sphinx.ext.autodoc"]
+             # "sphinx.ext.autodoc"
+              ]
 
 breathe_projects = {"genogrove": "../doxygen/xml"}
 
