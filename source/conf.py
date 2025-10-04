@@ -25,6 +25,7 @@ extensions = ["breathe",
               ]
 
 breathe_projects = {"genogrove": "../doxygen/xml"}
+breathe_default_project = "genogrove"
 
 templates_path = ['_templates']
 exclude_patterns = []
