@@ -1,2 +1,2 @@
 # docs
-This repo generates the gengrove documentation
+This repo generates the genogrove documentation
