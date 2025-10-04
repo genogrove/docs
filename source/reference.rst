@@ -1,12 +1,13 @@
 API Reference
 =============
 
-.. md-tab-set::
-    .. md-tab-item:: C++
+.. doxygenindex::
+    :project: genogrove
 
-        .. doxygenindex::
-            :project: genogrove
-    
+.. .. md-tab-set::
+  ..  .. md-tab-item:: C++
+
+
 ..    .. md-tab-item:: Python
 
 ..         .. automodule:: genogrove
