@@ -24,7 +24,9 @@ extensions = ["breathe",
              # "sphinx.ext.autodoc"
               ]
 
-breathe_projects = {"genogrove": "../doxygen/xml"}
+breathe_projects = {
+    "genogrove": os.path.abspath(os.path.join(os.path.dirname(__file__), "../doxygen/xml"))
+}
 breathe_default_project = "genogrove"
 
 templates_path = ['_templates']
