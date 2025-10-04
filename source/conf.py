@@ -46,7 +46,8 @@ html_theme_options = {
     "repo_url": "https://github.com/genogrove",
     "repo_name": "genogrove",
     "features": [
+        "navigation.tabs"
         # "navigation.tabs",   # 👈 puts your top-level toctree items into the top bar
         # "navigation.top",    # sticky top nav
-    ]
+    ],
 }

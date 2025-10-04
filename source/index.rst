@@ -13,11 +13,13 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
+   :caption: Home
+
+   home
 
 .. toctree::
+   :caption: API Reference
    :maxdepth: 2
-   :caption: Reference
 
    reference
 
