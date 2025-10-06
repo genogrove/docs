@@ -8,37 +8,47 @@ import os
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'genogrove'
-copyright = '2025, Richard. A. Schaefer'
-author = 'Richard. A. Schaefer'
-release = '0.0.1'
+project = "genogrove"
+copyright = "2025, Richard. A. Schaefer"
+author = "Richard. A. Schaefer"
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 import os, sys
-sys.path.insert(0, os.path.abspath('../build'))  # if you’ll import your python package
 
-extensions = ["breathe", 
-              "sphinx_immaterial",
-             # "sphinx.ext.autodoc"
-              ]
+# sys.path.insert(0, os.path.abspath("../repos/pygenogrove"))  # if you’ll import your python package
 
+extensions = [
+    "breathe",  # For C++ documentation via Doxygen
+    "sphinx_immaterial",  # Theme
+]
+
+# Breathe configuration for C++ docs
 breathe_projects = {
-    "genogrove": os.path.abspath(os.path.join(os.path.dirname(__file__), "../doxygen/xml"))
+    "genogrove": os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../doxygen/xml")
+    )
 }
 breathe_default_project = "genogrove"
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
+# Autodoc settings for Python
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+}
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_immaterial"
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_theme_options = {
     "icon": {
