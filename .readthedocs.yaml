@@ -13,6 +13,7 @@ build:
     - doxygen
   jobs:
     pre_build:
+      - git submodule update --init --recursive
       - doxygen Doxyfile
       - ls -R doxygen/xml
 
@@ -30,5 +31,3 @@ python:
     # python:
     #    install:
     #    - requirements: docs/requirements.txt
-
-
