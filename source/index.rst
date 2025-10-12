@@ -21,5 +21,5 @@ documentation for details.
    :caption: API Reference
    :maxdepth: 2
 
-   reference
+   api
 
