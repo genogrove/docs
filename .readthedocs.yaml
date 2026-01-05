@@ -13,7 +13,9 @@ build:
     - doxygen
   jobs:
     pre_build:
-      - git submodule update --init --recursive
+      - mkdir -p repos
+      - git clone --depth 1 https://github.com/genogrove/genogrove.git repos/genogrove
+      - git clone --depth 1 https://github.com/genogrove/pygenogrove.git repos/pygenogrove
       - doxygen Doxyfile
       - ls -R doxygen/xml
 
