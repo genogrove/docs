@@ -6,130 +6,118 @@
 genogrove
 =========
 
-A high-performance modern C++ library for genomic data structures.
+A high-performance modern C++ library for genomic data structures and interval queries.
 
-What is genogrove?
-------------------
+Overview
+--------
 
-Genogrove provides efficient data structures and I/O utilities for working with genomic data. It features an
-order-based hybrid tree graph structure for efficient storage and querying.
+Genogrove provides a specialized B+ tree data structure (the **grove**) optimized for storing and querying genomic intervals. It combines efficient interval overlap detection with an embedded graph overlay for representing relationships between genomic features.
 
-Getting Started
-===============
+**Key Features:**
 
-Installation
-------------
+- **Flexible Key Types**: Works with any type satisfying the ``key_type_base`` concept (built-in: ``interval``, ``genomic_coordinate``)
+- **Multi-Index Organization**: Separate trees per chromosome for efficient queries
+- **Sorted Insertion**: O(1) amortized insertion for pre-sorted genomic data
+- **Graph Overlay**: Link keys within the grove to represent feature relationships
+- **File I/O**: Automatic format detection and compression support (BED, GFF/GTF, VCF)
+- **Modern C++20**: Type-safe, concept-based design
 
-1. Clone the repository:
+Quick Example
+-------------
 
-   .. code-block:: bash
-
-      git clone https://github.com/genogrove/genogrove.git
-      cd genogrove
-
-2. Build the project using CMake:
-
-   .. code-block:: bash
-
-      cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      cmake --build build
-
-3. Run tests (optional):
-
-   .. code-block:: bash
-
-      ctest -C Release
-
-   Note: This requires CMake to be called with ``-DBUILD_TESTING=ON``
-
-4. Include in your project:
-
-   - Add ``genogrove/include`` to your include path
-   - Link against the built library in your CMake or build system
-
-Basic Usage
------------
-
-Reading BED files
-~~~~~~~~~~~~~~~~~
+Here's a complete example showing file reading, storage, and querying:
 
 .. code-block:: cpp
 
    #include <genogrove/io/bed_reader.hpp>
-
-   namespace gio = genogrove::io
-
-   gio::bed_reader reader("input.bed");
-
-   for (const auto& entry : reader) {
-       std::cout << entry.chromosome << "\t"
-                 << entry.interval.start << "\t"
-                 << entry.interval.end << std::endl;
-   }
-
-Working with intervals
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: cpp
-
+   #include <genogrove/structure/grove/grove.hpp>
    #include <genogrove/data_type/interval.hpp>
-   #include <genogrove/data_type/genomic_coordinate.hpp>
 
+   namespace gio = genogrove::io;
    namespace gdt = genogrove::data_type;
-
-   // Basic interval
-   gdt::interval iv1{100, 200};
-   gdt::interval iv2{150, 250};
-
-   // Check for overlap
-   bool overlaps = iv1.overlaps(iv2);  // true
-
-   // Genomic coordinate with strand
-   gdt::genomic_coordinate coord{'+', 1000, 2000};
-
-Using the grove data structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: cpp
-
-   #include <genogrove/structure/grove.hpp>
-   #include <genogrove/data_type/interval.hpp>
-
-   namespace gdt = genogrove::data_type
    namespace gst = genogrove::structure;
 
-   // Create a grove for interval storage
-   gst::grove<int, gdt::interval, void> my_grove;
+   int main() {
+       // Create grove to store genomic features
+       gst::grove<gdt::interval, std::string> features(100);
 
-   // Insert intervals with keys
-   my_grove.insert_data(1, gdt::interval{100, 200});
-   my_grove.insert_data(2, gdt::interval{150, 250});
+       // Read BED file (handles .bed.gz automatically)
+       gio::bed_reader reader("genes.bed.gz");
 
-   // Query overlapping intervals
-   auto results = my_grove.query(data_type::interval{175, 225});
+       for (const auto& entry : reader) {
+           // Insert sorted by chromosome
+           features.insert_data(
+               entry.chrom,
+               entry.interval,
+               entry.name,
+               gst::sorted  // Optimized for pre-sorted data
+           );
+       }
+
+       // Query for overlapping features
+       gdt::interval query{1000, 2000};
+       auto results = features.intersect(query, "chr1");
+
+       std::cout << "Found " << results.get_keys().size()
+                 << " overlapping features\n";
+
+       return 0;
+   }
+
+Why Genogrove?
+--------------
+
+**Performance**
+   Optimized B+ tree implementation with O(1) sorted insertion and efficient overlap queries.
+
+**Flexibility**
+   Use built-in genomic types or define custom key types for specialized applications.
+
+**Graph Integration**
+   Represent complex relationships (transcripts, regulatory networks) alongside spatial queries.
+
+**Modern Design**
+   C++20 concepts, type safety, and zero-cost abstractions.
 
 Requirements
 ------------
 
-- C++20 compatible compiler (GCC 12+, Clang 14+)
-- CMake 3.15 or higher
-- htslib (for compressed file support)
+- **Compiler**: C++20 compatible (GCC 12+, Clang 14+, MSVC 2022+)
+- **Build System**: CMake 3.15 or higher
+- **Dependencies**: htslib (for compressed file support)
 
-Development
------------
+Getting Started
+---------------
 
-For development, you can run sanitizers (AddressSanitizer and UndefinedBehaviorSanitizer) to catch memory issues and undefined behavior. See the repository's ``SANITIZERS.md`` for details.
+Ready to use genogrove? Check out the :doc:`user_guide` for:
 
-Next Steps
-----------
+- Installation instructions
+- Detailed tutorials on I/O operations
+- Working with data types and the grove
+- Complete examples and best practices
 
-- Explore the :doc:`reference/index` for detailed class and method documentation
-- Check out the `GitHub repository <https://github.com/genogrove/genogrove>`_ for examples and source code
+Documentation
+-------------
+
+:doc:`user_guide`
+   Comprehensive tutorials and examples
+
+:doc:`reference/index`
+   Complete API reference
+
+GitHub Repository
+   `genogrove on GitHub <https://github.com/genogrove/genogrove>`_
+
+Community
+---------
+
+- **Issues**: Report bugs and request features on `GitHub Issues <https://github.com/genogrove/genogrove/issues>`_
+- **Discussions**: Ask questions and share ideas on `GitHub Discussions <https://github.com/genogrove/genogrove/discussions>`_
 
 License
 -------
 
-Distributed under `GPLv3 <https://www.gnu.org/licenses/gpl-3.0.en.html>`_
+Genogrove is distributed under the `MIT License <https://opensource.org/licenses/MIT>`_.
 
 .. toctree::
    :maxdepth: 2

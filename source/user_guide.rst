@@ -18,6 +18,7 @@ Guide Contents
 .. toctree::
    :maxdepth: 2
 
+   guide/installation
    guide/io
    guide/data_types
    guide/grove
