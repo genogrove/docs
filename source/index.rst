@@ -10,9 +10,6 @@
 .. `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
 .. documentation for details.
 
-
-
-
 genogrove
 =========
 
@@ -146,21 +143,24 @@ Distributed under `GPLv3 <https://www.gnu.org/licenses/gpl-3.0.en.html>`_
    :caption: Home
 
    index
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Tutorial
-
    tutorial
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-
    reference
-
-.. toctree::
-   :maxdepth: 1
-   :caption: CLI
-
    cli
+
+.. .. toctree::
+..    :maxdepth: 2
+..    :caption: Tutorial
+..
+..    tutorial
+..
+.. .. toctree::
+..    :maxdepth: 2
+..    :caption: Reference
+..
+..    reference
+..
+.. .. toctree::
+..    :maxdepth: 1
+..    :caption: CLI
+..
+..    cli
