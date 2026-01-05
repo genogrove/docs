@@ -139,10 +139,10 @@ License
 Distributed under `GPLv3 <https://www.gnu.org/licenses/gpl-3.0.en.html>`_
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Home
 
-   index
    tutorial
    reference
    cli
