@@ -3,13 +3,6 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. genogrove documentation
-.. =======================
-
-.. Add your content using ``reStructuredText`` syntax. See the
-.. `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-.. documentation for details.
-
 genogrove
 =========
 
@@ -130,7 +123,7 @@ For development, you can run sanitizers (AddressSanitizer and UndefinedBehaviorS
 Next Steps
 ----------
 
-- Explore the :doc:`reference` for detailed class and method documentation
+- Explore the :doc:`reference/index` for detailed class and method documentation
 - Check out the `GitHub repository <https://github.com/genogrove/genogrove>`_ for examples and source code
 
 License
@@ -139,28 +132,11 @@ License
 Distributed under `GPLv3 <https://www.gnu.org/licenses/gpl-3.0.en.html>`_
 
 .. toctree::
-   :hidden:
    :maxdepth: 2
-   :caption: Home
+   :caption: Documentation
+   :hidden:
 
-   tutorial
-   reference
+   self
+   user_guide
+   reference/index
    cli
-
-.. .. toctree::
-..    :maxdepth: 2
-..    :caption: Tutorial
-..
-..    tutorial
-..
-.. .. toctree::
-..    :maxdepth: 2
-..    :caption: Reference
-..
-..    reference
-..
-.. .. toctree::
-..    :maxdepth: 1
-..    :caption: CLI
-..
-..    cli

@@ -19,10 +19,10 @@ release = "0.10.0"
 
 extensions = [
     "breathe",  # For C++ documentation via Doxygen
-    "sphinx_immaterial"  # Theme
+    "sphinx.ext.autodoc",  # For Python documentation from docstrings
+    "sphinx.ext.napoleon",  # Support for NumPy and Google style docstrings
+    "sphinx.ext.viewcode",  # Add links to highlighted source code
 ]
-
-#"sphinx.ext.autodoc" # documentation from docstrings
 
 # Breathe configuration for C++ docs
 breathe_projects = {
@@ -31,6 +31,10 @@ breathe_projects = {
     )
 }
 breathe_default_project = "genogrove"
+
+# Breathe display options
+breathe_default_members = ('members', 'undoc-members')
+breathe_show_include = False
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -46,20 +50,27 @@ autodoc_default_options = {
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_immaterial"
+html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 
 html_theme_options = {
-    "icon": {
-        "repo": "fontawesome/brands/github",
-        "edit": "material/file-edit-outline",
-    },
-    "site_url": "https://github.com/genogrove",
-    "repo_url": "https://github.com/genogrove",
-    "repo_name": "genogrove",
-    "features": [
-        "navigation.tabs"
-        # "navigation.tabs",   # 👈 puts your top-level toctree items into the top bar
-        # "navigation.top",    # sticky top nav
+    "github_url": "https://github.com/genogrove/genogrove",
+    "navbar_align": "left",
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["navbar-icon-links"],
+    "navbar_persistent": ["search-button"],
+    "show_toc_level": 3,
+    "navigation_depth": 4,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/genogrove/genogrove",
+            "icon": "fab fa-github-square",
+        },
     ],
+}
+
+html_sidebars = {
+    "**": ["sidebar-nav-bs"]
 }

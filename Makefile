@@ -13,11 +13,25 @@ help:
 	@echo "  html       to make standalone HTML files"
 	@echo "  clean      to remove all build files"
 	@echo "  doxygen    to run Doxygen and generate XML"
+	@echo "  update-repos to update git repositories in repos/"
 	@echo "  livehtml   to autobuild and serve docs locally"
 	@echo "  test       to test the build locally"
 	@echo "  view       to open the docs in browser"
 
 .PHONY: help Makefile
+
+# Update git repositories
+update-repos:
+	@echo "Updating repositories..."
+	@if [ -d "repos/genogrove" ]; then \
+		echo "Updating genogrove..."; \
+		cd repos/genogrove && git pull; \
+	fi
+	@if [ -d "repos/pygenogrove" ]; then \
+		echo "Updating pygenogrove..."; \
+		cd repos/pygenogrove && git pull; \
+	fi
+	@echo "Repository updates complete."
 
 # Run Doxygen to generate XML for Breathe
 doxygen:
@@ -25,8 +39,8 @@ doxygen:
 	doxygen Doxyfile
 	@echo "Doxygen XML generated in $(DOXYGENDIR)/xml/"
 
-# Build HTML documentation (runs doxygen first)
-html: doxygen
+# Build HTML documentation (runs update-repos and doxygen first)
+html: update-repos doxygen
 	@echo "Building HTML documentation..."
 	$(SPHINXBUILD) -b html $(SOURCEDIR) $(BUILDDIR)/html $(SPHINXOPTS)
 	@echo
@@ -69,7 +83,7 @@ install:
 	pip install -r $(SOURCEDIR)/requirements.txt
 
 # Serve documentation with live reload (requires sphinx-autobuild)
-livehtml: doxygen
+livehtml: update-repos doxygen
 	@echo "Starting live documentation server..."
 	@echo "Documentation will be available at http://127.0.0.1:8000"
 	sphinx-autobuild $(SOURCEDIR) $(BUILDDIR)/html $(SPHINXOPTS)
