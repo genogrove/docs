@@ -1,6 +1,0 @@
-[submodule "repos/pygenogrove"]
-	path = repos/pygenogrove
-	url = https://github.com/genogrove/pygenogrove
-[submodule "repos/genogrove"]
-	path = repos/genogrove
-	url = https://github.com/genogrove/genogrove

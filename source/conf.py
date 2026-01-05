@@ -10,7 +10,7 @@ import os, sys
 project = "genogrove"
 copyright = "2025, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
-release = "0.0.1"
+release = "0.10.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -19,8 +19,10 @@ release = "0.0.1"
 
 extensions = [
     "breathe",  # For C++ documentation via Doxygen
-    "sphinx_immaterial",  # Theme
+    "sphinx_immaterial"  # Theme
 ]
+
+#"sphinx.ext.autodoc" # documentation from docstrings
 
 # Breathe configuration for C++ docs
 breathe_projects = {

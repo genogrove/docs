@@ -1,3 +1,3 @@
-genogrove-cli
+CLI
 -------------
 
