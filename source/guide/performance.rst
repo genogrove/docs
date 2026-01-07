@@ -39,6 +39,52 @@ When data is already sorted (common for BED/GFF files), use sorted insertion:
 
 Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted.
 
+Use Bulk Insertion for Large Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For loading large datasets (>10K intervals), bulk insertion provides dramatic performance improvements:
+
+.. code-block:: cpp
+
+   std::vector<gdt::interval> intervals = load_intervals();
+   std::vector<std::string> data = load_data();
+
+   // Bulk insertion - ~10-20x faster than incremental
+   // Data must be sorted before calling this function
+   grove.insert_data("chr1", intervals, data, gst::sorted, gst::bulk);
+
+**Runtime Characteristics:**
+
+- **Empty index**: O(n) bottom-up tree construction
+
+  - Builds fully-packed leaf nodes (order-1 keys per node)
+  - Then constructs internal layers
+  - ~10-20x faster than incremental insertion
+  - Better space utilization: 75-90% full nodes vs ~50% from splits
+
+- **Existing data**: Appends to rightmost node
+
+  - **CRITICAL**: All new keys must be strictly greater than existing keys
+  - Throws ``std::runtime_error`` if violated
+
+**Performance Comparison (1M intervals, empty index):**
+
+========================  ==============  ================
+Method                    Time            Node Utilization
+========================  ==============  ================
+Incremental (unsorted)    10-20 seconds   ~50% (from splits)
+Sorted insertion          2-5 seconds     ~50% (from splits)
+Bulk insertion            0.5-1 second    75-90% (packed)
+========================  ==============  ================
+
+**When to Use Bulk Insertion:**
+
+- Initial loading of large genomic files (BED, GFF, GTF)
+- Datasets with >10K intervals per chromosome
+- When maximum performance is required
+- Building indices for production use
+- **Important**: Data must be sorted before using bulk insertion
+
 Organize by Chromosome
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -233,10 +279,11 @@ Best Practices Summary
 ----------------------
 
 1. **Choose appropriate tree order** based on dataset size
-2. **Use sorted insertion** for pre-sorted data
-3. **Organize by chromosome** for efficient queries
-4. **Use BGZF compression** for genomic files
-5. **Specify chromosome** in queries when possible
-6. **Clear graph** when edges are no longer needed
-7. **Serialize** large groves for faster loading
-8. **Benchmark** your specific use case
+2. **Use bulk insertion** for large datasets (>10K intervals)
+3. **Use sorted insertion** for pre-sorted incremental data
+4. **Organize by chromosome** for efficient queries
+5. **Use BGZF compression** for genomic files
+6. **Specify chromosome** in queries when possible
+7. **Clear graph** when edges are no longer needed
+8. **Serialize** large groves for faster loading
+9. **Benchmark** your specific use case

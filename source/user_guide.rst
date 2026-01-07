@@ -21,7 +21,7 @@ Guide Contents
    guide/installation
    guide/io
    guide/data_types
-   guide/grove
+   guide/grove/grove
    guide/examples
    guide/performance
 
