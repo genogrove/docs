@@ -28,7 +28,7 @@ You can create edges in two ways:
    gst::grove<gdt::interval, std::string, double> grove_with_metadata(100);
 
 
-Adding an edge (``add_edge``)
+Adding an Edge (``add_edge``)
 -------------------------------------
 
 The ``add_edge`` function creates a directed connection from one key to another in the grove's graph overlay.
@@ -78,7 +78,7 @@ The ``add_edge`` function creates a directed connection from one key to another 
 - Keys from different indices (chromosomes) can be linked
 - The graph overlay shares the grove's lifetime
 
-Building graphs with bulk insert
+Building Graphs with Bulk Insert
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using bulk insert operations, you receive a vector of key pointers that can be directly used to create edges.
@@ -199,7 +199,7 @@ positional or biological criteria.
    - ``get_neighbors()`` - Returns vector of neighbor key pointers
    - Can be used to extend the graph further
 
-Adding edges based on condition (``link_if``)
+Adding Edges based on Condition (``link_if``)
 -----------------------------------------------
 
 The ``link_if`` function is a convenience method for creating edges between consecutive keys in a vector based
@@ -325,39 +325,6 @@ satisfy certain criteria (e.g., belonging to the same transcript, within a dista
 - Type-safe with lambda captures
 - Works with both bulk insert results and query results
 - Supports conditional edge creation with optional metadata
-
-.. Building Graphs by Linking Keys
-.. --------------------------------
-
-.. .. code-block:: cpp
-..
-..    #include <genogrove/structure/grove/grove.hpp>
-..    #include <genogrove/data_type/interval.hpp>
-..
-..    namespace gdt = genogrove::data_type;
-..    namespace gst = genogrove::structure;
-..
-..    int main() {
-..        // Create grove with edge metadata (e.g., confidence scores)
-..        gst::grove<gdt::interval, std::string, double> my_grove(100);
-..
-..        // Insert features and store pointers to keys
-..        auto* exon1 = my_grove.insert_data("chr1", gdt::interval{100, 200}, "exon1");
-..        auto* exon2 = my_grove.insert_data("chr1", gdt::interval{300, 400}, "exon2");
-..        auto* exon3 = my_grove.insert_data("chr1", gdt::interval{500, 600}, "exon3");
-..
-..        // Link keys with edges (transcript structure)
-..        my_grove.add_edge(exon1, exon2, 0.95);  // edge weight/confidence
-..        my_grove.add_edge(exon2, exon3, 0.98);
-..
-..        // Alternative splicing - create another path
-..        auto* exon2b = my_grove.insert_data("chr1", gdt::interval{350, 450}, "exon2b");
-..        my_grove.add_edge(exon1, exon2b, 0.75);
-..        my_grove.add_edge(exon2b, exon3, 0.80);
-..
-..        return 0;
-..    }
-
 
 Navigating the Graph
 --------------------

@@ -1,4 +1,4 @@
-Using the Grove Data Structure
+The Grove Data Structure
 ===============================
 
 The ``grove`` is a specialized B+ tree optimized for genomic interval storage and querying. It includes an embedded graph overlay that allows you to link keys within the grove, creating relationships between genomic features.
@@ -279,4 +279,5 @@ Find all intervals that overlap with a query region:
    :maxdepth: 1
 
    graph
+   graph_manipulation
 
