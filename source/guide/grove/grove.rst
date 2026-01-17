@@ -11,6 +11,7 @@ The grove is highly flexible and can work with any key type that satisfies the `
 - ``interval`` - Basic genomic intervals (0-based, half-open)
 - ``genomic_coordinate`` - Intervals with strand information
 - ``numeric`` - Single numerical value
+- ``kmer`` - single k-mer value
 
 **Custom Key Types**
 
