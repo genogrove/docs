@@ -533,21 +533,25 @@ The ``edge_count`` function returns the total number of edges in the entire grap
 - Tracking graph size during construction
 - Validating graph operations
 
-Counting vertices (``vertex_count`` and ``vertex_count_with_edges``)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Counting vertices (``vertex_count``, ``indexed_vertex_count``, ``external_vertex_count``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These functions count vertices (keys) that participate in the graph structure.
+These functions count vertices (keys) in the grove and graph structure.
 
 **Function Signatures:**
 
 .. code-block:: cpp
 
-   size_t vertex_count() const                    // Keys with at least one edge (in or out)
+   size_t vertex_count() const                    // Total keys (indexed + external)
+   size_t indexed_vertex_count() const            // Keys stored in B+ tree (queryable via intersect)
+   size_t external_vertex_count() const           // Graph-only keys (not in B+ tree)
    size_t vertex_count_with_edges() const         // Keys with at least one outgoing edge
 
 **Return Value:**
 
-- ``vertex_count()``: Number of keys that have at least one incoming or outgoing edge
+- ``vertex_count()``: Total number of keys in the grove (both indexed and external)
+- ``indexed_vertex_count()``: Number of keys indexed in the B+ tree (can be found via spatial queries)
+- ``external_vertex_count()``: Number of external (graph-only) keys (cannot be found via spatial queries)
 - ``vertex_count_with_edges()``: Number of keys that have at least one outgoing edge
 
 **Example:**
@@ -556,20 +560,29 @@ These functions count vertices (keys) that participate in the graph structure.
 
    gst::grove<gdt::interval, std::string, void> grove(100);
 
+   // Insert indexed keys (in B+ tree, queryable via intersect)
    auto* k1 = grove.insert_data("chr1", gdt::interval{100, 200}, "A");
    auto* k2 = grove.insert_data("chr1", gdt::interval{300, 400}, "B");
    auto* k3 = grove.insert_data("chr1", gdt::interval{500, 600}, "C");
-   auto* k4 = grove.insert_data("chr1", gdt::interval{700, 800}, "D");
+
+   // Add external (graph-only) key
+   auto* ext = grove.add_external_key(gdt::interval{0, 0}, "ExternalNode");
 
    grove.add_edge(k1, k2);
    grove.add_edge(k2, k3);
-   // k1 -> k2 -> k3, k4 is isolated
+   grove.add_edge(k3, ext);  // Link indexed key to external key
 
-   std::cout << "Keys with edges: " << grove.vertex_count() << "\n";
-   // Output: 3 (k1, k2, k3 participate in edges)
+   std::cout << "Total vertices: " << grove.vertex_count() << "\n";
+   // Output: 4 (k1, k2, k3, ext)
+
+   std::cout << "Indexed vertices: " << grove.indexed_vertex_count() << "\n";
+   // Output: 3 (k1, k2, k3 - queryable via intersect)
+
+   std::cout << "External vertices: " << grove.external_vertex_count() << "\n";
+   // Output: 1 (ext - graph-only, not queryable)
 
    std::cout << "Keys with outgoing edges: " << grove.vertex_count_with_edges() << "\n";
-   // Output: 2 (k1 and k2 have outgoing edges; k3 only receives)
+   // Output: 3 (k1, k2, k3 have outgoing edges; ext only receives)
 
 **Example: Graph density calculation**
 
@@ -590,8 +603,9 @@ These functions count vertices (keys) that participate in the graph structure.
 **Use Cases:**
 
 - Computing graph statistics (density, average degree)
-- Identifying isolated vs. connected components
+- Distinguishing between indexed and external keys
 - Validating graph construction
+- Understanding grove composition (queryable vs graph-only keys)
 
 Graph Management
 ^^^^^^^^^^^^^^^^
