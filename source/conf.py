@@ -18,6 +18,7 @@ release = "0.14.0"
 # sys.path.insert(0, os.path.abspath("../repos/pygenogrove"))  # if you’ll import your python package
 
 extensions = [
+    "myst_parser",  # MyST Markdown parser
     "breathe",  # For C++ documentation via Doxygen
     "sphinx.ext.autodoc",  # For Python documentation from docstrings
     "sphinx.ext.napoleon",  # Support for NumPy and Google style docstrings
@@ -33,11 +34,32 @@ breathe_projects = {
 breathe_default_project = "genogrove"
 
 # Breathe display options
-breathe_default_members = ('members', 'undoc-members')
+breathe_default_members = ("members", "undoc-members")
 breathe_show_include = False
 
 templates_path = ["_templates"]
 exclude_patterns = []
+
+# MyST-Parser configuration
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
+myst_enable_extensions = [
+    "colon_fence",  # ::: for code blocks
+    "deflist",  # Definition lists
+    "fieldlist",  # Field lists
+    "html_image",  # HTML images
+    "linkify",  # Auto-link URLs
+    "replacements",  # Text replacements
+    "smartquotes",  # Smart quotes
+    "strikethrough",  # ~~strikethrough~~
+    "substitution",  # Variable substitution
+    "tasklist",  # Task lists
+]
+
+myst_heading_anchors = 3  # Auto-generate anchors for headers up to level 3
 
 # Autodoc settings for Python
 autodoc_default_options = {
@@ -71,6 +93,4 @@ html_theme_options = {
     ],
 }
 
-html_sidebars = {
-    "**": ["sidebar-nav-bs"]
-}
+html_sidebars = {"**": ["sidebar-nav-bs"]}

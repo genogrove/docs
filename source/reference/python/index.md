@@ -1,14 +1,12 @@
-Python API Reference
-====================
+# Python API Reference
 
 Python bindings for the genogrove C++ library.
 
-.. note::
+:::{note}
+Python bindings are currently under development.
+:::
 
-   Python bindings are currently under development.
-
-Coming Soon
------------
+## Coming Soon
 
 The Python API will provide:
 
@@ -17,4 +15,4 @@ The Python API will provide:
 - Easy-to-use file readers for BED, GFF, and other formats
 - Efficient genomic interval operations
 
-Check back soon or watch the `GitHub repository <https://github.com/genogrove/genogrove>`_ for updates.
+Check back soon or watch the [GitHub repository](https://github.com/genogrove/genogrove) for updates.
