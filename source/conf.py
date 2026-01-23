@@ -8,7 +8,7 @@ import os, sys
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "genogrove"
-copyright = "2025, Richard. A. Schaefer"
+copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
 release = "0.14.0"
 
