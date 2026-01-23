@@ -23,6 +23,8 @@ extensions = [
     "sphinx.ext.autodoc",  # For Python documentation from docstrings
     "sphinx.ext.napoleon",  # Support for NumPy and Google style docstrings
     "sphinx.ext.viewcode",  # Add links to highlighted source code
+    "sphinx_copybutton",  # Add copy button to code blocks
+    "sphinx_design",  # Modern design components (cards, grids, tabs)
 ]
 
 # Breathe configuration for C++ docs
@@ -61,6 +63,13 @@ myst_enable_extensions = [
 
 myst_heading_anchors = 3  # Auto-generate anchors for headers up to level 3
 
+# Copybutton configuration
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+copybutton_line_continuation_character = "\\"
+copybutton_here_doc_delimiter = "EOT"
+copybutton_selector = "div.highlight pre"
+
 # Autodoc settings for Python
 autodoc_default_options = {
     "members": True,
@@ -89,6 +98,7 @@ html_theme_options = {
             "name": "GitHub",
             "url": "https://github.com/genogrove/genogrove",
             "icon": "fab fa-github-square",
+            "type": "fontawesome",
         },
     ],
 }
