@@ -4,11 +4,12 @@ The `grove` is a specialized B+ tree optimized for genomic interval storage and 
 
 ## Key Types and the key_type_base Concept
 
-The grove is highly flexible and can work with any key type that satisfies the `key_type_base` concept. Genogrove provides two built-in key types:
+The grove is highly flexible and can work with any key type that satisfies the `key_type_base` concept. Genogrove provides four built-in key types:
 
 - `interval` - Basic genomic intervals (0-based, half-open)
 - `genomic_coordinate` - Intervals with strand information
 - `numeric` - Single numerical value
+- `kmer` - Single k-mer value
 
 **Custom Key Types**
 
