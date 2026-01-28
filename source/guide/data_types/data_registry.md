@@ -4,6 +4,9 @@ The `data_registry` is a singleton registry for storing shared metadata by ID, r
 
 ```cpp
 #include <genogrove/data_type/data_registry.hpp>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 namespace gdt = genogrove::data_type;
 

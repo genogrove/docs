@@ -124,7 +124,10 @@ Representing transcript structures with graph overlays:
 #include <genogrove/io/gff_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <genogrove/data_type/key.hpp>
+#include <iostream>
 #include <map>
+#include <string>
 #include <vector>
 
 namespace gio = genogrove::io;
