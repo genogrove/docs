@@ -1,33 +1,30 @@
-C++ API Reference
-=================
+# C++ API Reference
 
 The C++ library is organized into three main namespaces:
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Namespaces
+```{toctree}
+:caption: Namespaces
+:maxdepth: 2
 
-   structure
-   data_type
-   io
+structure
+data_type
+io
+```
 
-Structure
----------
+## Structure
 
 Core data structures for genomic data storage and querying.
 
-:doc:`structure`
+{doc}`structure`
 
-Data Types
-----------
+## Data Types
 
 Genomic data type definitions and utilities.
 
-:doc:`data_type`
+{doc}`data_type`
 
-I/O
----
+## I/O
 
 File readers and parsers for genomic file formats.
 
-:doc:`io`
+{doc}`io`

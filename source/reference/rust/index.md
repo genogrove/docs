@@ -1,14 +1,12 @@
-Rust API Reference
-==================
+# Rust API Reference
 
 Rust implementation of genogrove.
 
-.. note::
+:::{note}
+Rust implementation is currently under development.
+:::
 
-   Rust implementation is currently under development.
-
-Coming Soon
------------
+## Coming Soon
 
 The Rust API will provide:
 
@@ -17,4 +15,4 @@ The Rust API will provide:
 - Native Rust file parsers
 - Integration with the Rust bioinformatics ecosystem
 
-Check back soon or watch the `GitHub repository <https://github.com/genogrove/genogrove>`_ for updates.
+Check back soon or watch the [GitHub repository](https://github.com/genogrove/genogrove) for updates.

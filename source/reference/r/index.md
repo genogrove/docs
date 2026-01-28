@@ -1,14 +1,12 @@
-R API Reference
-===============
+# R API Reference
 
 R bindings for genogrove for genomic analysis.
 
-.. note::
+:::{note}
+R bindings are currently under development.
+:::
 
-   R bindings are currently under development.
-
-Coming Soon
------------
+## Coming Soon
 
 The R API will provide:
 
@@ -17,4 +15,4 @@ The R API will provide:
 - Support for GRanges and other genomic objects
 - Efficient file I/O for genomic formats
 
-Check back soon or watch the `GitHub repository <https://github.com/genogrove/genogrove>`_ for updates.
+Check back soon or watch the [GitHub repository](https://github.com/genogrove/genogrove) for updates.

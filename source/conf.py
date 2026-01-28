@@ -1,4 +1,4 @@
-import os, sys
+import os
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -8,7 +8,7 @@ import os, sys
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "genogrove"
-copyright = "2025, Richard. A. Schaefer"
+copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
 release = "0.14.0"
 
@@ -18,10 +18,13 @@ release = "0.14.0"
 # sys.path.insert(0, os.path.abspath("../repos/pygenogrove"))  # if you’ll import your python package
 
 extensions = [
+    "myst_parser",  # MyST Markdown parser
     "breathe",  # For C++ documentation via Doxygen
     "sphinx.ext.autodoc",  # For Python documentation from docstrings
     "sphinx.ext.napoleon",  # Support for NumPy and Google style docstrings
     "sphinx.ext.viewcode",  # Add links to highlighted source code
+    "sphinx_copybutton",  # Add copy button to code blocks
+    "sphinx_design",  # Modern design components (cards, grids, tabs)
 ]
 
 # Breathe configuration for C++ docs
@@ -33,11 +36,39 @@ breathe_projects = {
 breathe_default_project = "genogrove"
 
 # Breathe display options
-breathe_default_members = ('members', 'undoc-members')
+breathe_default_members = ("members", "undoc-members")
 breathe_show_include = False
 
 templates_path = ["_templates"]
 exclude_patterns = []
+
+# MyST-Parser configuration
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
+myst_enable_extensions = [
+    "colon_fence",  # ::: for code blocks
+    "deflist",  # Definition lists
+    "fieldlist",  # Field lists
+    "html_image",  # HTML images
+    "linkify",  # Auto-link URLs
+    "replacements",  # Text replacements
+    "smartquotes",  # Smart quotes
+    "strikethrough",  # ~~strikethrough~~
+    "substitution",  # Variable substitution
+    "tasklist",  # Task lists
+]
+
+myst_heading_anchors = 3  # Auto-generate anchors for headers up to level 3
+
+# Copybutton configuration
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+copybutton_line_continuation_character = "\\"
+copybutton_here_doc_delimiter = "EOT"
+copybutton_selector = "div.highlight pre"
 
 # Autodoc settings for Python
 autodoc_default_options = {
@@ -67,10 +98,9 @@ html_theme_options = {
             "name": "GitHub",
             "url": "https://github.com/genogrove/genogrove",
             "icon": "fab fa-github-square",
+            "type": "fontawesome",
         },
     ],
 }
 
-html_sidebars = {
-    "**": ["sidebar-nav-bs"]
-}
+html_sidebars = {"**": ["sidebar-nav-bs"]}
