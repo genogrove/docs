@@ -1,4 +1,4 @@
-# Linking Keys Within the Grove
+# Linking Keys
 
 The grove includes an (optional) embedded graph overlay that allows you to create directed edges between keys
 stored in the tree. This can be useful for representing relationships between genomic features, such as
@@ -321,6 +321,150 @@ grove.link_if(region_genes,
 - Works with both bulk insert results and query results
 - Supports conditional edge creation with optional metadata
 
+## External (Graph-only) Keys
+
+Sometimes you need keys that participate in graph relationships but don't require spatial indexing. For example, transcription factors, regulatory elements, or abstract concepts that connect genomic features but aren't themselves genomic intervals you need to query spatially.
+
+The `add_external_key` function creates keys that:
+
+- **Can participate in graph edges** - work with `add_edge()`, `link_if()`, `get_neighbors()`, etc.
+- **Are NOT indexed in the B+ tree** - won't appear in `intersect()` query results
+- **Are owned by the grove** - automatically managed and serialized with the grove
+
+**Function Signatures:**
+
+```cpp
+// With associated data
+key_type* add_external_key(key_type key_value, data_type data_value)
+
+// Without associated data (when data_type is void)
+key_type* add_external_key(key_type key_value)
+```
+
+**Parameters:**
+
+- `key_value` - The key value (e.g., interval) - required but not used for spatial queries
+- `data_value` - Optional data associated with the key
+
+**Return Value:**
+
+- Pointer to the newly created external key (can be used with all graph operations)
+
+**Example: Regulatory network with transcription factors**
+
+```cpp
+gst::grove<gdt::interval, std::string, double> grove(100);
+
+// Insert genes (indexed - can be found via spatial queries)
+auto* gene1 = grove.insert_data("chr1", gdt::interval{10000, 15000}, "BRCA1");
+auto* gene2 = grove.insert_data("chr1", gdt::interval{20000, 25000}, "TP53");
+auto* gene3 = grove.insert_data("chr1", gdt::interval{30000, 35000}, "MYC");
+
+// Create external key for a transcription factor
+// (participates in graph but not needed for spatial queries)
+auto* tf = grove.add_external_key(gdt::interval{0, 0}, "E2F1_TF");
+
+// Build regulatory network
+grove.add_edge(tf, gene1, 0.95);  // TF regulates BRCA1
+grove.add_edge(tf, gene2, 0.87);  // TF regulates TP53
+grove.add_edge(tf, gene3, 0.72);  // TF regulates MYC
+
+// Graph operations work normally
+auto targets = grove.get_neighbors(tf);
+std::cout << "E2F1 regulates " << targets.size() << " genes\n";
+// Output: E2F1 regulates 3 genes
+
+// Spatial query only returns indexed genes
+gdt::interval query{5000, 40000};
+auto results = grove.intersect(query, "chr1");
+std::cout << "Genes in region: " << results.get_keys().size() << "\n";
+// Output: Genes in region: 3 (tf is NOT included)
+```
+
+**Example: Linking indexed features to external nodes**
+
+```cpp
+gst::grove<gdt::interval, std::string, void> grove(100);
+
+// Insert exons (indexed)
+std::vector<gdt::key<gdt::interval, std::string>*> exons;
+exons.push_back(grove.insert_data("chr1", gdt::interval{1000, 1200}, "exon1"));
+exons.push_back(grove.insert_data("chr1", gdt::interval{2000, 2300}, "exon2"));
+exons.push_back(grove.insert_data("chr1", gdt::interval{3000, 3150}, "exon3"));
+
+// Create external key for transcript (abstract grouping)
+auto* transcript = grove.add_external_key(gdt::interval{0, 0}, "ENST00000123");
+
+// Link exons to their transcript
+for (auto* exon : exons) {
+    grove.add_edge(transcript, exon);
+}
+
+// Can navigate from transcript to exons
+auto exon_list = grove.get_neighbors(transcript);
+std::cout << "Transcript has " << exon_list.size() << " exons\n";
+```
+
+**Example: Using link_if with external keys**
+
+```cpp
+gst::grove<gdt::interval, std::string, void> grove(100);
+
+// Insert indexed features
+auto* exon1 = grove.insert_data("chr1", gdt::interval{1000, 1200}, "exon1");
+auto* exon2 = grove.insert_data("chr1", gdt::interval{2000, 2300}, "exon2");
+
+// Create external key
+auto* sink = grove.add_external_key(gdt::interval{0, 0}, "sink_node");
+
+// link_if works with mixed vectors containing both indexed and external keys
+std::vector<gdt::key<gdt::interval, std::string>*> path = {exon1, exon2, sink};
+
+grove.link_if(path, [](auto* k1, auto* k2) {
+    return true;  // Link all consecutive pairs
+});
+// Creates: exon1 -> exon2 -> sink
+```
+
+**Vertex counting with external keys:**
+
+```cpp
+gst::grove<gdt::interval, std::string, void> grove(100);
+
+// Insert 3 indexed keys
+grove.insert_data("chr1", gdt::interval{100, 200}, "A");
+grove.insert_data("chr1", gdt::interval{300, 400}, "B");
+grove.insert_data("chr1", gdt::interval{500, 600}, "C");
+
+// Add 2 external keys
+grove.add_external_key(gdt::interval{0, 0}, "ext1");
+grove.add_external_key(gdt::interval{0, 0}, "ext2");
+
+std::cout << "Total vertices: " << grove.vertex_count() << "\n";
+// Output: 5
+
+std::cout << "Indexed vertices: " << grove.indexed_vertex_count() << "\n";
+// Output: 3 (queryable via intersect)
+
+std::cout << "External vertices: " << grove.external_vertex_count() << "\n";
+// Output: 2 (graph-only)
+```
+
+**When to use external keys:**
+
+- **Transcription factors** - regulate genes but don't need spatial queries
+- **Abstract concepts** - transcript IDs, pathway nodes, sample identifiers
+- **Graph sink/source nodes** - terminal nodes in directed graphs
+- **Metadata nodes** - group features without spatial semantics
+- **Cross-reference entities** - link to external databases or annotations
+
+**Key benefits:**
+
+- Keeps the B+ tree lean (only spatially-relevant data)
+- Full graph functionality without spatial overhead
+- Automatic serialization/deserialization with the grove
+- Works seamlessly with `link_if()` and all graph operations
+
 ## Navigating the Graph
 
 Query and navigate relationships between keys:
@@ -382,7 +526,9 @@ int main() {
 - `has_edge(source, target)` - Check if edge exists
 - `out_degree(source)` - Count outgoing edges from a key
 - `edge_count()` - Total edges in the graph
-- `vertex_count()` - Number of keys with at least one edge
+- `vertex_count()` - Total number of keys in the grove (indexed + external)
+- `indexed_vertex_count()` - Number of keys indexed in the B+ tree
+- `external_vertex_count()` - Number of graph-only keys
 - `clear_graph()` - Remove all edges (keeps keys in grove)
 
 ## Graph Overlay Without Metadata

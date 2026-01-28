@@ -520,20 +520,24 @@ std::cout << "Graph has " << grove.edge_count() << " edges\n";
 - Tracking graph size during construction
 - Validating graph operations
 
-### Counting vertices (`vertex_count` and `vertex_count_with_edges`)
+### Counting vertices (`vertex_count`, `indexed_vertex_count`, `external_vertex_count`)
 
-These functions count vertices (keys) that participate in the graph structure.
+These functions count vertices (keys) in the grove.
 
 **Function Signatures:**
 
 ```cpp
-size_t vertex_count() const                    // Keys with at least one edge (in or out)
-size_t vertex_count_with_edges() const         // Keys with at least one outgoing edge
+size_t vertex_count() const              // Total keys in the grove (indexed + external)
+size_t indexed_vertex_count() const      // Keys stored in B+ tree (findable via spatial queries)
+size_t external_vertex_count() const     // Graph-only keys (not indexed, not findable via spatial queries)
+size_t vertex_count_with_edges() const   // Keys with at least one outgoing edge
 ```
 
 **Return Value:**
 
-- `vertex_count()`: Number of keys that have at least one incoming or outgoing edge
+- `vertex_count()`: Total number of keys in the grove, including isolated vertices with no edges
+- `indexed_vertex_count()`: Number of keys indexed in the B+ tree (can be found via `intersect`)
+- `external_vertex_count()`: Number of keys that participate in graph edges but are not indexed
 - `vertex_count_with_edges()`: Number of keys that have at least one outgoing edge
 
 **Example:**
@@ -550,8 +554,14 @@ grove.add_edge(k1, k2);
 grove.add_edge(k2, k3);
 // k1 -> k2 -> k3, k4 is isolated
 
-std::cout << "Keys with edges: " << grove.vertex_count() << "\n";
-// Output: 3 (k1, k2, k3 participate in edges)
+std::cout << "Total vertices: " << grove.vertex_count() << "\n";
+// Output: 4 (all keys, including isolated k4)
+
+std::cout << "Indexed vertices: " << grove.indexed_vertex_count() << "\n";
+// Output: 4 (all keys are in the B+ tree)
+
+std::cout << "External vertices: " << grove.external_vertex_count() << "\n";
+// Output: 0 (no graph-only keys)
 
 std::cout << "Keys with outgoing edges: " << grove.vertex_count_with_edges() << "\n";
 // Output: 2 (k1 and k2 have outgoing edges; k3 only receives)
@@ -576,6 +586,7 @@ std::cout << "Graph density: " << density << "\n";
 **Use Cases:**
 
 - Computing graph statistics (density, average degree)
+- Distinguishing indexed vs. external (graph-only) keys
 - Identifying isolated vs. connected components
 - Validating graph construction
 
