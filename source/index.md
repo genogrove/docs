@@ -1,8 +1,3 @@
-% genogrove documentation master file, created by
-% sphinx-quickstart on Wed Aug 20 17:14:01 2025.
-% You can adapt this file completely to your liking, but it should at least
-% contain the root `toctree` directive.
-
 # genogrove
 
 A high-performance modern C++ library for genomic data structures and interval queries.

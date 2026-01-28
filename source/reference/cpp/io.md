@@ -34,6 +34,13 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+## bam_reader
+```{eval-rst}
+.. doxygenclass:: genogrove::io::bam_reader
+   :members:
+   :undoc-members:
+```
+
 ## filetype_detector
 
 ```{eval-rst}
