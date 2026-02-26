@@ -92,6 +92,7 @@ html_theme_options = {
     "navbar_end": ["navbar-icon-links"],
     "navbar_persistent": ["search-button"],
     "show_toc_level": 3,
+    "show_nav_level": 2,
     "navigation_depth": 4,
     "icon_links": [
         {

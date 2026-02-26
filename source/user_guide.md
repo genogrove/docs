@@ -13,7 +13,7 @@ Before starting, ensure you have:
 ## Guide Contents
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 3
 
 guide/installation
 guide/io
