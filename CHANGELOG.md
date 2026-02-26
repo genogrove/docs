@@ -7,10 +7,14 @@ All notable changes to the genogrove documentation project will be documented in
 ### Added
 - Added missing Doxygen reference directives for I/O entry types (`bed_entry`, `gff_entry`, `sam_entry`), BAM/SAM types (`alignment_flags`, `bam_reader_options`, `cigar_element`, `mate_info`), enums (`filetype`, `compression_type`, `gff_format`, `cigar_op`), and data types (`numeric`, `kmer`, `data_registry`, `index`, `index_registry`) ([#27](https://github.com/genogrove/docs/pull/27), closes [#12](https://github.com/genogrove/docs/issues/12))
 
+### Fixed
+- Fixed orphaned guide pages not reachable from sidebar navigation ([#28](https://github.com/genogrove/docs/pull/28), closes [#13](https://github.com/genogrove/docs/issues/13))
+
 ### Changed
 - Extended GFF/GTF section in I/O guide with precise field types, format detection explanation, coordinate conversion note, attribute access patterns with fallback behavior, GTF validation rules, and convenience methods ([#26](https://github.com/genogrove/docs/pull/26))
 - Removed internal base classes (`file_reader_base`, `file_reader`) from I/O API reference ([#27](https://github.com/genogrove/docs/pull/27))
 - Organized I/O API reference into Readers, Entry Types, BAM/SAM Types, and Enums sections ([#27](https://github.com/genogrove/docs/pull/27))
+- Expanded sidebar navigation by default (`show_nav_level: 2`) and added cross-references to Linking Keys and Graph Manipulation on the grove page ([#28](https://github.com/genogrove/docs/pull/28))
 
 ### Issues filed
 - [#24](https://github.com/genogrove/docs/issues/24) — Add GFF/GTF grove loading example to grove user guide
