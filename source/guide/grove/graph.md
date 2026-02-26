@@ -85,12 +85,12 @@ are defined in your input data.
 gst::grove<gdt::interval, std::string, double> my_grove(100);
 
 // Bulk insert returns vector of key pointers
-std::vector<gdt::interval> exon_intervals = {
-    {100, 200}, {300, 400}, {500, 600}, {700, 800}
+std::vector<std::pair<gdt::interval, std::string>> exon_data = {
+    {{100, 200}, "exon1"}, {{300, 400}, "exon2"},
+    {{500, 600}, "exon3"}, {{700, 800}, "exon4"}
 };
-std::vector<std::string> exon_names = {"exon1", "exon2", "exon3", "exon4"};
 
-auto exon_keys = my_grove.insert_data_bulk("chr1", exon_intervals, exon_names);
+auto exon_keys = my_grove.insert_data("chr1", exon_data, gst::sorted, gst::bulk);
 
 // Link consecutive exons
 for (size_t i = 0; i < exon_keys.size() - 1; ++i) {
@@ -181,7 +181,7 @@ for (auto* existing_gene : overlapping.get_keys()) {
 1. **Insert operations**
 
    - `insert_data()` - Returns single key pointer
-   - `insert_data_bulk()` - Returns vector of key pointers
+   - `insert_data(..., sorted, bulk)` - Returns vector of key pointers
 
 2. **Query operations**
 
@@ -217,7 +217,7 @@ void link_if(const std::vector<key_type*>& keys, Predicate predicate)
 
 **Parameters:**
 
-- `keys` - Vector of key pointers (typically from `insert_data_bulk()` or query results)
+- `keys` - Vector of key pointers (typically from `insert_data(..., sorted, bulk)` or query results)
 
 - `predicate` - Function that determines if an edge should be created between consecutive keys
 
@@ -241,14 +241,12 @@ void link_if(const std::vector<key_type*>& keys, Predicate predicate)
 gst::grove<gdt::interval, TranscriptData, void> grove(100);
 
 // Bulk insert exons (may belong to different transcripts)
-std::vector<gdt::interval> exon_intervals = {
-    {100, 200}, {300, 400}, {500, 600}, {700, 800}
-};
-std::vector<TranscriptData> exon_data = {
-    {"tx1", "exon1"}, {"tx1", "exon2"}, {"tx2", "exon1"}, {"tx2", "exon2"}
+std::vector<std::pair<gdt::interval, TranscriptData>> exon_data = {
+    {{100, 200}, {"tx1", "exon1"}}, {{300, 400}, {"tx1", "exon2"}},
+    {{500, 600}, {"tx2", "exon1"}}, {{700, 800}, {"tx2", "exon2"}}
 };
 
-auto exon_keys = grove.insert_data_bulk("chr1", exon_intervals, exon_data);
+auto exon_keys = grove.insert_data("chr1", exon_data, gst::sorted, gst::bulk);
 
 // Link only exons from the same transcript
 grove.link_if(exon_keys,
@@ -264,7 +262,7 @@ grove.link_if(exon_keys,
 ```cpp
 gst::grove<gdt::interval, std::string, void> grove(100);
 
-auto gene_keys = grove.insert_data_bulk("chr1", intervals, names);
+auto gene_keys = grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Link genes only if they're within 5000bp of each other
 grove.link_if(gene_keys,
@@ -279,7 +277,7 @@ grove.link_if(gene_keys,
 ```cpp
 gst::grove<gdt::interval, std::string, double> grove(100);
 
-auto exon_keys = grove.insert_data_bulk("chr1", intervals, names);
+auto exon_keys = grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Link exons with intron length as edge weight
 grove.link_if(exon_keys,
@@ -300,7 +298,7 @@ grove.link_if(exon_keys,
 gst::grove<gdt::interval, GeneData, void> grove(100);
 
 // Insert genes...
-grove.insert_data_bulk("chr1", intervals, gene_data);
+grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Query for genes in a specific region
 auto results = grove.intersect(gdt::interval{1000, 10000}, "chr1");
@@ -504,7 +502,7 @@ int main() {
     // Get graph statistics
     std::cout << "Out-degree of exon1: " << my_grove.out_degree(exon1) << "\n";
     std::cout << "Total edges in graph: " << my_grove.edge_count() << "\n";
-    std::cout << "Vertices with edges: " << my_grove.vertex_count() << "\n";
+    std::cout << "Vertices with edges: " << my_grove.vertex_count_with_edges() << "\n";
 
     // Remove an edge
     my_grove.remove_edge(exon2, exon3);

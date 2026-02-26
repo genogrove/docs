@@ -12,7 +12,8 @@ Genogrove can automatically detect file types and compression formats:
 namespace gio = genogrove::io;
 
 int main() {
-    auto [filetype, compression] = gio::filetype_detector::detect_filetype("data.bed.gz");
+    gio::filetype_detector detector;
+    auto [filetype, compression] = detector.detect_filetype("data.bed.gz");
 
     // filetype will be gio::filetype::BED
     // compression will be gio::compression_type::GZIP
@@ -54,12 +55,12 @@ int main() {
 
     for (const auto& entry : reader) {
         std::cout << "Chromosome: " << entry.chrom << "\n"
-                  << "Start: " << entry.interval.start << "\n"
-                  << "End: " << entry.interval.end << "\n";
+                  << "Start: " << entry.interval.get_start() << "\n"
+                  << "End: " << entry.interval.get_end() << "\n";
 
         // Optional fields (if present in file)
-        if (!entry.name.empty()) {
-            std::cout << "Name: " << entry.name << "\n";
+        if (entry.name) {
+            std::cout << "Name: " << *entry.name << "\n";
         }
         if (entry.strand) {
             std::cout << "Strand: " << *entry.strand << "\n";
@@ -77,10 +78,9 @@ int main() {
 - `name` (std::optional\<std::string>): Feature name
 - `score` (std::optional\<int>): Score value
 - `strand` (std::optional\<char>): Strand (+/-)
-- `thick_start`, `thick_end` (std::optional\<int>): Display coordinates
-- `item_rgb` (std::optional\<std::string>): RGB color value
-- `block_count` (optional): Number of blocks
-- `block_sizes`, `block_starts` (optional): Block information
+- `thickness` (std::optional\<thick_info>): Display thickness coordinates
+- `item_rgb` (std::optional\<rgb_color>): RGB color value
+- `blocks` (std::optional\<block_info>): Block information
 
 ## GFF/GTF Files
 
@@ -97,8 +97,8 @@ int main() {
     for (const auto& entry : reader) {
         std::cout << "Sequence: " << entry.seqid << "\n"
                   << "Type: " << entry.type << "\n"
-                  << "Start: " << entry.interval.start << "\n"
-                  << "End: " << entry.interval.end << "\n";
+                  << "Start: " << entry.interval.get_start() << "\n"
+                  << "End: " << entry.interval.get_end() << "\n";
 
         // GFF/GTF entries are 1-based but converted to 0-based intervals
 
@@ -167,11 +167,11 @@ int main() {
                             gst::sorted);
     }
 
-    std::cout << "Loaded " << my_grove.size() << " intervals\n";
+    std::cout << "Loaded " << my_grove.indexed_vertex_count() << " intervals\n";
 
     // Query the loaded data
     auto results = my_grove.intersect(gdt::interval{1000, 2000}, "chr1");
-    std::cout << "Found " << results.size() << " overlapping intervals\n";
+    std::cout << "Found " << results.get_keys().size() << " overlapping intervals\n";
 
     return 0;
 }
@@ -196,22 +196,19 @@ int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
     // Group entries by chromosome
-    std::map<std::string, std::vector<gdt::interval>> intervals;
-    std::map<std::string, std::vector<std::string>> names;
+    std::map<std::string, std::vector<std::pair<gdt::interval, std::string>>> data;
 
     gio::bed_reader reader("large_dataset.bed.gz");
     for (const auto& entry : reader) {
-        intervals[entry.chrom].push_back(entry.interval);
-        names[entry.chrom].push_back(entry.name.value_or("unknown"));
+        data[entry.chrom].emplace_back(entry.interval, entry.name.value_or("unknown"));
     }
 
     // Bulk insert per chromosome (data must be sorted)
-    for (auto& [chrom, chrom_intervals] : intervals) {
-        my_grove.insert_data(chrom, chrom_intervals,
-                            names[chrom], gst::sorted, gst::bulk);
+    for (auto& [chrom, chrom_data] : data) {
+        my_grove.insert_data(chrom, chrom_data, gst::sorted, gst::bulk);
     }
 
-    std::cout << "Loaded " << my_grove.size() << " intervals using bulk insertion\n";
+    std::cout << "Loaded " << my_grove.indexed_vertex_count() << " intervals using bulk insertion\n";
 
     return 0;
 }

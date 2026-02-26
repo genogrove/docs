@@ -628,7 +628,7 @@ std::cout << "After: " << grove.edge_count() << " edges\n";
 
 // Keys still exist and can be queried
 auto results = grove.intersect(gdt::interval{50, 150}, "chr1");
-std::cout << "Keys still exist: " << results.size() << "\n";
+std::cout << "Keys still exist: " << results.get_keys().size() << "\n";
 // Output: Keys still exist: 1
 ```
 
@@ -638,7 +638,7 @@ std::cout << "Keys still exist: " << results.size() << "\n";
 gst::grove<gdt::interval, std::string, double> grove(100);
 
 // Insert features
-auto keys = grove.insert_data_bulk("chr1", intervals, names);
+auto keys = grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Build initial graph with permissive threshold
 for (size_t i = 0; i < keys.size() - 1; ++i) {
@@ -708,7 +708,7 @@ if (!grove.graph_empty()) {
 gst::grove<gdt::interval, std::string, double> grove(100);
 
 // Load data...
-auto keys = grove.insert_data_bulk("chr1", intervals, names);
+auto keys = grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Only build graph if not already built
 if (grove.graph_empty()) {

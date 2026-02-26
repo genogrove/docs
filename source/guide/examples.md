@@ -26,7 +26,7 @@ int main() {
         features.insert_data(
             entry.chrom,
             entry.interval,
-            entry.name.empty() ? "unnamed" : entry.name,
+            entry.name.value_or("unnamed"),
             gst::sorted  // BED files are typically sorted
         );
     }
@@ -81,8 +81,8 @@ int main() {
         // Create genomic coordinate with strand
         gdt::genomic_coordinate coord{
             entry.strand.value_or('.'),
-            entry.interval.start,
-            entry.interval.end
+            entry.interval.get_start(),
+            entry.interval.get_end()
         };
 
         // Extract annotation info
