@@ -19,6 +19,7 @@ guide/installation
 guide/io
 guide/data_types
 guide/grove/grove
+guide/serialization
 guide/examples
 guide/performance
 ```
