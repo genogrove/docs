@@ -207,7 +207,7 @@ int main() {
 - Aggregation: Returns k-mer with maximum encoding
 
 ```{toctree}
-:hidden:
+:maxdepth: 1
 
 data_types/key
 data_types/data_registry

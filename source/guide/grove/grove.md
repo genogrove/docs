@@ -1,6 +1,11 @@
-# The Grove Data Structure
+# Grove
 
-The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It includes an embedded graph overlay that allows you to link keys within the grove, creating relationships between genomic features.
+The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It organizes data by index (e.g., chromosome) and supports efficient overlap queries. An embedded graph overlay allows you to create directed edges between keys, representing relationships between genomic features.
+
+Beyond the core data structure covered on this page, the grove also supports:
+
+- **{doc}`graph`** — Create directed edges between keys to represent relationships such as transcript structures or gene regulatory networks
+- **{doc}`graph_manipulation`** — Inspect, modify, and analyze the graph structure with operations for edge management, neighbor traversal, and graph statistics
 
 ## Key Types and the key_type_base Concept
 
