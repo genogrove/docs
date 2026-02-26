@@ -1,7 +1,7 @@
 # Genogrove Documentation
 
 [![Read the Docs — Genogrove documentation](https://img.shields.io/readthedocs/genogrove)](https://genogrove.readthedocs.io/)
-[![Genogrove version](https://img.shields.io/badge/genogrove-v0.14.0-green.svg)](https://github.com/genogrove/genogrove)
+[![Genogrove version](https://img.shields.io/badge/genogrove-v0.15.2-green.svg)](https://github.com/genogrove/genogrove)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Sphinx](https://img.shields.io/badge/built%20with-Sphinx-blue.svg)](https://www.sphinx-doc.org/)
 [![MyST](https://img.shields.io/badge/markup-MyST%20Markdown-purple.svg)](https://myst-parser.readthedocs.io/)
