@@ -85,10 +85,13 @@ int main() {
 
 ## GFF/GTF Files
 
-GFF3 and GTF files contain gene annotations. Genogrove automatically detects the format variant:
+GFF3 and GTF files contain gene annotations. The `gff_reader` auto-detects the format variant
+by inspecting the attribute column (GFF3 uses `key=value`, GTF uses `key "value"`).
+Coordinates are 1-based inclusive in the file and converted to 0-based half-open intervals.
 
 ```cpp
 #include <genogrove/io/gff_reader.hpp>
+#include <iostream>
 
 namespace gio = genogrove::io;
 
@@ -100,8 +103,6 @@ int main() {
                   << "Type: " << entry.type << "\n"
                   << "Start: " << entry.interval.get_start() << "\n"
                   << "End: " << entry.interval.get_end() << "\n";
-
-        // GFF/GTF entries are 1-based but converted to 0-based intervals
 
         // Access attributes (column 9)
         if (auto gene_id = entry.get_gene_id()) {
@@ -120,26 +121,52 @@ int main() {
 }
 ```
 
-**GFF Entry Fields:**
+### GFF Entry Fields
 
-- `seqid` (string): Chromosome/contig name
-- `source` (string): Source of feature
-- `type` (string): Feature type (gene, exon, CDS, etc.)
-- `interval`: Genomic interval (converted to 0-based)
-- `score` (optional): Score value
-- `strand` (optional): Strand (+, -, ., or ?)
-- `phase` (optional): Phase for CDS features (0, 1, 2)
-- `attributes` (map): Key-value pairs from column 9
-- `format`: Detected format (GFF3 or GTF)
+- `seqid` (std::string): Chromosome/contig name
+- `source` (std::string): Source of the feature
+- `type` (std::string): Feature type (gene, exon, CDS, etc.)
+- `interval` (gdt::interval): Genomic interval (0-based, half-open, converted from 1-based inclusive)
+- `score` (std::optional\<double>): Score value (`std::nullopt` when `.` in file)
+- `strand` (std::optional\<char>): Strand (+, -, ., or ?)
+- `phase` (std::optional\<int>): Phase for CDS features (0, 1, or 2)
+- `attributes` (std::map\<std::string, std::string>): Key-value pairs from column 9
+- `format` (gff_format): Detected format — `gff_format::GFF3`, `gff_format::GTF`, or `gff_format::UNKNOWN`
 
-**Helper Methods for Attributes:**
+### Attribute Access
 
-- `get_gene_id()` - Extract gene_id
-- `get_transcript_id()` - Extract transcript_id
-- `get_exon_number()` - Extract exon_number
-- `get_gene_name()` - Extract gene_name
-- `get_gene_biotype()` - Extract gene_biotype/gene_type
-- `get_attribute(key)` - Generic attribute getter
+Helper methods return `std::optional<std::string>` (or `std::optional<int>` for `get_exon_number()`).
+Some helpers try multiple attribute keys to work across GFF3 and GTF conventions:
+
+- `get_gene_id()` — returns `gene_id`
+- `get_transcript_id()` — returns `transcript_id`
+- `get_exon_number()` — parses `exon_number` as `int`
+- `get_gene_name()` — tries `gene_name`, then falls back to GFF3's `Name`
+- `get_gene_biotype()` — tries `gene_biotype`, `gene_type`, then `biotype`
+- `get_attribute(key)` — generic getter for any attribute key
+
+You can also access the attributes map directly:
+
+```cpp
+// Direct map access
+auto it = entry.attributes.find("ID");
+if (it != entry.attributes.end()) {
+    std::cout << "ID: " << it->second << "\n";
+}
+```
+
+### GTF Validation
+
+When GTF format is detected, the reader enforces GTF requirements:
+- `gene_id` is required on **all** features
+- `transcript_id` is required on exon, CDS, start_codon, stop_codon, UTR, 5UTR, and 3UTR features
+
+If validation fails, `read_next()` returns `false` and the error is available via `get_error_message()`.
+
+### Convenience Methods
+
+- `is_gtf()` — returns `true` if format is GTF
+- `is_gff3()` — returns `true` if format is GFF3
 
 ## BAM/SAM Files
 
