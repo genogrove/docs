@@ -2,23 +2,17 @@
 
 The `genogrove::io` namespace contains file readers and parsers for genomic file formats.
 
-## file_reader_base
+## Readers
+
+### filetype_detector
 
 ```{eval-rst}
-.. doxygenclass:: genogrove::io::file_reader_base
+.. doxygenclass:: genogrove::io::filetype_detector
    :members:
    :undoc-members:
 ```
 
-## file_reader
-
-```{eval-rst}
-.. doxygenclass:: genogrove::io::file_reader
-   :members:
-   :undoc-members:
-```
-
-## bed_reader
+### bed_reader
 
 ```{eval-rst}
 .. doxygenclass:: genogrove::io::bed_reader
@@ -26,7 +20,7 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
-## gff_reader
+### gff_reader
 
 ```{eval-rst}
 .. doxygenclass:: genogrove::io::gff_reader
@@ -34,17 +28,97 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
-## bam_reader
+### bam_reader
+
 ```{eval-rst}
 .. doxygenclass:: genogrove::io::bam_reader
    :members:
    :undoc-members:
 ```
 
-## filetype_detector
+
+## Entry Types
+
+### bed_entry
 
 ```{eval-rst}
-.. doxygenclass:: genogrove::io::filetype_detector
+.. doxygenclass:: genogrove::io::bed_entry
    :members:
    :undoc-members:
+```
+
+### gff_entry
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::gff_entry
+   :members:
+   :undoc-members:
+```
+
+### sam_entry
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::sam_entry
+   :members:
+   :undoc-members:
+```
+
+## BAM/SAM Types
+
+### alignment_flags
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::alignment_flags
+   :members:
+   :undoc-members:
+```
+
+### bam_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::bam_reader_options
+   :members:
+   :undoc-members:
+```
+
+### cigar_element
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::cigar_element
+   :members:
+   :undoc-members:
+```
+
+### mate_info
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::mate_info
+   :members:
+   :undoc-members:
+```
+
+## Enums
+
+### filetype
+
+```{eval-rst}
+.. doxygenenum:: genogrove::io::filetype
+```
+
+### compression_type
+
+```{eval-rst}
+.. doxygenenum:: genogrove::io::compression_type
+```
+
+### gff_format
+
+```{eval-rst}
+.. doxygenenum:: genogrove::io::gff_format
+```
+
+### cigar_op
+
+```{eval-rst}
+.. doxygenenum:: genogrove::io::cigar_op
 ```

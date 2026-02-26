@@ -2,6 +2,15 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-02-26
+
+### Changed
+- Extended GFF/GTF section in I/O guide with precise field types, format detection explanation, coordinate conversion note, attribute access patterns with fallback behavior, GTF validation rules, and convenience methods ([#26](https://github.com/genogrove/docs/pull/26))
+
+### Issues filed
+- [#24](https://github.com/genogrove/docs/issues/24) — Add GFF/GTF grove loading example to grove user guide
+- [#25](https://github.com/genogrove/docs/issues/25) — Add BAM/SAM grove loading example to grove user guide
+
 ## 2026-02-25
 
 ### Added

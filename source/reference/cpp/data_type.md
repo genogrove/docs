@@ -34,28 +34,42 @@ The `genogrove::data_type` namespace contains genomic data type definitions and 
    :undoc-members:
 ```
 
-% .. index
+## numeric
 
-% .. -----
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::numeric
+   :members:
+   :undoc-members:
+```
 
-% ..
+## kmer
 
-% .. .. doxygenclass:: genogrove::data_type::index
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::kmer
+   :members:
+   :undoc-members:
+```
 
-% ..    :members:
+## data_registry
 
-% ..    :undoc-members:
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::data_registry
+   :members:
+   :undoc-members:
+```
 
-% ..
+## index
 
-% .. index_registry
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::index
+   :members:
+   :undoc-members:
+```
 
-% .. --------------
+## index_registry
 
-% ..
-
-% .. .. doxygenclass:: genogrove::data_type::index_registry
-
-% ..    :members:
-
-% ..    :undoc-members:
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::index_registry
+   :members:
+   :undoc-members:
+```
