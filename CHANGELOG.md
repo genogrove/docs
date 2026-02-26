@@ -9,6 +9,7 @@ All notable changes to the genogrove documentation project will be documented in
 
 ### Fixed
 - Fixed orphaned guide pages not reachable from sidebar navigation ([#28](https://github.com/genogrove/docs/pull/28), closes [#13](https://github.com/genogrove/docs/issues/13))
+- Removed stale `sphinx-immaterial` dependency from `requirements.txt` ([#29](https://github.com/genogrove/docs/pull/29), closes [#14](https://github.com/genogrove/docs/issues/14))
 
 ### Changed
 - Extended GFF/GTF section in I/O guide with precise field types, format detection explanation, coordinate conversion note, attribute access patterns with fallback behavior, GTF validation rules, and convenience methods ([#26](https://github.com/genogrove/docs/pull/26))
