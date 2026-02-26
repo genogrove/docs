@@ -5,6 +5,7 @@ All notable changes to the genogrove documentation project will be documented in
 ## 2026-02-26
 
 ### Added
+- Added serialization guide covering grove persistence, combined `data_registry` serialization, and custom type serialization ([#30](https://github.com/genogrove/docs/pull/30), partially addresses [#15](https://github.com/genogrove/docs/issues/15))
 - Added missing Doxygen reference directives for I/O entry types (`bed_entry`, `gff_entry`, `sam_entry`), BAM/SAM types (`alignment_flags`, `bam_reader_options`, `cigar_element`, `mate_info`), enums (`filetype`, `compression_type`, `gff_format`, `cigar_op`), and data types (`numeric`, `kmer`, `data_registry`, `index`, `index_registry`) ([#27](https://github.com/genogrove/docs/pull/27), closes [#12](https://github.com/genogrove/docs/issues/12))
 
 ### Fixed
