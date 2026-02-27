@@ -6,6 +6,7 @@ Beyond the core data structure covered on this page, the grove also supports:
 
 - **{doc}`graph`** — Create directed edges between keys to represent relationships such as transcript structures or gene regulatory networks
 - **{doc}`graph_manipulation`** — Inspect, modify, and analyze the graph structure with operations for edge management, neighbor traversal, and graph statistics
+- **{doc}`loading_data`** — Load genomic data from BED, GFF/GTF, and BAM/SAM files directly into a grove
 
 ## Key Types and the key_type_base Concept
 
@@ -281,4 +282,5 @@ int main() {
 
 graph
 graph_manipulation
+loading_data
 ```
