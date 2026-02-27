@@ -419,8 +419,9 @@ int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
     // Read only high-quality primary alignments
-    gio::bam_reader reader("alignments.bam",
-                           gio::bam_reader_options::high_quality(20));
+    gio::bam_reader_options opts = gio::bam_reader_options::primary_only();
+    opts.min_mapq = 20;
+    gio::bam_reader reader("alignments.bam", opts);
 
     for (const auto& entry : reader) {
         my_grove.insert_data(entry.chrom, entry.interval,
