@@ -64,6 +64,39 @@ int main() {
 - ZSTD (.zst)
 - LZ4 (.lz4)
 
+## Error Handling
+
+All file readers silently stop iteration on both end-of-file and parse errors. A malformed line
+will end the loop early without raising an exception. Always check `get_error_message()` after the
+loop to detect parse failures:
+
+```cpp
+namespace gio = genogrove::io;
+
+gio::bed_reader reader("data.bed");
+
+for (const auto& entry : reader) {
+    // process entries...
+}
+
+// Distinguish successful EOF from a parse error
+if (!reader.get_error_message().empty()) {
+    std::cerr << "Parse error: " << reader.get_error_message() << "\n";
+    // error messages include the line number, e.g.
+    // "Invalid coordinate format at line 42"
+}
+```
+
+This pattern applies to all readers (`bed_reader`, `gff_reader`, `bam_reader`).
+
+```{note}
+A future release will change this behavior: readers will throw `std::runtime_error` on parse
+errors by default, so malformed lines no longer silently truncate iteration. See
+[genogrove/genogrove#68](https://github.com/genogrove/genogrove/issues/68),
+[genogrove/genogrove#102](https://github.com/genogrove/genogrove/issues/102), and
+[genogrove/genogrove#110](https://github.com/genogrove/genogrove/issues/110) for details.
+```
+
 ## BED Files
 
 BED files store genomic intervals with optional metadata. The `bed_reader` provides iterator-based access:
