@@ -2,6 +2,18 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-02-27
+
+### Added
+- Added dedicated grove loading guide (`loading_data.md`) with BED (incremental + bulk), GFF/GTF, and BAM/SAM examples ([#34](https://github.com/genogrove/docs/pull/34), closes [#23](https://github.com/genogrove/docs/issues/23), closes [#24](https://github.com/genogrove/docs/issues/24), closes [#25](https://github.com/genogrove/docs/issues/25))
+- Documented error handling pattern for file readers with `get_error_message()` post-loop check ([#35](https://github.com/genogrove/docs/pull/35), closes [#18](https://github.com/genogrove/docs/issues/18))
+
+### Issues filed
+- [genogrove/genogrove#110](https://github.com/genogrove/genogrove/issues/110) — Throw on parse errors instead of silently stopping iteration
+
+### Changed
+- Moved grove loading examples from I/O guide to grove section ([#34](https://github.com/genogrove/docs/pull/34))
+
 ## 2026-02-26
 
 ### Added
