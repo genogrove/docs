@@ -2,6 +2,30 @@
 
 The `genogrove::io` namespace provides efficient readers for common genomic file formats with automatic compression detection.
 
+## Reader Ownership
+
+All file readers (`bed_reader`, `gff_reader`, `bam_reader`) own raw htslib resource pointers and are
+**non-copyable** but **movable**. Attempting to copy a reader will produce a compile error.
+
+```cpp
+namespace gio = genogrove::io;
+
+gio::bed_reader reader("data.bed");
+
+// gio::bed_reader copy = reader;            // compile error — not copyable
+gio::bed_reader moved = std::move(reader);   // OK — transfers ownership
+```
+
+When passing readers to functions, use a reference or move them:
+
+```cpp
+namespace gio = genogrove::io;
+
+void process(gio::bed_reader& reader) {      // pass by reference
+    for (const auto& entry : reader) { /* ... */ }
+}
+```
+
 ## Automatic File Type Detection
 
 Genogrove can automatically detect file types and compression formats:
