@@ -50,18 +50,16 @@ if (!grove.has_edge(exon1, exon3)) {
 - Preventing duplicate edge creation
 - Conditional edge operations based on existing connections
 
-### Retrieving edge information (`get_edges`)
+### Retrieving edge metadata (`get_edges`)
 
-The `get_edges` function retrieves all outgoing edges from a source key, including their metadata (if present).
+The `get_edges` function retrieves the metadata for all outgoing edges from a source key. This is only available when the grove has a non-void `edge_data_type`. To get the target keys themselves, use `get_neighbors()` instead.
 
 **Function Signature:**
 
 ```cpp
-// Without metadata (returns vector of target pointers)
-std::vector<const key_type*> get_edges(const key_type* source) const
-
-// With metadata (returns vector of pairs: target pointer and metadata)
-std::vector<std::pair<const key_type*, EdgeMetadata>> get_edges(const key_type* source) const
+template<typename M = edge_data_type>
+std::vector<M> get_edges(source) const
+    requires (!std::is_void_v<edge_data_type>)
 ```
 
 **Parameters:**
@@ -70,31 +68,9 @@ std::vector<std::pair<const key_type*, EdgeMetadata>> get_edges(const key_type* 
 
 **Return Value:**
 
-- **Without metadata**: Vector of pointers to target keys
-- **With metadata**: Vector of pairs containing target key pointers and their associated metadata
+- Vector of edge metadata values (one per outgoing edge)
 
-**Example without metadata:**
-
-```cpp
-gst::grove<gdt::interval, std::string, void> grove(100);
-
-auto* gene1 = grove.insert_data("chr1", gdt::interval{1000, 2000}, "GeneA");
-auto* gene2 = grove.insert_data("chr1", gdt::interval{3000, 4000}, "GeneB");
-auto* gene3 = grove.insert_data("chr1", gdt::interval{5000, 6000}, "GeneC");
-
-grove.add_edge(gene1, gene2);
-grove.add_edge(gene1, gene3);
-
-// Get all outgoing edges from gene1
-auto edges = grove.get_edges(gene1);
-
-std::cout << "GeneA connects to " << edges.size() << " genes:\n";
-for (auto* target : edges) {
-    std::cout << "  -> " << target->get_data() << "\n";
-}
-```
-
-**Example with metadata:**
+**Example:**
 
 ```cpp
 gst::grove<gdt::interval, std::string, double> grove(100);
@@ -106,98 +82,77 @@ auto* gene2 = grove.insert_data("chr1", gdt::interval{15000, 20000}, "Gene2");
 grove.add_edge(enhancer, gene1, 0.95);  // High confidence
 grove.add_edge(enhancer, gene2, 0.65);  // Lower confidence
 
-// Get edges with confidence scores
-auto edges = grove.get_edges(enhancer);
+// Get metadata (confidence scores) for all edges from enhancer
+auto scores = grove.get_edges(enhancer);
 
-std::cout << "Enhancer interactions:\n";
-for (const auto& [target, confidence] : edges) {
-    std::cout << "  -> " << target->get_data()
-              << " (confidence: " << confidence << ")\n";
+for (double confidence : scores) {
+    std::cout << "Confidence: " << confidence << "\n";
 }
+```
 
-// Filter by confidence threshold
-std::cout << "\nHigh-confidence interactions (>0.8):\n";
-for (const auto& [target, confidence] : edges) {
-    if (confidence > 0.8) {
-        std::cout << "  -> " << target->get_data() << "\n";
-    }
+To iterate over both targets and metadata together, use `get_edge_list()`:
+
+```cpp
+auto& edges = grove.get_edge_list(enhancer);
+
+for (const auto& edge : edges) {
+    std::cout << edge.target->get_data()
+              << " (confidence: " << edge.metadata << ")\n";
 }
 ```
 
 **Use Cases:**
 
 - Analyzing edge weights or metadata for downstream processing
-- Filtering edges based on metadata criteria
-- Exporting graph structure with attributes
+- Aggregating metadata values (e.g., average confidence)
+- Use `get_edge_list()` when you need both targets and metadata together
 
-### Getting the full edge list (`get_edge_list`)
+### Getting the edge list for a source (`get_edge_list`)
 
-The `get_edge_list` function retrieves all edges in the entire graph, not just from a single source key.
+The `get_edge_list` function retrieves all outgoing edges from a source key as `edge` structs, each containing the target pointer and metadata (if any). Unlike `get_edges()` (metadata only) or `get_neighbors()` (targets only), this returns the full edge objects.
 
 **Function Signature:**
 
 ```cpp
-// Without metadata
-std::vector<std::pair<const key_type*, const key_type*>> get_edge_list() const
-
-// With metadata
-std::vector<std::tuple<const key_type*, const key_type*, EdgeMetadata>> get_edge_list() const
+const std::vector<edge>& get_edge_list(source) const
 ```
+
+**Parameters:**
+
+- `source` - Pointer to the source key
 
 **Return Value:**
 
-- **Without metadata**: Vector of pairs (source, target)
-- **With metadata**: Vector of tuples (source, target, metadata)
+- Const reference to vector of `edge` structs (each with `target` and `metadata` fields)
+- Returns an empty vector if the source has no outgoing edges
 
 **Example:**
 
 ```cpp
 gst::grove<gdt::interval, std::string, double> grove(100);
 
-// Build a small regulatory network
 auto* tf1 = grove.insert_data("chr1", gdt::interval{1000, 2000}, "TF1");
-auto* tf2 = grove.insert_data("chr1", gdt::interval{3000, 4000}, "TF2");
 auto* gene1 = grove.insert_data("chr1", gdt::interval{5000, 6000}, "Gene1");
 auto* gene2 = grove.insert_data("chr1", gdt::interval{7000, 8000}, "Gene2");
 
 grove.add_edge(tf1, gene1, 0.9);
 grove.add_edge(tf1, gene2, 0.7);
-grove.add_edge(tf2, gene1, 0.8);
 
-// Get all edges in the graph
-auto all_edges = grove.get_edge_list();
+// Get all edges from tf1
+const auto& edges = grove.get_edge_list(tf1);
 
-std::cout << "Complete regulatory network (" << all_edges.size() << " edges):\n";
-for (const auto& [source, target, weight] : all_edges) {
-    std::cout << source->get_data() << " -> " << target->get_data()
-              << " (weight: " << weight << ")\n";
-}
-```
-
-**Example: Exporting to edge list format**
-
-```cpp
-gst::grove<gdt::interval, std::string, double> grove(100);
-
-// ... build graph ...
-
-// Export to CSV format
-std::ofstream out("network.csv");
-out << "source,target,weight\n";
-
-auto edges = grove.get_edge_list();
-for (const auto& [source, target, weight] : edges) {
-    out << source->get_data() << ","
-        << target->get_data() << ","
-        << weight << "\n";
+std::cout << "TF1 targets (" << edges.size() << " edges):\n";
+for (const auto& edge : edges) {
+    std::cout << "  -> " << edge.target->get_data()
+              << " (weight: " << edge.metadata << ")\n";
 }
 ```
 
 **Use Cases:**
 
-- Exporting entire graph to external formats (GraphML, CSV, JSON)
-- Computing global graph properties (density, clustering coefficient)
-- Serializing graph structure for storage or transmission
+- Accessing both target keys and metadata in a single iteration
+- Efficient read-only access (returns a const reference, no copy)
+- Building adjacency representations for graph algorithms
 
 ## Neighbor Queries
 
@@ -356,7 +311,7 @@ The `remove_edge` function removes a specific directed edge from the graph. The 
 **Function Signature:**
 
 ```cpp
-void remove_edge(const key_type* source, const key_type* target)
+bool remove_edge(source, target)
 ```
 
 **Parameters:**
@@ -366,8 +321,7 @@ void remove_edge(const key_type* source, const key_type* target)
 
 **Return Value:**
 
-- Returns `void` (no return value)
-- If the edge doesn't exist, the operation has no effect
+- Returns `true` if the edge was found and removed, `false` otherwise
 
 **Example: Pruning low-quality edges**
 
@@ -381,13 +335,9 @@ auto* gene3 = grove.insert_data("chr1", gdt::interval{5000, 6000}, "GeneC");
 grove.add_edge(gene1, gene2, 0.95);
 grove.add_edge(gene1, gene3, 0.45);  // Low confidence
 
-// Get edges and remove low-confidence ones
-auto edges = grove.get_edges(gene1);
-for (const auto& [target, confidence] : edges) {
-    if (confidence < 0.5) {
-        std::cout << "Removing low-confidence edge to " << target->get_data() << "\n";
-        grove.remove_edge(gene1, target);
-    }
+// Remove a specific edge
+if (grove.remove_edge(gene1, gene3)) {
+    std::cout << "Removed low-confidence edge to GeneC\n";
 }
 ```
 
