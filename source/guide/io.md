@@ -72,10 +72,36 @@ int main() {
 }
 ```
 
-**BED Entry Fields:**
+### Mixed BED Formats
+
+The `bed_reader` supports files that mix BED3, BED6, and BED12 records. Optional fields are reset
+on each record, so a BED6 line following a BED12 line will not carry over stale block or RGB data:
+
+```cpp
+gio::bed_reader reader("mixed.bed");
+
+for (const auto& entry : reader) {
+    // Always present (BED3)
+    std::cout << entry.chrom << "\t"
+              << entry.interval.get_start() << "\t"
+              << entry.interval.get_end();
+
+    // Only set on BED6+ lines
+    if (entry.name)   std::cout << "\t" << *entry.name;
+    if (entry.score)  std::cout << "\t" << *entry.score;
+    if (entry.strand) std::cout << "\t" << *entry.strand;
+
+    // Only set on BED12 lines
+    if (entry.blocks)  std::cout << "\t(has blocks)";
+
+    std::cout << "\n";
+}
+```
+
+### BED Entry Fields
 
 - `chrom` (std::string): Chromosome name
-- `interval`: (genogrove::data_type::interval) Genomic interval (0-based, half-open)
+- `interval` (gdt::interval): Genomic interval (0-based, half-open)
 - `name` (std::optional\<std::string>): Feature name
 - `score` (std::optional\<int>): Score value
 - `strand` (std::optional\<char>): Strand (+/-)
