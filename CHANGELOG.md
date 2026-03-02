@@ -8,6 +8,9 @@ All notable changes to the genogrove documentation project will be documented in
 - Documented `bam_reader` header access methods (`get_header()`, `get_reference_names()`) in I/O guide ([#45](https://github.com/genogrove/docs/pull/45), closes [#36](https://github.com/genogrove/docs/issues/36))
 - Added missing Doxygen directives for BED support types (`rgb_color`, `thick_info`, `block_info`), BAM/SAM types (`sam_flags`, `sam_tag`), and serialization utilities (`serialization_traits`, `serializer`) ([#46](https://github.com/genogrove/docs/pull/46), closes [#37](https://github.com/genogrove/docs/issues/37))
 
+### Fixed
+- Fixed code examples discarding `[[nodiscard]]` return values from `data_registry::deserialize()`, `size()`, `empty()`, and `contains()` ([#47](https://github.com/genogrove/docs/pull/47), closes [#40](https://github.com/genogrove/docs/issues/40))
+
 ## 2026-02-27
 
 ### Added
