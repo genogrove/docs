@@ -251,9 +251,8 @@ int main() {
     my_grove.insert_data("chr1", gdt::interval{300, 400}, "gene3");
     my_grove.insert_data("chr2", gdt::interval{100, 200}, "gene4");
 
-    // Query specific chromosome
-    gdt::interval query{175, 225};
-    auto results = my_grove.intersect(query, "chr1");
+    // Query specific chromosome (temporaries work directly)
+    auto results = my_grove.intersect(gdt::interval{175, 225}, "chr1");
 
     // Process results
     for (auto* key : results.get_keys()) {
@@ -263,7 +262,7 @@ int main() {
     // Output: gene1, gene2 (gene3 doesn't overlap)
 
     // Query across all chromosomes
-    auto all_results = my_grove.intersect(query);
+    auto all_results = my_grove.intersect(gdt::interval{175, 225});
     std::cout << "Total matches: " << all_results.get_keys().size() << "\n";
 
     return 0;
@@ -275,6 +274,7 @@ int main() {
 - Efficient overlap-based searching using B+ tree structure
 - Index-specific queries (single chromosome)
 - Global queries (all chromosomes)
+- Accepts temporaries and named variables (const reference parameter)
 - Returns `query_result` containing matching keys
 
 ```{toctree}
