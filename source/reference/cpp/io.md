@@ -63,6 +63,32 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+## Reader Options
+
+### bed_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::bed_reader_options
+   :members:
+   :undoc-members:
+```
+
+### gff_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::gff_reader_options
+   :members:
+   :undoc-members:
+```
+
+### bam_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::bam_reader_options
+   :members:
+   :undoc-members:
+```
+
 ## BED Support Types
 
 ### rgb_color
@@ -103,14 +129,6 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
 
 ```{eval-rst}
 .. doxygenclass:: genogrove::io::alignment_flags
-   :members:
-   :undoc-members:
-```
-
-### bam_reader_options
-
-```{eval-rst}
-.. doxygenstruct:: genogrove::io::bam_reader_options
    :members:
    :undoc-members:
 ```

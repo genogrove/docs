@@ -21,11 +21,15 @@ int main() {
 
     // Read and insert each entry
     gio::bed_reader reader("genes.bed.gz");
-    for (const auto& entry : reader) {
-        // BED files are typically sorted by position
-        my_grove.insert_data(entry.chrom, entry.interval,
-                            entry.name.value_or("unknown"),
-                            gst::sorted);
+    try {
+        for (const auto& entry : reader) {
+            // BED files are typically sorted by position
+            my_grove.insert_data(entry.chrom, entry.interval,
+                                entry.name.value_or("unknown"),
+                                gst::sorted);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     std::cout << "Loaded " << my_grove.indexed_vertex_count() << " intervals\n";
@@ -60,8 +64,12 @@ int main() {
     std::map<std::string, std::vector<std::pair<gdt::interval, std::string>>> data;
 
     gio::bed_reader reader("large_dataset.bed.gz");
-    for (const auto& entry : reader) {
-        data[entry.chrom].emplace_back(entry.interval, entry.name.value_or("unknown"));
+    try {
+        for (const auto& entry : reader) {
+            data[entry.chrom].emplace_back(entry.interval, entry.name.value_or("unknown"));
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     // Bulk insert per chromosome (data must be sorted)
@@ -90,10 +98,14 @@ int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
     gio::gff_reader reader("annotations.gff.gz");
-    for (const auto& entry : reader) {
-        my_grove.insert_data(entry.seqid, entry.interval,
-                            entry.get_gene_id().value_or(entry.type),
-                            gst::sorted);
+    try {
+        for (const auto& entry : reader) {
+            my_grove.insert_data(entry.seqid, entry.interval,
+                                entry.get_gene_id().value_or(entry.type),
+                                gst::sorted);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     std::cout << "Loaded " << my_grove.indexed_vertex_count() << " features\n";
@@ -121,9 +133,13 @@ int main() {
     opts.min_mapq = 20;
     gio::bam_reader reader("alignments.bam", opts);
 
-    for (const auto& entry : reader) {
-        my_grove.insert_data(entry.chrom, entry.interval,
-                             entry.qname, gst::sorted);
+    try {
+        for (const auto& entry : reader) {
+            my_grove.insert_data(entry.chrom, entry.interval,
+                                 entry.qname, gst::sorted);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     std::cout << "Loaded " << my_grove.indexed_vertex_count() << " reads\n";
