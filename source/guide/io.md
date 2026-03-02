@@ -66,22 +66,20 @@ int main() {
 
 ## Error Handling
 
-All file readers silently stop iteration on both end-of-file and parse errors. A malformed line
-will end the loop early without raising an exception. Always check `get_error_message()` after the
-loop to detect parse failures:
+All file readers throw `std::runtime_error` on parse and I/O errors by default. The `read_next()`
+method returns `false` only at end-of-file. Wrap iteration in a try-catch to handle errors:
 
 ```cpp
 namespace gio = genogrove::io;
 
 gio::bed_reader reader("data.bed");
 
-for (const auto& entry : reader) {
-    // process entries...
-}
-
-// Distinguish successful EOF from a parse error
-if (!reader.get_error_message().empty()) {
-    std::cerr << "Parse error: " << reader.get_error_message() << "\n";
+try {
+    for (const auto& entry : reader) {
+        // process entries...
+    }
+} catch (const std::runtime_error& e) {
+    std::cerr << "Error: " << e.what() << "\n";
     // error messages include the line number, e.g.
     // "Invalid coordinate format at line 42"
 }
@@ -89,12 +87,30 @@ if (!reader.get_error_message().empty()) {
 
 This pattern applies to all readers (`bed_reader`, `gff_reader`, `bam_reader`).
 
-```{note}
-A future release will change this behavior: readers will throw `std::runtime_error` on parse
-errors by default, so malformed lines no longer silently truncate iteration. See
-[genogrove/genogrove#68](https://github.com/genogrove/genogrove/issues/68),
-[genogrove/genogrove#102](https://github.com/genogrove/genogrove/issues/102), and
-[genogrove/genogrove#110](https://github.com/genogrove/genogrove/issues/110) for details.
+### Lenient Mode
+
+To skip malformed records instead of throwing, enable lenient mode via the reader's options struct.
+Skipped errors are accumulated in `get_error_message()`:
+
+```cpp
+namespace gio = genogrove::io;
+
+// BED: skip_invalid_lines
+gio::bed_reader reader("data.bed", gio::bed_reader_options{.skip_invalid_lines = true});
+
+// GFF: skip_invalid_lines
+// gio::gff_reader reader("data.gff", gio::gff_reader_options{.skip_invalid_lines = true});
+
+// BAM: skip_invalid_records
+// gio::bam_reader reader("data.bam", gio::bam_reader_options{.skip_invalid_records = true});
+
+for (const auto& entry : reader) {
+    // process entries — malformed lines are silently skipped
+}
+
+if (!reader.get_error_message().empty()) {
+    std::cerr << "Warning: " << reader.get_error_message() << "\n";
+}
 ```
 
 ## BED Files
@@ -111,18 +127,22 @@ int main() {
     // Automatically handles compressed files (.bed.gz)
     gio::bed_reader reader("example.bed");
 
-    for (const auto& entry : reader) {
-        std::cout << "Chromosome: " << entry.chrom << "\n"
-                  << "Start: " << entry.interval.get_start() << "\n"
-                  << "End: " << entry.interval.get_end() << "\n";
+    try {
+        for (const auto& entry : reader) {
+            std::cout << "Chromosome: " << entry.chrom << "\n"
+                      << "Start: " << entry.interval.get_start() << "\n"
+                      << "End: " << entry.interval.get_end() << "\n";
 
-        // Optional fields (if present in file)
-        if (entry.name) {
-            std::cout << "Name: " << *entry.name << "\n";
+            // Optional fields (if present in file)
+            if (entry.name) {
+                std::cout << "Name: " << *entry.name << "\n";
+            }
+            if (entry.strand) {
+                std::cout << "Strand: " << *entry.strand << "\n";
+            }
         }
-        if (entry.strand) {
-            std::cout << "Strand: " << *entry.strand << "\n";
-        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Parse error: " << e.what() << "\n";
     }
 
     return 0;
@@ -181,23 +201,27 @@ namespace gio = genogrove::io;
 int main() {
     gio::gff_reader reader("annotations.gff");
 
-    for (const auto& entry : reader) {
-        std::cout << "Sequence: " << entry.seqid << "\n"
-                  << "Type: " << entry.type << "\n"
-                  << "Start: " << entry.interval.get_start() << "\n"
-                  << "End: " << entry.interval.get_end() << "\n";
+    try {
+        for (const auto& entry : reader) {
+            std::cout << "Sequence: " << entry.seqid << "\n"
+                      << "Type: " << entry.type << "\n"
+                      << "Start: " << entry.interval.get_start() << "\n"
+                      << "End: " << entry.interval.get_end() << "\n";
 
-        // Access attributes (column 9)
-        if (auto gene_id = entry.get_gene_id()) {
-            std::cout << "Gene ID: " << *gene_id << "\n";
-        }
+            // Access attributes (column 9)
+            if (auto gene_id = entry.get_gene_id()) {
+                std::cout << "Gene ID: " << *gene_id << "\n";
+            }
 
-        // Check format
-        if (entry.is_gtf()) {
-            std::cout << "Format: GTF\n";
-        } else if (entry.is_gff3()) {
-            std::cout << "Format: GFF3\n";
+            // Check format
+            if (entry.is_gtf()) {
+                std::cout << "Format: GTF\n";
+            } else if (entry.is_gff3()) {
+                std::cout << "Format: GFF3\n";
+            }
         }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Parse error: " << e.what() << "\n";
     }
 
     return 0;
@@ -244,7 +268,7 @@ When GTF format is detected, the reader enforces GTF requirements:
 - `gene_id` is required on **all** features
 - `transcript_id` is required on exon, CDS, start_codon, stop_codon, UTR, 5UTR, and 3UTR features
 
-If validation fails, `read_next()` returns `false` and the error is available via `get_error_message()`.
+If validation fails, `read_next()` throws `std::runtime_error` (or skips the line in lenient mode).
 
 ### Convenience Methods
 
@@ -266,20 +290,24 @@ namespace gio = genogrove::io;
 int main() {
     gio::bam_reader reader("alignments.bam");
 
-    for (const auto& entry : reader) {
-        std::cout << "Read: " << entry.qname << "\n"
-                  << "Chrom: " << entry.chrom << "\n"
-                  << "Start: " << entry.interval.get_start() << "\n"
-                  << "End: " << entry.interval.get_end() << "\n"
-                  << "Strand: " << entry.get_strand() << "\n"
-                  << "MAPQ: " << static_cast<int>(entry.mapq) << "\n"
-                  << "CIGAR: " << entry.cigar_string_repr() << "\n";
+    try {
+        for (const auto& entry : reader) {
+            std::cout << "Read: " << entry.qname << "\n"
+                      << "Chrom: " << entry.chrom << "\n"
+                      << "Start: " << entry.interval.get_start() << "\n"
+                      << "End: " << entry.interval.get_end() << "\n"
+                      << "Strand: " << entry.get_strand() << "\n"
+                      << "MAPQ: " << static_cast<int>(entry.mapq) << "\n"
+                      << "CIGAR: " << entry.cigar_string_repr() << "\n";
 
-        if (entry.mate) {
-            std::cout << "Mate chrom: " << entry.mate->chrom << "\n"
-                      << "Mate pos: " << entry.mate->position << "\n"
-                      << "Insert size: " << entry.mate->insert_size << "\n";
+            if (entry.mate) {
+                std::cout << "Mate chrom: " << entry.mate->chrom << "\n"
+                          << "Mate pos: " << entry.mate->position << "\n"
+                          << "Insert size: " << entry.mate->insert_size << "\n";
+            }
         }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Read error: " << e.what() << "\n";
     }
 
     return 0;
@@ -316,6 +344,7 @@ gio::bam_reader reader5("reads.bam", opts);
 - `skip_qc_fail` (bool, default `false`): Skip QC-failed reads
 - `skip_duplicates` (bool, default `false`): Skip duplicate reads
 - `min_mapq` (uint8_t, default `0`): Minimum mapping quality
+- `skip_invalid_records` (bool, default `false`): Skip malformed records instead of throwing
 
 ### SAM Entry Fields
 
