@@ -25,10 +25,10 @@ int main() {
     uint32_t id2 = registry.register_data(SampleInfo{"sample2", "kidney", 1});
 
     // 3. Check registry state
-    registry.size();      // 2
-    registry.empty();     // false
-    registry.contains(id1);  // true
-    registry.contains(999);  // false
+    size_t count = registry.size();          // 2
+    bool is_empty = registry.empty();        // false
+    bool has_id1 = registry.contains(id1);   // true
+    bool has_999 = registry.contains(999);   // false
 
     // 4. Retrieve data by ID (returns pointer, nullptr if invalid)
     const SampleInfo* info = registry.get(id1);
