@@ -12,6 +12,15 @@ All data types in genogrove implement a shared interface:
 - **Serialization/Deserialization**: Binary I/O operations
 - **String representation**: Converts values to readable format
 
+Constructors, comparison operators, getters/setters, and overlap detection are `constexpr`, so they
+can be used in compile-time contexts:
+
+```cpp
+constexpr gdt::interval region{100, 200};
+static_assert(region.get_start() == 100);
+static_assert(gdt::interval::overlap(region, gdt::interval{150, 250}));
+```
+
 ## Intervals
 
 The `interval` class represents genomic regions using 0-based, half-open coordinates:
