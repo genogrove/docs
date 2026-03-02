@@ -46,8 +46,7 @@ int main() {
     }
 
     // Query for overlapping features
-    gdt::interval query{1000, 2000};
-    auto results = features.intersect(query, "chr1");
+    auto results = features.intersect(gdt::interval{1000, 2000}, "chr1");
 
     std::cout << "Found " << results.get_keys().size()
               << " overlapping features\n";
