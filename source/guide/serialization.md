@@ -83,13 +83,13 @@ int main() {
     registry.clear();
     {
         std::ifstream in("data.bin", std::ios::binary);
-        gdt::data_registry<std::string>::deserialize(in);
+        auto& restored = gdt::data_registry<std::string>::deserialize(in);
         auto loaded = gst::grove<gdt::interval, uint32_t>::deserialize(in);
 
         // Registry IDs in the grove still resolve correctly
         auto results = loaded.intersect(gdt::interval{100, 200}, "chr1");
         for (auto* key : results.get_keys()) {
-            auto* name = registry.get(key->get_data());  // "SampleA_liver"
+            auto* name = restored.get(key->get_data());  // "SampleA_liver"
         }
     }
 
