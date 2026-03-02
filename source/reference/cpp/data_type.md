@@ -73,3 +73,21 @@ The `genogrove::data_type` namespace contains genomic data type definitions and 
    :members:
    :undoc-members:
 ```
+
+## Serialization Utilities
+
+### serialization_traits
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::data_type::serialization_traits
+   :members:
+   :undoc-members:
+```
+
+### serializer
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::data_type::serializer
+   :members:
+   :undoc-members:
+```
