@@ -16,6 +16,7 @@ All notable changes to the genogrove documentation project will be documented in
 - Updated `intersect()` examples to pass temporaries directly, reflecting the `const key_type&` parameter change ([#48](https://github.com/genogrove/docs/pull/48), closes [#41](https://github.com/genogrove/docs/issues/41))
 - Documented `constexpr` support for data type constructors, operators, and overlap detection with compile-time example ([#49](https://github.com/genogrove/docs/pull/49), closes [#42](https://github.com/genogrove/docs/issues/42))
 - Rewrote Error Handling section: readers now throw `std::runtime_error` by default; documented lenient mode via options structs; added try-catch to main reader examples ([#50](https://github.com/genogrove/docs/pull/50), closes [#43](https://github.com/genogrove/docs/issues/43))
+- Bumped version to 0.16.0 in `conf.py` and README badge ([#51](https://github.com/genogrove/docs/pull/51), closes [#44](https://github.com/genogrove/docs/issues/44))
 
 ## 2026-02-27
 
