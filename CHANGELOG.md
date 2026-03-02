@@ -11,6 +11,9 @@ All notable changes to the genogrove documentation project will be documented in
 ### Fixed
 - Fixed code examples discarding `[[nodiscard]]` return values from `data_registry::deserialize()`, `size()`, `empty()`, and `contains()` ([#47](https://github.com/genogrove/docs/pull/47), closes [#40](https://github.com/genogrove/docs/issues/40))
 
+### Changed
+- Updated `intersect()` examples to pass temporaries directly, reflecting the `const key_type&` parameter change ([#48](https://github.com/genogrove/docs/pull/48), closes [#41](https://github.com/genogrove/docs/issues/41))
+
 ## 2026-02-27
 
 ### Added
