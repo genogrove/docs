@@ -7,6 +7,7 @@ All notable changes to the genogrove documentation project will be documented in
 ### Added
 - Documented `bam_reader` header access methods (`get_header()`, `get_reference_names()`) in I/O guide ([#45](https://github.com/genogrove/docs/pull/45), closes [#36](https://github.com/genogrove/docs/issues/36))
 - Added missing Doxygen directives for BED support types (`rgb_color`, `thick_info`, `block_info`), BAM/SAM types (`sam_flags`, `sam_tag`), and serialization utilities (`serialization_traits`, `serializer`) ([#46](https://github.com/genogrove/docs/pull/46), closes [#37](https://github.com/genogrove/docs/issues/37))
+- Added `bed_reader_options` and `gff_reader_options` Doxygen directives; consolidated all reader options into a dedicated API reference section ([#50](https://github.com/genogrove/docs/pull/50))
 
 ### Fixed
 - Fixed code examples discarding `[[nodiscard]]` return values from `data_registry::deserialize()`, `size()`, `empty()`, and `contains()` ([#47](https://github.com/genogrove/docs/pull/47), closes [#40](https://github.com/genogrove/docs/issues/40))
@@ -14,6 +15,7 @@ All notable changes to the genogrove documentation project will be documented in
 ### Changed
 - Updated `intersect()` examples to pass temporaries directly, reflecting the `const key_type&` parameter change ([#48](https://github.com/genogrove/docs/pull/48), closes [#41](https://github.com/genogrove/docs/issues/41))
 - Documented `constexpr` support for data type constructors, operators, and overlap detection with compile-time example ([#49](https://github.com/genogrove/docs/pull/49), closes [#42](https://github.com/genogrove/docs/issues/42))
+- Rewrote Error Handling section: readers now throw `std::runtime_error` by default; documented lenient mode via options structs; added try-catch to main reader examples ([#50](https://github.com/genogrove/docs/pull/50), closes [#43](https://github.com/genogrove/docs/issues/43))
 
 ## 2026-02-27
 
