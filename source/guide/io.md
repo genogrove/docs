@@ -356,6 +356,30 @@ if (it != entry.tags.end()) {
 }
 ```
 
+### Header Access
+
+The `bam_reader` provides methods to inspect the SAM header and reference sequences before or after iteration:
+
+- `get_header()` — returns the full SAM header text (all `@HD`, `@SQ`, `@RG`, `@PG` lines)
+- `get_reference_names()` — returns a `std::vector<std::string>` of reference sequence names from the header
+
+```cpp
+namespace gio = genogrove::io;
+
+gio::bam_reader reader("alignments.bam");
+
+// Inspect reference sequences
+const auto& refs = reader.get_reference_names();
+std::cout << "References (" << refs.size() << "):\n";
+for (const auto& name : refs) {
+    std::cout << "  " << name << "\n";
+}
+
+// Access the raw SAM header (e.g., to find read groups)
+const std::string& header = reader.get_header();
+std::cout << "Header:\n" << header << "\n";
+```
+
 ### Convenience Methods
 
 - `get_strand()` — returns `'+'`, `'-'`, or `'.'`
