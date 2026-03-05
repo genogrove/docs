@@ -46,11 +46,8 @@ int main() {
         std::cout << "iv3 comes before iv1\n";
     }
 
-    // Aggregate multiple intervals
-    std::vector<gdt::interval> intervals = {
-        {100, 200}, {150, 250}, {300, 400}
-    };
-    auto merged = gdt::interval::aggregate(intervals);
+    // Aggregate two intervals into one
+    auto merged = gdt::interval::aggregate(iv1, iv2);
 
     // String representation
     std::cout << iv1.to_string() << "\n";  // "[100, 200)"
@@ -62,7 +59,7 @@ int main() {
 **Interval Methods:**
 
 - `overlap(a, b)` - Static method to check overlap
-- `aggregate(intervals)` - Merge overlapping intervals
+- `aggregate(a, b)` - Merge two intervals into their bounding interval
 - Comparison: `<`, `>`, `==`
 - `get_start()`, `set_start()`, `get_end()`, `set_end()`
 - `to_string()` - String representation
@@ -161,9 +158,8 @@ int main() {
         std::cout << "Values are equal\n";
     }
 
-    // Aggregation returns the maximum value
-    std::vector<gdt::numeric> values = {{50}, {100}, {75}};
-    auto max_val = gdt::numeric::aggregate(values);  // Returns 100
+    // Aggregation returns the maximum of two values
+    auto max_val = gdt::numeric::aggregate(n1, n2);  // Returns 200
 
     return 0;
 }
