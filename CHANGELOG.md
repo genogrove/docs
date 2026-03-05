@@ -2,6 +2,12 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-03-05
+
+### Changed
+- Updated compiler support: GCC 13+, Clang 16+, Apple Clang 15+ ([#60](https://github.com/genogrove/docs/pull/60), closes [#55](https://github.com/genogrove/docs/issues/55), closes [#54](https://github.com/genogrove/docs/issues/54))
+- Added try-catch error handling to quick start and all complete examples ([#61](https://github.com/genogrove/docs/pull/61), closes [#38](https://github.com/genogrove/docs/issues/38))
+
 ## 2026-03-02
 
 ### Added
