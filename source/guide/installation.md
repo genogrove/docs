@@ -7,9 +7,9 @@ This guide covers how to build and install genogrove for use in your projects.
 Before building genogrove, ensure you have:
 
 - **C++20 compatible compiler**
-  \- GCC 12 or newer
-  \- Clang 14 or newer
-  \- MSVC 2022 or newer
+  \- GCC 13 or newer
+  \- Clang 16 or newer
+  \- Apple Clang 15 or newer
 - **CMake 3.15 or higher**
 - **htslib** (for compressed file support)
   \- On Ubuntu/Debian: `sudo apt-get install libhts-dev`
@@ -161,10 +161,10 @@ Ensure your compiler supports C++20:
 
 ```bash
 # Check GCC version
-g++ --version  # Should be 12+
+g++ --version  # Should be 13+
 
 # Check Clang version
-clang++ --version  # Should be 14+
+clang++ --version  # Should be 16+
 ```
 
 **Build fails on older systems**
@@ -175,8 +175,8 @@ Consider using a newer compiler via devtoolset (RHEL/CentOS) or a PPA (Ubuntu):
 # Ubuntu example
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt update
-sudo apt install gcc-12 g++-12
-export CXX=g++-12
+sudo apt install gcc-13 g++-13
+export CXX=g++-13
 ```
 
 ## Next Steps

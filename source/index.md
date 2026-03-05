@@ -75,7 +75,7 @@ int main() {
 
 ## Requirements
 
-- **Compiler**: C++20 compatible (GCC 12+, Clang 14+, MSVC 2022+)
+- **Compiler**: C++20 compatible (GCC 13+, Clang 16+, Apple Clang 15+)
 - **Build System**: CMake 3.15 or higher
 - **Dependencies**: htslib (for compressed file support)
 
