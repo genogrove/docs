@@ -23,6 +23,8 @@ Here's a complete example showing file reading, storage, and querying:
 #include <genogrove/io/bed_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <iostream>
+#include <stdexcept>
 
 namespace gio = genogrove::io;
 namespace gdt = genogrove::data_type;
@@ -35,14 +37,18 @@ int main() {
     // Read BED file (handles .bed.gz automatically)
     gio::bed_reader reader("genes.bed.gz");
 
-    for (const auto& entry : reader) {
-        // Insert sorted by chromosome
-        features.insert_data(
-            entry.chrom,
-            entry.interval,
-            entry.name,
-            gst::sorted  // Optimized for pre-sorted data
-        );
+    try {
+        for (const auto& entry : reader) {
+            // Insert sorted by chromosome
+            features.insert_data(
+                entry.chrom,
+                entry.interval,
+                entry.name,
+                gst::sorted  // Optimized for pre-sorted data
+            );
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     // Query for overlapping features
