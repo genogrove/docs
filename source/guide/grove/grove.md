@@ -12,7 +12,7 @@ Beyond the core data structure covered on this page, the grove also supports:
 
 The grove is highly flexible and can work with any key type that satisfies the `key_type_base` concept. Genogrove provides four built-in key types:
 
-- `interval` - Basic genomic intervals (0-based, half-open)
+- `interval` - Basic genomic intervals (closed `[start, end]`)
 - `genomic_coordinate` - Intervals with strand information
 - `numeric` - Single numerical value
 - `kmer` - Single k-mer value

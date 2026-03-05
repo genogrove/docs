@@ -24,9 +24,10 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // Insert into grove (organized by chromosome)
+            // Convert half-open [start, end) to closed [start, end]
             features.insert_data(
                 entry.chrom,
-                entry.interval,
+                gdt::interval(entry.start, entry.end - 1),
                 entry.name.value_or("unnamed"),
                 gst::sorted  // BED files are typically sorted
             );
@@ -83,11 +84,11 @@ int main() {
             // Only process gene features
             if (entry.type != "gene") continue;
 
-            // Create genomic coordinate with strand
+            // Create genomic coordinate with strand (convert half-open to closed)
             gdt::genomic_coordinate coord{
                 entry.strand.value_or('.'),
-                entry.interval.get_start(),
-                entry.interval.get_end()
+                entry.start,
+                entry.end - 1
             };
 
             // Extract annotation info
@@ -159,10 +160,10 @@ int main() {
 
             auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-            // Insert exon
+            // Insert exon (convert half-open to closed)
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
-                entry.interval,
+                gdt::interval(entry.start, entry.end - 1),
                 transcript_id,
                 gst::sorted
             );
