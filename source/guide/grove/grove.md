@@ -24,7 +24,7 @@ You can use any custom type as a key in the grove, as long as it satisfies the `
 ```cpp
 // Required operations for key_type_base concept:
 // 1. Comparison operators: <, >, ==
-// 2. Static overlap detection: overlap(a, b) -> bool
+// 2. Static overlap detection: overlaps(a, b) -> bool
 // 3. Static pairwise aggregation: aggregate(a, b) -> T
 // 4. String representation: to_string() -> string
 ```
@@ -53,7 +53,7 @@ struct CustomInterval {
     }
 
     // Static overlap method
-    static bool overlap(const CustomInterval& a, const CustomInterval& b) {
+    static bool overlaps(const CustomInterval& a, const CustomInterval& b) {
         return !(a.end <= b.start || b.end <= a.start);
     }
 

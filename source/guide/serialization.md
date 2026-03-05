@@ -41,7 +41,9 @@ Always open streams with `std::ios::binary` to avoid platform-specific newline t
 
 ## How It Works
 
-The grove serializes its complete B+ tree structure to a stream in a depth-first traversal:
+The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
+compressed binary stream (not raw bytes), so files are compact but not directly inspectable with
+hex editors. Internally the data is written in a depth-first traversal:
 
 1. Tree order and number of indices (chromosomes)
 2. For each index: the index name followed by the full tree (nodes, keys, and associated data)
