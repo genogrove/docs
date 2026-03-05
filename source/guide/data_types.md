@@ -18,7 +18,7 @@ can be used in compile-time contexts:
 ```cpp
 constexpr gdt::interval region{100, 200};
 static_assert(region.get_start() == 100);
-static_assert(gdt::interval::overlap(region, gdt::interval{150, 250}));
+static_assert(gdt::interval::overlaps(region, gdt::interval{150, 250}));
 ```
 
 ## Intervals
@@ -36,7 +36,7 @@ int main() {
     gdt::interval iv2{150, 250};  // [150, 250]
 
     // Check for overlap
-    if (gdt::interval::overlap(iv1, iv2)) {
+    if (gdt::interval::overlaps(iv1, iv2)) {
         std::cout << "Intervals overlap\n";
     }
 
@@ -58,7 +58,7 @@ int main() {
 
 **Interval Methods:**
 
-- `overlap(a, b)` - Static method to check overlap
+- `overlaps(a, b)` - Static method to check overlap
 - `aggregate(a, b)` - Merge two intervals into their bounding interval
 - Comparison: `<`, `>`, `==`
 - `get_start()`, `set_start()`, `get_end()`, `set_end()`
@@ -86,7 +86,7 @@ int main() {
     coord.set_strand('-');
 
     // All interval methods are available
-    if (gdt::genomic_coordinate::overlap(coord, other_coord)) {
+    if (gdt::genomic_coordinate::overlaps(coord, other_coord)) {
         std::cout << "Coordinates overlap\n";
     }
 
@@ -154,7 +154,7 @@ int main() {
 
     // Overlap occurs only when values are exactly equal
     gdt::numeric n3{100};
-    if (gdt::numeric::overlap(n1, n3)) {
+    if (gdt::numeric::overlaps(n1, n3)) {
         std::cout << "Values are equal\n";
     }
 
@@ -192,7 +192,7 @@ int main() {
 
     // Overlap requires exact sequence match
     gdt::kmer k3{"ACGT"};
-    if (gdt::kmer::overlap(k1, k3)) {
+    if (gdt::kmer::overlaps(k1, k3)) {
         std::cout << "K-mers are identical\n";
     }
 

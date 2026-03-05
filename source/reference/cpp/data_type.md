@@ -2,6 +2,17 @@
 
 The `genogrove::data_type` namespace contains genomic data type definitions and utilities.
 
+## key_type_base Concept
+
+The `key_type_base` concept defines the requirements for custom key types used with the grove:
+
+- `a < b`, `a > b`, `a == b` — Comparison operators
+- `T::overlaps(a, b)` — Static overlap detection returning `bool`
+- `T::aggregate(a, b)` — Static pairwise aggregation returning `T`
+- `a.to_string()` — String representation
+
+All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) satisfy this concept.
+
 ## interval
 
 ```{eval-rst}

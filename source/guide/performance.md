@@ -174,7 +174,7 @@ Save and load grove structures for faster startup:
     my_grove.serialize(out);
 }
 
-// Load grove from disk (implementation in progress)
+// Load grove from disk
 {
     std::ifstream in("grove_data.bin", std::ios::binary);
     auto loaded_grove = gst::grove<gdt::interval, std::string>::deserialize(in);

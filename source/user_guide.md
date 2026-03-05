@@ -7,7 +7,7 @@ This user guide provides comprehensive coverage of genogrove's functionality, fr
 Before starting, ensure you have:
 
 - Installed genogrove (see {doc}`index` for installation instructions)
-- A C++20 compatible compiler (GCC 12+, Clang 14+)
+- A C++20 compatible compiler (GCC 13+, Clang 16+, Apple Clang 15+)
 - Basic familiarity with genomic file formats (BED, GFF/GTF)
 
 ## Guide Contents
