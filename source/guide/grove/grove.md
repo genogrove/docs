@@ -25,7 +25,7 @@ You can use any custom type as a key in the grove, as long as it satisfies the `
 // Required operations for key_type_base concept:
 // 1. Comparison operators: <, >, ==
 // 2. Static overlap detection: overlap(a, b) -> bool
-// 3. Static aggregation: aggregate(vector<T>) -> T
+// 3. Static pairwise aggregation: aggregate(a, b) -> T
 // 4. String representation: to_string() -> string
 ```
 
@@ -57,16 +57,9 @@ struct CustomInterval {
         return !(a.end <= b.start || b.end <= a.start);
     }
 
-    // Static aggregate method
-    static CustomInterval aggregate(const std::vector<CustomInterval>& intervals) {
-        if (intervals.empty()) return {0, 0, 0};
-        size_t min_start = intervals[0].start;
-        size_t max_end = intervals[0].end;
-        for (const auto& iv : intervals) {
-            min_start = std::min(min_start, iv.start);
-            max_end = std::max(max_end, iv.end);
-        }
-        return {min_start, max_end, 0};
+    // Static pairwise aggregate method
+    static CustomInterval aggregate(const CustomInterval& a, const CustomInterval& b) {
+        return {std::min(a.start, b.start), std::max(a.end, b.end), 0};
     }
 
     // String representation
@@ -272,10 +265,18 @@ int main() {
 **Query Features:**
 
 - Efficient overlap-based searching using B+ tree structure
-- Index-specific queries (single chromosome)
+- Index-specific queries (single chromosome) — `index` parameter accepts `std::string_view`
 - Global queries (all chromosomes)
 - Accepts temporaries and named variables (const reference parameter)
 - Returns `query_result` containing matching keys
+
+**Concept Constraints:**
+
+The grove uses C++20 concepts to provide clear compile-time errors:
+
+- `link_if(keys, predicate)` requires `std::invocable<Predicate, key*, key*>`
+- `get_neighbors_if(source, predicate)` requires `std::predicate<Predicate, const edge_data_type&>`
+- Bulk insert `Container` parameters require `std::ranges::input_range<Container>`
 
 ```{toctree}
 :maxdepth: 1

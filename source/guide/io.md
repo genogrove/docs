@@ -237,7 +237,7 @@ int main() {
 - `score` (std::optional\<double>): Score value (`std::nullopt` when `.` in file)
 - `strand` (std::optional\<char>): Strand (+, -, ., or ?)
 - `phase` (std::optional\<int>): Phase for CDS features (0, 1, or 2)
-- `attributes` (std::map\<std::string, std::string>): Key-value pairs from column 9
+- `attributes` (std::map\<std::string, std::string, std::less\<>>): Key-value pairs from column 9 (transparent comparator enables `string_view` lookups)
 - `format` (gff_format): Detected format — `gff_format::GFF3`, `gff_format::GTF`, or `gff_format::UNKNOWN`
 
 ### Attribute Access
@@ -250,7 +250,7 @@ Some helpers try multiple attribute keys to work across GFF3 and GTF conventions
 - `get_exon_number()` — parses `exon_number` as `int`
 - `get_gene_name()` — tries `gene_name`, then falls back to GFF3's `Name`
 - `get_gene_biotype()` — tries `gene_biotype`, `gene_type`, then `biotype`
-- `get_attribute(key)` — generic getter for any attribute key
+- `get_attribute(key)` — generic getter for any attribute key (accepts `std::string_view`)
 
 You can also access the attributes map directly:
 
