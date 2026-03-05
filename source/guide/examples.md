@@ -21,14 +21,18 @@ int main() {
     // Read BED file
     gio::bed_reader reader("data.bed.gz");
 
-    for (const auto& entry : reader) {
-        // Insert into grove (organized by chromosome)
-        features.insert_data(
-            entry.chrom,
-            entry.interval,
-            entry.name.value_or("unnamed"),
-            gst::sorted  // BED files are typically sorted
-        );
+    try {
+        for (const auto& entry : reader) {
+            // Insert into grove (organized by chromosome)
+            features.insert_data(
+                entry.chrom,
+                entry.interval,
+                entry.name.value_or("unnamed"),
+                gst::sorted  // BED files are typically sorted
+            );
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     // Query for overlapping features
@@ -74,31 +78,35 @@ int main() {
     // Read GFF file
     gio::gff_reader reader("annotations.gff.gz");
 
-    for (const auto& entry : reader) {
-        // Only process gene features
-        if (entry.type != "gene") continue;
+    try {
+        for (const auto& entry : reader) {
+            // Only process gene features
+            if (entry.type != "gene") continue;
 
-        // Create genomic coordinate with strand
-        gdt::genomic_coordinate coord{
-            entry.strand.value_or('.'),
-            entry.interval.get_start(),
-            entry.interval.get_end()
-        };
+            // Create genomic coordinate with strand
+            gdt::genomic_coordinate coord{
+                entry.strand.value_or('.'),
+                entry.interval.get_start(),
+                entry.interval.get_end()
+            };
 
-        // Extract annotation info
-        GeneAnnotation annot{
-            entry.get_gene_id().value_or("unknown"),
-            entry.get_gene_name().value_or("unknown"),
-            entry.type
-        };
+            // Extract annotation info
+            GeneAnnotation annot{
+                entry.get_gene_id().value_or("unknown"),
+                entry.get_gene_name().value_or("unknown"),
+                entry.type
+            };
 
-        // Insert into grove
-        annotations.insert_data(
-            entry.seqid,
-            coord,
-            annot,
-            gst::sorted
-        );
+            // Insert into grove
+            annotations.insert_data(
+                entry.seqid,
+                coord,
+                annot,
+                gst::sorted
+            );
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     // Query for genes in a region
@@ -145,21 +153,25 @@ int main() {
     // Read GFF file
     gio::gff_reader reader("transcripts.gff");
 
-    for (const auto& entry : reader) {
-        if (entry.type != "exon") continue;
+    try {
+        for (const auto& entry : reader) {
+            if (entry.type != "exon") continue;
 
-        auto transcript_id = entry.get_transcript_id().value_or("unknown");
+            auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-        // Insert exon
-        auto* exon_key = transcripts.insert_data(
-            entry.seqid,
-            entry.interval,
-            transcript_id,
-            gst::sorted
-        );
+            // Insert exon
+            auto* exon_key = transcripts.insert_data(
+                entry.seqid,
+                entry.interval,
+                transcript_id,
+                gst::sorted
+            );
 
-        // Track exon for this transcript
-        transcript_exons[transcript_id].push_back(exon_key);
+            // Track exon for this transcript
+            transcript_exons[transcript_id].push_back(exon_key);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
     }
 
     // Build graph by connecting consecutive exons in each transcript
