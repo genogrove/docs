@@ -23,7 +23,7 @@ static_assert(gdt::interval::overlap(region, gdt::interval{150, 250}));
 
 ## Intervals
 
-The `interval` class represents genomic regions using 0-based, half-open coordinates:
+The `interval` class represents genomic regions using closed `[start, end]` coordinates (both endpoints inclusive):
 
 ```cpp
 #include <genogrove/data_type/interval.hpp>
@@ -32,8 +32,8 @@ namespace gdt = genogrove::data_type;
 
 int main() {
     // Create intervals
-    gdt::interval iv1{100, 200};  // [100, 200)
-    gdt::interval iv2{150, 250};  // [150, 250)
+    gdt::interval iv1{100, 200};  // [100, 200]
+    gdt::interval iv2{150, 250};  // [150, 250]
 
     // Check for overlap
     if (gdt::interval::overlap(iv1, iv2)) {
@@ -50,7 +50,7 @@ int main() {
     auto merged = gdt::interval::aggregate(iv1, iv2);
 
     // String representation
-    std::cout << iv1.to_string() << "\n";  // "[100, 200)"
+    std::cout << iv1.to_string() << "\n";  // "[100, 200]"
 
     return 0;
 }

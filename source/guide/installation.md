@@ -127,7 +127,7 @@ Compile and run:
 ```bash
 g++ -std=c++20 test.cpp -o test
 ./test
-# Output: Genogrove is working! Interval: [100, 200)
+# Output: Genogrove is working! Interval: [100, 200]
 ```
 
 ## Development Build

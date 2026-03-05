@@ -24,7 +24,9 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // BED files are typically sorted by position
-            my_grove.insert_data(entry.chrom, entry.interval,
+            // Convert half-open [start, end) to closed [start, end]
+            my_grove.insert_data(entry.chrom,
+                                gdt::interval(entry.start, entry.end - 1),
                                 entry.name.value_or("unknown"),
                                 gst::sorted);
         }
@@ -66,7 +68,9 @@ int main() {
     gio::bed_reader reader("large_dataset.bed.gz");
     try {
         for (const auto& entry : reader) {
-            data[entry.chrom].emplace_back(entry.interval, entry.name.value_or("unknown"));
+            data[entry.chrom].emplace_back(
+                gdt::interval(entry.start, entry.end - 1),
+                entry.name.value_or("unknown"));
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
@@ -100,7 +104,8 @@ int main() {
     gio::gff_reader reader("annotations.gff.gz");
     try {
         for (const auto& entry : reader) {
-            my_grove.insert_data(entry.seqid, entry.interval,
+            my_grove.insert_data(entry.seqid,
+                                gdt::interval(entry.start, entry.end - 1),
                                 entry.get_gene_id().value_or(entry.type),
                                 gst::sorted);
         }
@@ -135,7 +140,8 @@ int main() {
 
     try {
         for (const auto& entry : reader) {
-            my_grove.insert_data(entry.chrom, entry.interval,
+            my_grove.insert_data(entry.chrom,
+                                 gdt::interval(entry.start, entry.end - 1),
                                  entry.qname, gst::sorted);
         }
     } catch (const std::runtime_error& e) {
@@ -150,6 +156,7 @@ int main() {
 
 ## Key Points
 
+- Readers produce 0-based half-open `[start, end)` coordinates; the grove uses closed `[start, end]` — subtract 1 from `end` when constructing `gdt::interval`
 - File readers handle decompression automatically
 - For small files, use incremental insertion with `sorted` tag
 - For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag

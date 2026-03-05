@@ -40,9 +40,10 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // Insert sorted by chromosome
+            // Convert half-open [start, end) to closed [start, end]
             features.insert_data(
                 entry.chrom,
-                entry.interval,
+                gdt::interval(entry.start, entry.end - 1),
                 entry.name,
                 gst::sorted  // Optimized for pre-sorted data
             );

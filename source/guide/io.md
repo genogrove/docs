@@ -113,6 +113,25 @@ if (!reader.get_error_message().empty()) {
 }
 ```
 
+## Coordinate Semantics
+
+Readers and the grove use different coordinate conventions:
+
+- **Readers** (`bed_reader`, `gff_reader`, `bam_reader`) produce **0-based half-open** `[start, end)` coordinates — matching their respective file format conventions.
+- **Grove** (`gdt::interval`) uses **closed** `[start, end]` coordinates — where `start` and `end` are both inclusive.
+
+When inserting reader entries into a grove, convert from half-open to closed:
+
+```cpp
+for (const auto& entry : reader) {
+    grove.insert_data(entry.chrom,
+                      gdt::interval(entry.start, entry.end - 1),
+                      data);
+}
+```
+
+The `- 1` on `end` converts from half-open to closed. When outputting results, `entry.start` and `entry.end` retain the original format-native (half-open) values — no conversion needed for writing back to BED/GFF/BAM.
+
 ## BED Files
 
 BED files store genomic intervals with optional metadata. The `bed_reader` provides iterator-based access:
@@ -130,8 +149,8 @@ int main() {
     try {
         for (const auto& entry : reader) {
             std::cout << "Chromosome: " << entry.chrom << "\n"
-                      << "Start: " << entry.interval.get_start() << "\n"
-                      << "End: " << entry.interval.get_end() << "\n";
+                      << "Start: " << entry.start << "\n"
+                      << "End: " << entry.end << "\n";
 
             // Optional fields (if present in file)
             if (entry.name) {
@@ -160,8 +179,8 @@ gio::bed_reader reader("mixed.bed");
 for (const auto& entry : reader) {
     // Always present (BED3)
     std::cout << entry.chrom << "\t"
-              << entry.interval.get_start() << "\t"
-              << entry.interval.get_end();
+              << entry.start << "\t"
+              << entry.end;
 
     // Only set on BED6+ lines
     if (entry.name)   std::cout << "\t" << *entry.name;
@@ -178,7 +197,8 @@ for (const auto& entry : reader) {
 ### BED Entry Fields
 
 - `chrom` (std::string): Chromosome name
-- `interval` (gdt::interval): Genomic interval (0-based, half-open)
+- `start` (size_t): Start position (0-based, half-open)
+- `end` (size_t): End position (0-based, half-open)
 - `name` (std::optional\<std::string>): Feature name
 - `score` (std::optional\<int>): Score value
 - `strand` (std::optional\<char>): Strand (+/-)
@@ -190,7 +210,7 @@ for (const auto& entry : reader) {
 
 GFF3 and GTF files contain gene annotations. The `gff_reader` auto-detects the format variant
 by inspecting the attribute column (GFF3 uses `key=value`, GTF uses `key "value"`).
-Coordinates are 1-based inclusive in the file and converted to 0-based half-open intervals.
+Coordinates are 1-based inclusive in the file and converted to 0-based half-open `[start, end)` values.
 
 ```cpp
 #include <genogrove/io/gff_reader.hpp>
@@ -205,8 +225,8 @@ int main() {
         for (const auto& entry : reader) {
             std::cout << "Sequence: " << entry.seqid << "\n"
                       << "Type: " << entry.type << "\n"
-                      << "Start: " << entry.interval.get_start() << "\n"
-                      << "End: " << entry.interval.get_end() << "\n";
+                      << "Start: " << entry.start << "\n"
+                      << "End: " << entry.end << "\n";
 
             // Access attributes (column 9)
             if (auto gene_id = entry.get_gene_id()) {
@@ -233,7 +253,8 @@ int main() {
 - `seqid` (std::string): Chromosome/contig name
 - `source` (std::string): Source of the feature
 - `type` (std::string): Feature type (gene, exon, CDS, etc.)
-- `interval` (gdt::interval): Genomic interval (0-based, half-open, converted from 1-based inclusive)
+- `start` (size_t): Start position (0-based, half-open, converted from 1-based inclusive)
+- `end` (size_t): End position (0-based, half-open, converted from 1-based inclusive)
 - `score` (std::optional\<double>): Score value (`std::nullopt` when `.` in file)
 - `strand` (std::optional\<char>): Strand (+, -, ., or ?)
 - `phase` (std::optional\<int>): Phase for CDS features (0, 1, or 2)
@@ -279,7 +300,7 @@ If validation fails, `read_next()` throws `std::runtime_error` (or skips the lin
 
 BAM, SAM, and CRAM files store sequence alignments. The `bam_reader` auto-detects the format and handles
 decompression via htslib. SAM uses 1-based positions (POS); these are converted to 0-based half-open
-intervals using the CIGAR string to compute the aligned reference length.
+`[start, end)` values using the CIGAR string to compute the aligned reference length.
 
 ```cpp
 #include <genogrove/io/bam_reader.hpp>
@@ -294,8 +315,8 @@ int main() {
         for (const auto& entry : reader) {
             std::cout << "Read: " << entry.qname << "\n"
                       << "Chrom: " << entry.chrom << "\n"
-                      << "Start: " << entry.interval.get_start() << "\n"
-                      << "End: " << entry.interval.get_end() << "\n"
+                      << "Start: " << entry.start << "\n"
+                      << "End: " << entry.end << "\n"
                       << "Strand: " << entry.get_strand() << "\n"
                       << "MAPQ: " << static_cast<int>(entry.mapq) << "\n"
                       << "CIGAR: " << entry.cigar_string_repr() << "\n";
@@ -350,7 +371,8 @@ gio::bam_reader reader5("reads.bam", opts);
 
 - `qname` (std::string): Read name
 - `chrom` (std::string): Reference sequence name
-- `interval` (gdt::interval): Genomic interval (0-based, half-open, computed from POS + CIGAR)
+- `start` (size_t): Start position (0-based, half-open, computed from POS)
+- `end` (size_t): End position (0-based, half-open, computed from POS + CIGAR)
 - `flags` (alignment_flags): Bitwise flags with convenience methods (`is_paired()`, `is_reverse()`, `is_duplicate()`, etc.)
 - `mapq` (uint8_t): Mapping quality
 - `cigar` (cigar_string): CIGAR operations as a `std::vector<cigar_element>`
