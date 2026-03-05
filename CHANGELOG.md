@@ -10,6 +10,7 @@ All notable changes to the genogrove documentation project will be documented in
 - Updated `aggregate()` to pairwise signature, documented `string_view` adoption and concept constraints ([#62](https://github.com/genogrove/docs/pull/62), closes [#53](https://github.com/genogrove/docs/issues/53), closes [#58](https://github.com/genogrove/docs/issues/58))
 - Updated entry structs to use `start`/`end` fields, documented coordinate semantics (readers = half-open, grove = closed) ([#63](https://github.com/genogrove/docs/pull/63), closes [#52](https://github.com/genogrove/docs/issues/52))
 - Documented grove constructor `order >= 2` validation, `fill_factor` parameter, and deserialization error handling ([#64](https://github.com/genogrove/docs/pull/64), closes [#56](https://github.com/genogrove/docs/issues/56), closes [#57](https://github.com/genogrove/docs/issues/57), closes [#59](https://github.com/genogrove/docs/issues/59))
+- Renamed `overlap()` → `overlaps()` in all code examples and prose; bumped version to 0.17.0; documented zlib compression in serialization; fixed stale compiler versions in `user_guide.md`; added Doxygen directives for `sorted_t`, `bulk_t`, `string_hash`, `key_type_base` ([#70](https://github.com/genogrove/docs/pull/70), closes [#65](https://github.com/genogrove/docs/issues/65), closes [#66](https://github.com/genogrove/docs/issues/66), closes [#67](https://github.com/genogrove/docs/issues/67), closes [#68](https://github.com/genogrove/docs/issues/68), closes [#69](https://github.com/genogrove/docs/issues/69))
 
 ## 2026-03-02
 
