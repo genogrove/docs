@@ -92,8 +92,9 @@ namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 int main() {
-    // grove<key_type, data_type, edge_data_type>
+    // grove<key_type, data_type, edge_data_type>(order, fill_factor)
     // Order determines max keys per node (higher = more cache-friendly)
+    // Order must be >= 2 (throws std::out_of_range otherwise)
 
     // Using built-in interval type
     gst::grove<gdt::interval, std::string> grove1(100);
@@ -101,8 +102,8 @@ int main() {
     // Using genomic_coordinate (with strand)
     gst::grove<gdt::genomic_coordinate, std::string> grove2(100);
 
-    // Using custom key type
-    gst::grove<CustomInterval, std::string> grove3(100);
+    // With custom fill factor for sorted insertion splits (default: 1.0)
+    gst::grove<gdt::interval, std::string> grove3(100, 0.7f);
 
     return 0;
 }
@@ -113,6 +114,11 @@ int main() {
 - `key_type`: Type satisfying `key_type_base` concept (interval, genomic_coordinate, or custom)
 - `data_type`: Associated data type (default: void for no data)
 - `edge_data_type`: Edge metadata for graph overlay (default: void)
+
+**Constructor Parameters:**
+
+- `order` (int): Maximum keys per node. Must be >= 2; throws `std::out_of_range` otherwise.
+- `fill_factor` (float, default `1.0f`): Controls how full the left node is after a sorted-path split. Must be in `[0.5, 1.0]`. At 1.0, leaves are packed fully (~100%). At 0.5, classic midpoint split. Use `get_fill_factor()` / `set_fill_factor()` to inspect or change after construction.
 
 ## Inserting Data
 

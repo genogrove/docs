@@ -179,6 +179,8 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 
 ## Important Notes
 
-- All `deserialize` methods throw `std::runtime_error` on stream read failures
+- All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `data_registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams
+- `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order)
+- The grove's `fill_factor` is included in the serialized format and restored on deserialize
 - Graph edges are **not** serialized — you must rebuild the graph overlay after deserialization
 - All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result
