@@ -7,6 +7,9 @@ All notable changes to the genogrove documentation project will be documented in
 ### Changed
 - Updated compiler support: GCC 13+, Clang 16+, Apple Clang 15+ ([#60](https://github.com/genogrove/docs/pull/60), closes [#55](https://github.com/genogrove/docs/issues/55), closes [#54](https://github.com/genogrove/docs/issues/54))
 - Added try-catch error handling to quick start and all complete examples ([#61](https://github.com/genogrove/docs/pull/61), closes [#38](https://github.com/genogrove/docs/issues/38))
+- Updated `aggregate()` to pairwise signature, documented `string_view` adoption and concept constraints ([#62](https://github.com/genogrove/docs/pull/62), closes [#53](https://github.com/genogrove/docs/issues/53), closes [#58](https://github.com/genogrove/docs/issues/58))
+- Updated entry structs to use `start`/`end` fields, documented coordinate semantics (readers = half-open, grove = closed) ([#63](https://github.com/genogrove/docs/pull/63), closes [#52](https://github.com/genogrove/docs/issues/52))
+- Documented grove constructor `order >= 2` validation, `fill_factor` parameter, and deserialization error handling ([#64](https://github.com/genogrove/docs/pull/64), closes [#56](https://github.com/genogrove/docs/issues/56), closes [#57](https://github.com/genogrove/docs/issues/57), closes [#59](https://github.com/genogrove/docs/issues/59))
 
 ## 2026-03-02
 
