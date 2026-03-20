@@ -90,7 +90,7 @@ This pattern applies to all readers (`bed_reader`, `gff_reader`, `bam_reader`).
 ### Lenient Mode
 
 To skip malformed records instead of throwing, enable lenient mode via the reader's options struct.
-Skipped errors are accumulated in `get_error_message()`:
+Use `get_error_message()` to check for errors on individual records:
 
 ```cpp
 namespace gio = genogrove::io;
@@ -107,9 +107,25 @@ gio::bed_reader reader("data.bed", gio::bed_reader_options{.skip_invalid_lines =
 for (const auto& entry : reader) {
     // process entries — malformed lines are silently skipped
 }
+```
 
-if (!reader.get_error_message().empty()) {
-    std::cerr << "Warning: " << reader.get_error_message() << "\n";
+### Error Message Lifecycle
+
+`get_error_message()` reflects the **most recently attempted record** only — it is cleared at the
+start of each iteration. It does not accumulate errors across records.
+
+- **During iteration**: contains the error from the last skipped record (if any), or is empty if the
+  last record was valid.
+- **After iteration completes**: empty, because the final read was EOF (no error).
+
+To log every skipped record, check `get_error_message()` inside the loop:
+
+```cpp
+for (const auto& entry : reader) {
+    if (!reader.get_error_message().empty()) {
+        std::cerr << "Skipped: " << reader.get_error_message() << "\n";
+    }
+    // process valid entry...
 }
 ```
 
