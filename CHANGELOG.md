@@ -9,6 +9,9 @@ All notable changes to the genogrove documentation project will be documented in
 
 ### Changed
 - Documented `get_error_message()` contract: reflects most recent record only, cleared each iteration; added Error Message Lifecycle section with correct usage pattern ([#82](https://github.com/genogrove/docs/pull/82), closes [#76](https://github.com/genogrove/docs/issues/76))
+- Updated graph guide examples to use `const auto&` for `get_keys()` which now returns by const reference ([#83](https://github.com/genogrove/docs/pull/83), closes [#77](https://github.com/genogrove/docs/issues/77))
+- Documented opt-in GTF attribute validation (`validate_gtf` option) with usage examples ([#83](https://github.com/genogrove/docs/pull/83), closes [#78](https://github.com/genogrove/docs/issues/78))
+- Bumped version to 0.18.0 in `conf.py` and README badge ([#83](https://github.com/genogrove/docs/pull/83), closes [#79](https://github.com/genogrove/docs/issues/79))
 
 ### Fixed
 - Renamed `data_registry` → `registry` throughout docs to match library rename; removed stale `index` and `index_registry` API reference sections; updated `registry::get()` to return references instead of pointers ([#81](https://github.com/genogrove/docs/pull/81))
