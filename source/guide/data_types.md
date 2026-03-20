@@ -215,5 +215,5 @@ int main() {
 :maxdepth: 1
 
 data_types/key
-data_types/data_registry
+data_types/registry
 ```

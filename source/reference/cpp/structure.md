@@ -30,6 +30,11 @@ The `genogrove::structure` namespace contains core data structures for genomic d
 
 ## grove
 
+Both `grove` and `node` are **non-copyable, move-only** types (Rule of Five). Copy construction
+and copy assignment are deleted because these classes manage owned raw pointers—a shallow copy
+would cause double-free. Move construction and move assignment are provided so groves can be
+returned from functions (e.g., `grove::deserialize()`) and stored in containers.
+
 ```{eval-rst}
 .. doxygenclass:: genogrove::structure::grove
    :members:
@@ -37,6 +42,9 @@ The `genogrove::structure` namespace contains core data structures for genomic d
 ```
 
 ## node
+
+`node` is **non-copyable, move-only** (same rationale as `grove`). The move constructor and move
+assignment operator transfer ownership of child pointers and leave the source node empty.
 
 ```{eval-rst}
 .. doxygenclass:: genogrove::structure::node
