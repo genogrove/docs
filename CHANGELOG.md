@@ -7,6 +7,9 @@ All notable changes to the genogrove documentation project will be documented in
 ### Added
 - Documented node and grove copy/move semantics (non-copyable, move-only) in API reference, grove guide, and serialization guide ([#81](https://github.com/genogrove/docs/pull/81), closes [#71](https://github.com/genogrove/docs/issues/71))
 
+### Changed
+- Documented `get_error_message()` contract: reflects most recent record only, cleared each iteration; added Error Message Lifecycle section with correct usage pattern ([#82](https://github.com/genogrove/docs/pull/82), closes [#76](https://github.com/genogrove/docs/issues/76))
+
 ### Fixed
 - Renamed `data_registry` → `registry` throughout docs to match library rename; removed stale `index` and `index_registry` API reference sections; updated `registry::get()` to return references instead of pointers ([#81](https://github.com/genogrove/docs/pull/81))
 
