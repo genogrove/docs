@@ -14,6 +14,7 @@ All notable changes to the genogrove documentation project will be documented in
 - Bumped version to 0.18.0 in `conf.py` and README badge ([#83](https://github.com/genogrove/docs/pull/83), closes [#79](https://github.com/genogrove/docs/issues/79))
 
 ### Fixed
+- Fixed wrong parameter types in graph function signatures: `key_type*` → `gdt::key<key_type, data_type>*` in all signature blocks across `graph.md` and `graph_manipulation.md` ([#84](https://github.com/genogrove/docs/pull/84), closes [#80](https://github.com/genogrove/docs/issues/80))
 - Renamed `data_registry` → `registry` throughout docs to match library rename; removed stale `index` and `index_registry` API reference sections; updated `registry::get()` to return references instead of pointers ([#81](https://github.com/genogrove/docs/pull/81))
 
 ## 2026-03-05
