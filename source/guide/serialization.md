@@ -181,6 +181,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 
 ## Important Notes
 
+- `grove::deserialize()` returns a grove **by value**. Because `grove` is a move-only type (copy is deleted), the return relies on Named Return Value Optimization (NRVO) or implicit move. No special handling is needed—just assign the result to a local variable as shown in the examples above.
 - All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `data_registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams
 - `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order)
 - The grove's `fill_factor` is included in the serialized format and restored on deserialize

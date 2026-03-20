@@ -113,6 +113,31 @@ int main() {
 - `order` (int): Maximum keys per node. Must be >= 2; throws `std::out_of_range` otherwise.
 - `fill_factor` (float, default `1.0f`): Controls how full the left node is after a sorted-path split. Must be in `[0.5, 1.0]`. At 1.0, leaves are packed fully (~100%). At 0.5, classic midpoint split. Use `get_fill_factor()` / `set_fill_factor()` to inspect or change after construction.
 
+## Ownership Semantics
+
+`grove` (and its internal `node` type) is **non-copyable and move-only**. Copy construction and
+copy assignment are deleted because these types own raw pointers internally—a shallow copy would
+cause a double-free. Move operations are provided, so you can return a grove from a function or
+store it in a container:
+
+```cpp
+// OK — move construction
+auto loaded = gst::grove<gdt::interval, std::string>::deserialize(in);
+
+// OK — pass by reference
+void process(gst::grove<gdt::interval, std::string>& g);
+
+// OK — move into a container
+std::vector<gst::grove<gdt::interval, std::string>> groves;
+groves.push_back(std::move(my_grove));
+
+// ERROR — copy is deleted
+// auto copy = my_grove;                   // won't compile
+// void f(gst::grove<gdt::interval, std::string> g);  // won't compile (pass-by-value copies)
+```
+
+Always pass groves by reference or move them explicitly with `std::move`.
+
 ## Inserting Data
 
 The grove supports multiple insertion modes with multi-index organization:
