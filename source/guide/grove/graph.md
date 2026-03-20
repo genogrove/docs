@@ -120,7 +120,7 @@ gdt::interval query_region{1000, 3000};
 auto results = my_grove.intersect(query_region, "chr1");
 
 // Get key handles from query results
-auto overlapping_keys = results.get_keys();
+const auto& overlapping_keys = results.get_keys();
 
 // Create edges between all overlapping features
 for (size_t i = 0; i < overlapping_keys.size(); ++i) {
@@ -302,7 +302,7 @@ grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 // Query for genes in a specific region
 auto results = grove.intersect(gdt::interval{1000, 10000}, "chr1");
-auto region_genes = results.get_keys();
+const auto& region_genes = results.get_keys();
 
 // Link genes in the region if they're on the same strand
 grove.link_if(region_genes,
