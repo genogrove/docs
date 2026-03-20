@@ -34,10 +34,11 @@ The `add_edge` function creates a directed connection from one key to another in
 
 ```cpp
 // Without metadata
-void add_edge(const key_type* source, const key_type* target)
+void add_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_type>* target)
 
 // With metadata
-void add_edge(const key_type* source, const key_type* target, const EdgeMetadata& metadata)
+void add_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_type>* target,
+              EdgeMetadata&& metadata)
 ```
 
 **Parameters:**
@@ -208,11 +209,11 @@ satisfy certain criteria (e.g., belonging to the same transcript, within a dista
 ```cpp
 // Without metadata: predicate returns bool
 template<typename Predicate>
-void link_if(const std::vector<key_type*>& keys, Predicate predicate)
+void link_if(const std::vector<gdt::key<key_type, data_type>*>& keys, Predicate predicate)
 
 // With metadata: predicate returns std::optional<EdgeMetadata>
 template<typename Predicate>
-void link_if(const std::vector<key_type*>& keys, Predicate predicate)
+void link_if(const std::vector<gdt::key<key_type, data_type>*>& keys, Predicate predicate)
 ```
 
 **Parameters:**
@@ -333,10 +334,10 @@ The `add_external_key` function creates keys that:
 
 ```cpp
 // With associated data
-key_type* add_external_key(key_type key_value, data_type data_value)
+gdt::key<key_type, data_type>* add_external_key(key_type key_value, data_type data_value)
 
 // Without associated data (when data_type is void)
-key_type* add_external_key(key_type key_value)
+gdt::key<key_type, data_type>* add_external_key(key_type key_value)
 ```
 
 **Parameters:**
