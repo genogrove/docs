@@ -301,11 +301,24 @@ if (it != entry.attributes.end()) {
 
 ### GTF Validation
 
-When GTF format is detected, the reader enforces GTF requirements:
+GTF attribute validation is **opt-in** via the `validate_gtf` option (default: `false`). When
+enabled on GTF-format files, the reader enforces mandatory GTF2 attributes:
+
 - `gene_id` is required on **all** features
 - `transcript_id` is required on exon, CDS, start_codon, stop_codon, UTR, 5UTR, and 3UTR features
 
-If validation fails, `read_next()` throws `std::runtime_error` (or skips the line in lenient mode).
+If validation fails, `read_next()` throws `std::runtime_error` (or skips the line when
+`skip_invalid_lines` is enabled). GFF3 files are unaffected regardless of this setting.
+
+```cpp
+// Enable GTF validation
+gio::gff_reader reader("annotations.gtf",
+    gio::gff_reader_options{.validate_gtf = true});
+
+// Combine with lenient mode to skip invalid records instead of throwing
+gio::gff_reader lenient_reader("annotations.gtf",
+    gio::gff_reader_options{.skip_invalid_lines = true, .validate_gtf = true});
+```
 
 ### Convenience Methods
 
