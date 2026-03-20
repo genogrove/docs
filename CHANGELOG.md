@@ -2,6 +2,14 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-03-19
+
+### Added
+- Documented node and grove copy/move semantics (non-copyable, move-only) in API reference, grove guide, and serialization guide ([#81](https://github.com/genogrove/docs/pull/81), closes [#71](https://github.com/genogrove/docs/issues/71))
+
+### Fixed
+- Renamed `data_registry` → `registry` throughout docs to match library rename; removed stale `index` and `index_registry` API reference sections; updated `registry::get()` to return references instead of pointers ([#81](https://github.com/genogrove/docs/pull/81))
+
 ## 2026-03-05
 
 ### Changed
