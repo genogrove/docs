@@ -61,26 +61,10 @@ All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) sat
    :undoc-members:
 ```
 
-## data_registry
+## registry
 
 ```{eval-rst}
-.. doxygenclass:: genogrove::data_type::data_registry
-   :members:
-   :undoc-members:
-```
-
-## index
-
-```{eval-rst}
-.. doxygenclass:: genogrove::data_type::index
-   :members:
-   :undoc-members:
-```
-
-## index_registry
-
-```{eval-rst}
-.. doxygenclass:: genogrove::data_type::index_registry
+.. doxygenclass:: genogrove::data_type::registry
    :members:
    :undoc-members:
 ```
