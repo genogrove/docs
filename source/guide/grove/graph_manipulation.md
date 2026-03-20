@@ -11,7 +11,7 @@ The `has_edge` function checks whether a directed edge exists from a source key 
 **Function Signature:**
 
 ```cpp
-bool has_edge(const key_type* source, const key_type* target) const
+bool has_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_type>* target) const
 ```
 
 **Parameters:**
@@ -58,7 +58,7 @@ The `get_edges` function retrieves the metadata for all outgoing edges from a so
 
 ```cpp
 template<typename M = edge_data_type>
-std::vector<M> get_edges(source) const
+std::vector<M> get_edges(gdt::key<key_type, data_type>* source) const
     requires (!std::is_void_v<edge_data_type>)
 ```
 
@@ -114,7 +114,7 @@ The `get_edge_list` function retrieves all outgoing edges from a source key as `
 **Function Signature:**
 
 ```cpp
-const std::vector<edge>& get_edge_list(source) const
+const std::vector<edge>& get_edge_list(gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
@@ -163,7 +163,7 @@ The `get_neighbors` function returns all target keys that are connected from a s
 **Function Signature:**
 
 ```cpp
-std::vector<const key_type*> get_neighbors(const key_type* source) const
+std::vector<gdt::key<key_type, data_type>*> get_neighbors(gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
@@ -240,7 +240,7 @@ The `get_neighbors_if` function returns only neighbors whose edges satisfy a giv
 
 ```cpp
 template<typename Predicate>
-std::vector<const key_type*> get_neighbors_if(const key_type* source, Predicate pred) const
+std::vector<gdt::key<key_type, data_type>*> get_neighbors_if(gdt::key<key_type, data_type>* source, Predicate pred) const
 ```
 
 **Parameters:**
@@ -311,7 +311,7 @@ The `remove_edge` function removes a specific directed edge from the graph. The 
 **Function Signature:**
 
 ```cpp
-bool remove_edge(source, target)
+bool remove_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_type>* target)
 ```
 
 **Parameters:**
@@ -378,7 +378,7 @@ The `out_degree` function returns the number of outgoing edges from a specific k
 **Function Signature:**
 
 ```cpp
-size_t out_degree(const key_type* source) const
+size_t out_degree(gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
@@ -413,10 +413,10 @@ std::cout << "TF1 regulates " << grove.out_degree(tf) << " genes\n";
 gst::grove<gdt::interval, std::string, void> network(100);
 
 // Build gene regulatory network...
-std::vector<const key_type*> all_genes = { /* ... */ };
+std::vector<gdt::key<gdt::interval, std::string>*> all_genes = { /* ... */ };
 
 // Find genes with high out-degree (hub regulators)
-std::vector<const key_type*> hubs;
+std::vector<gdt::key<gdt::interval, std::string>*> hubs;
 for (auto* gene : all_genes) {
     if (network.out_degree(gene) >= 10) {
         hubs.push_back(gene);
