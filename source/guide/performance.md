@@ -40,12 +40,11 @@ Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted
 For loading large datasets (>10K intervals), bulk insertion provides dramatic performance improvements:
 
 ```cpp
-std::vector<gdt::interval> intervals = load_intervals();
-std::vector<std::string> data = load_data();
+std::vector<std::pair<gdt::interval, std::string>> data = load_data();
 
 // Bulk insertion - ~10-20x faster than incremental
 // Data must be sorted before calling this function
-grove.insert_data("chr1", intervals, data, gst::sorted, gst::bulk);
+grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 ```
 
 **Runtime Characteristics:**

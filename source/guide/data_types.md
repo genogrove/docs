@@ -83,7 +83,7 @@ int main() {
     size_t start = coord.get_start();
     size_t end = coord.get_end();
 
-    // Modify strand (validates: must be '+', '-', or '.')
+    // Modify strand (validates: must be '+', '-', '.', or '*')
     coord.set_strand('-');
 
     // Modify both positions atomically
