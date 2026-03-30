@@ -48,6 +48,7 @@ hex editors. Internally the data is written in a depth-first traversal:
 1. Tree order and number of indices (chromosomes)
 2. For each index: the index name followed by the full tree (nodes, keys, and associated data)
 3. External key storage
+4. Graph overlay edges
 
 All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and common data types
 (`std::string`, trivially copyable types like `int`, `double`, `uint32_t`) are serialized automatically.
@@ -185,5 +186,6 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 - All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams
 - `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order)
 - The grove's `fill_factor` is included in the serialized format and restored on deserialize
-- Graph edges are **not** serialized — you must rebuild the graph overlay after deserialization
+- Graph edges added via `add_edge()` or `link_if()` are now persisted during serialization and restored on deserialize
+- **Breaking format change**: The serialized format now includes graph edges after external keys. Files serialized with older versions are incompatible and must be re-created.
 - All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result

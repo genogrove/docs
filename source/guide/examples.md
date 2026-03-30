@@ -84,11 +84,11 @@ int main() {
             // Only process gene features
             if (entry.type != "gene") continue;
 
-            // Create genomic coordinate with strand (convert half-open to closed)
+            // Create genomic coordinate with strand (GFF is 1-based inclusive)
             gdt::genomic_coordinate coord{
                 entry.strand.value_or('.'),
                 entry.start,
-                entry.end - 1
+                entry.end
             };
 
             // Extract annotation info
@@ -160,10 +160,10 @@ int main() {
 
             auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-            // Insert exon (convert half-open to closed)
+            // Insert exon (GFF is 1-based inclusive)
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
-                gdt::interval(entry.start, entry.end - 1),
+                gdt::interval(entry.start, entry.end),
                 transcript_id,
                 gst::sorted
             );
