@@ -236,14 +236,13 @@ namespace gst = genogrove::structure;
 int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
-    // Prepare sorted data
-    std::vector<gdt::interval> intervals = {
-        {100, 200}, {300, 400}, {500, 600}
+    // Prepare sorted data as a container of (key, data) pairs
+    std::vector<std::pair<gdt::interval, std::string>> data = {
+        {{100, 200}, "gene1"}, {{300, 400}, "gene2"}, {{500, 600}, "gene3"}
     };
-    std::vector<std::string> names = {"gene1", "gene2", "gene3"};
 
     // Bulk insert with sorted data (fastest method)
-    my_grove.insert_data("chr1", intervals, names, gst::sorted, gst::bulk);
+    my_grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 
     return 0;
 }
