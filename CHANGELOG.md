@@ -2,6 +2,20 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-03-30
+
+### Added
+- Documented `get_root_nodes()` const-reference return semantics and `set_root_nodes()` privatization in grove guide ([#93](https://github.com/genogrove/docs/pull/93), closes [#85](https://github.com/genogrove/docs/issues/85), closes [#72](https://github.com/genogrove/docs/issues/72), closes [#74](https://github.com/genogrove/docs/issues/74))
+- Documented `interval::INVALID_POSITION` and `kmer::BASE_MASK` named constants ([#93](https://github.com/genogrove/docs/pull/93), closes [#87](https://github.com/genogrove/docs/issues/87))
+- Documented GTF quoted semicolon handling in attribute values ([#93](https://github.com/genogrove/docs/pull/93), closes [#89](https://github.com/genogrove/docs/issues/89))
+- Documented graph overlay edge serialization and breaking format change ([#93](https://github.com/genogrove/docs/pull/93), closes [#92](https://github.com/genogrove/docs/issues/92))
+
+### Changed
+- Updated GFF/GTF coordinate semantics to 1-based inclusive (native format); added per-format conversion table in I/O guide and updated all GFF examples ([#93](https://github.com/genogrove/docs/pull/93), closes [#88](https://github.com/genogrove/docs/issues/88))
+- Replaced `set_start()`/`set_end()` with `set_range(start, end)` in interval and genomic_coordinate docs; noted `set_strand()` validation ([#93](https://github.com/genogrove/docs/pull/93), closes [#90](https://github.com/genogrove/docs/issues/90))
+- Updated bulk insert range concept requirements: `forward_range`+`sized_range` for sorted bulk, `random_access_range`+`sized_range` for unsorted bulk ([#93](https://github.com/genogrove/docs/pull/93), closes [#91](https://github.com/genogrove/docs/issues/91))
+- Removed `skip_invalid_records` from `bam_reader_options` documentation ([#93](https://github.com/genogrove/docs/pull/93), closes [#86](https://github.com/genogrove/docs/issues/86))
+
 ## 2026-03-19
 
 ### Added
