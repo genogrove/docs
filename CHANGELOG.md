@@ -15,6 +15,11 @@ All notable changes to the genogrove documentation project will be documented in
 - Replaced `set_start()`/`set_end()` with `set_range(start, end)` in interval and genomic_coordinate docs; noted `set_strand()` validation ([#93](https://github.com/genogrove/docs/pull/93), closes [#90](https://github.com/genogrove/docs/issues/90))
 - Updated bulk insert range concept requirements: `forward_range`+`sized_range` for sorted bulk, `random_access_range`+`sized_range` for unsorted bulk ([#93](https://github.com/genogrove/docs/pull/93), closes [#91](https://github.com/genogrove/docs/issues/91))
 - Removed `skip_invalid_records` from `bam_reader_options` documentation ([#93](https://github.com/genogrove/docs/pull/93), closes [#86](https://github.com/genogrove/docs/issues/86))
+- Bumped version to 0.19.0 in `conf.py` and README badge ([#97](https://github.com/genogrove/docs/pull/97), closes [#96](https://github.com/genogrove/docs/issues/96))
+
+### Fixed
+- Fixed bulk insert examples in `grove.md` and `performance.md` to use single container of pairs instead of non-existent separate-container API ([#97](https://github.com/genogrove/docs/pull/97), closes [#94](https://github.com/genogrove/docs/issues/94))
+- Added missing `'*'` wildcard strand to `set_strand()` validation comment in `data_types.md` ([#97](https://github.com/genogrove/docs/pull/97), closes [#95](https://github.com/genogrove/docs/issues/95))
 
 ## 2026-03-19
 
