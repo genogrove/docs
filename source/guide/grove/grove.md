@@ -138,6 +138,22 @@ groves.push_back(std::move(my_grove));
 
 Always pass groves by reference or move them explicitly with `std::move`.
 
+## Accessing Indices
+
+Use `get_root_nodes()` to access the grove's index map (chromosome → root node). It returns a
+**const reference** to the internal `std::unordered_map`, so use `.at()` or `.find()` for lookups
+(not `operator[]`, which requires a non-const map). The reference is valid only while the grove is
+alive and unmodified.
+
+```cpp
+const auto& roots = my_grove.get_root_nodes();
+if (auto it = roots.find("chr1"); it != roots.end()) {
+    // it->second is the root node for chr1
+}
+```
+
+`set_root_nodes()` is private — indices are created automatically on first insertion.
+
 ## Inserting Data
 
 The grove supports multiple insertion modes with multi-index organization:
@@ -307,7 +323,8 @@ The grove uses C++20 concepts to provide clear compile-time errors:
 
 - `link_if(keys, predicate)` requires `std::invocable<Predicate, key*, key*>`
 - `get_neighbors_if(source, predicate)` requires `std::predicate<Predicate, const edge_data_type&>`
-- Bulk insert `Container` parameters require `std::ranges::input_range<Container>`
+- `insert_data(index, data, sorted, bulk)` and `build_tree_bottom_up`: `Container` must satisfy `std::ranges::forward_range` and `std::ranges::sized_range`
+- `insert_data(index, data, bulk)`: `Container` must satisfy `std::ranges::random_access_range` and `std::ranges::sized_range`
 
 ```{toctree}
 :maxdepth: 1

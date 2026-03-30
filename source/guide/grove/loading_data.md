@@ -104,8 +104,9 @@ int main() {
     gio::gff_reader reader("annotations.gff.gz");
     try {
         for (const auto& entry : reader) {
+            // GFF coordinates are 1-based inclusive — use start and end directly
             my_grove.insert_data(entry.seqid,
-                                gdt::interval(entry.start, entry.end - 1),
+                                gdt::interval(entry.start, entry.end),
                                 entry.get_gene_id().value_or(entry.type),
                                 gst::sorted);
         }
@@ -156,7 +157,8 @@ int main() {
 
 ## Key Points
 
-- Readers produce 0-based half-open `[start, end)` coordinates; the grove uses closed `[start, end]` — subtract 1 from `end` when constructing `gdt::interval`
+- BED and BAM readers produce 0-based half-open `[start, end)` coordinates — subtract 1 from `end` when constructing `gdt::interval`
+- GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — use `start` and `end` directly with `gdt::interval`
 - File readers handle decompression automatically
 - For small files, use incremental insertion with `sorted` tag
 - For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag

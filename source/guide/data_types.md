@@ -58,10 +58,11 @@ int main() {
 
 **Interval Methods:**
 
+- `INVALID_POSITION` — Named constant (`std::numeric_limits<size_t>::max()`) used as the sentinel for default-constructed (uninitialized) intervals. Use this instead of `std::string::npos` when checking for uninitialized state.
 - `overlaps(a, b)` - Static method to check overlap
 - `aggregate(a, b)` - Merge two intervals into their bounding interval
 - Comparison: `<`, `>`, `==`
-- `get_start()`, `set_start()`, `get_end()`, `set_end()`
+- `get_start()`, `get_end()`, `set_range(start, end)` — validates both positions atomically
 - `to_string()` - String representation
 
 ## Genomic Coordinates
@@ -82,8 +83,11 @@ int main() {
     size_t start = coord.get_start();
     size_t end = coord.get_end();
 
-    // Modify strand
+    // Modify strand (validates: must be '+', '-', or '.')
     coord.set_strand('-');
+
+    // Modify both positions atomically
+    coord.set_range(1500, 2500);
 
     // All interval methods are available
     if (gdt::genomic_coordinate::overlaps(coord, other_coord)) {
@@ -206,6 +210,7 @@ int main() {
 **K-mer Characteristics:**
 
 - Encoding: 2-bit per nucleotide (A=00, C=01, G=10, T=11)
+- `BASE_MASK` — Named constant (`0x03`) for the 2-bit nucleotide mask used in `decode_base()`
 - Maximum length: 32 nucleotides (fits in 64-bit integer)
 - Comparison: Orders by k-value first, then encoding
 - Overlap: Exact sequence match required

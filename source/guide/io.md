@@ -101,8 +101,7 @@ gio::bed_reader reader("data.bed", gio::bed_reader_options{.skip_invalid_lines =
 // GFF: skip_invalid_lines
 // gio::gff_reader reader("data.gff", gio::gff_reader_options{.skip_invalid_lines = true});
 
-// BAM: skip_invalid_records
-// gio::bam_reader reader("data.bam", gio::bam_reader_options{.skip_invalid_records = true});
+// BAM: bam_reader throws only on I/O errors — no lenient mode option
 
 for (const auto& entry : reader) {
     // process entries — malformed lines are silently skipped
@@ -131,22 +130,28 @@ for (const auto& entry : reader) {
 
 ## Coordinate Semantics
 
-Readers and the grove use different coordinate conventions:
+Readers preserve format-native coordinate conventions. The grove uses **closed** `[start, end]` coordinates (both endpoints inclusive). When inserting reader entries, convert as needed:
 
-- **Readers** (`bed_reader`, `gff_reader`, `bam_reader`) produce **0-based half-open** `[start, end)` coordinates — matching their respective file format conventions.
-- **Grove** (`gdt::interval`) uses **closed** `[start, end]` coordinates — where `start` and `end` are both inclusive.
-
-When inserting reader entries into a grove, convert from half-open to closed:
+| Format    | Convention             | Conversion to grove interval                        |
+|-----------|------------------------|-----------------------------------------------------|
+| BED / BAM | 0-based half-open `[start, end)` | `gdt::interval(entry.start, entry.end - 1)` |
+| GFF / GTF | 1-based inclusive `[start, end]` | `gdt::interval(entry.start, entry.end)`      |
 
 ```cpp
-for (const auto& entry : reader) {
+// BED / BAM — subtract 1 from end
+for (const auto& entry : bed_reader) {
     grove.insert_data(entry.chrom,
                       gdt::interval(entry.start, entry.end - 1),
                       data);
 }
-```
 
-The `- 1` on `end` converts from half-open to closed. When outputting results, `entry.start` and `entry.end` retain the original format-native (half-open) values — no conversion needed for writing back to BED/GFF/BAM.
+// GFF / GTF — use start and end directly (both already inclusive)
+for (const auto& entry : gff_reader) {
+    grove.insert_data(entry.seqid,
+                      gdt::interval(entry.start, entry.end),
+                      data);
+}
+```
 
 ## BED Files
 
@@ -226,7 +231,7 @@ for (const auto& entry : reader) {
 
 GFF3 and GTF files contain gene annotations. The `gff_reader` auto-detects the format variant
 by inspecting the attribute column (GFF3 uses `key=value`, GTF uses `key "value"`).
-Coordinates are 1-based inclusive in the file and converted to 0-based half-open `[start, end)` values.
+Coordinates are stored in native GFF format: **1-based inclusive** `[start, end]`.
 
 ```cpp
 #include <genogrove/io/gff_reader.hpp>
@@ -269,8 +274,8 @@ int main() {
 - `seqid` (std::string): Chromosome/contig name
 - `source` (std::string): Source of the feature
 - `type` (std::string): Feature type (gene, exon, CDS, etc.)
-- `start` (size_t): Start position (0-based, half-open, converted from 1-based inclusive)
-- `end` (size_t): End position (0-based, half-open, converted from 1-based inclusive)
+- `start` (size_t): Start position (1-based inclusive, native GFF format)
+- `end` (size_t): End position (1-based inclusive, native GFF format)
 - `score` (std::optional\<double>): Score value (`std::nullopt` when `.` in file)
 - `strand` (std::optional\<char>): Strand (+, -, ., or ?)
 - `phase` (std::optional\<int>): Phase for CDS features (0, 1, or 2)
@@ -298,6 +303,12 @@ if (it != entry.attributes.end()) {
     std::cout << "ID: " << it->second << "\n";
 }
 ```
+
+### GTF Quoted Semicolons
+
+Semicolons inside double-quoted GTF attribute values (e.g., `gene_name "test;name"`) are correctly
+preserved. The parser recognizes that these are part of the value rather than field delimiters.
+GFF3 files are unaffected — GFF3 uses URL-encoding (`%3B`) for literal semicolons per spec.
 
 ### GTF Validation
 
@@ -394,7 +405,6 @@ gio::bam_reader reader5("reads.bam", opts);
 - `skip_qc_fail` (bool, default `false`): Skip QC-failed reads
 - `skip_duplicates` (bool, default `false`): Skip duplicate reads
 - `min_mapq` (uint8_t, default `0`): Minimum mapping quality
-- `skip_invalid_records` (bool, default `false`): Skip malformed records instead of throwing
 
 ### SAM Entry Fields
 
