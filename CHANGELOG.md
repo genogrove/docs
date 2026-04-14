@@ -2,6 +2,23 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-04-13
+
+### Added
+- Documented `grove::remove_key()` with rebalance/root-collapse behaviour and automatic graph edge cleanup ([#102](https://github.com/genogrove/docs/pull/102), closes [#100](https://github.com/genogrove/docs/issues/100))
+- Documented bulk edge removal APIs (`remove_edges_from`, `remove_edges_to`, `remove_all_edges`, `remove_edges_if`) in graph manipulation guide ([#102](https://github.com/genogrove/docs/pull/102), closes [#100](https://github.com/genogrove/docs/issues/100))
+- Added FASTA/FASTQ I/O section covering streaming `fasta_reader` and indexed random-access `fasta_index`, including GFF→FASTA coordinate example ([#102](https://github.com/genogrove/docs/pull/102), closes [#98](https://github.com/genogrove/docs/issues/98), closes [#99](https://github.com/genogrove/docs/issues/99))
+- Added Doxygen directives for `fasta_reader`, `fasta_index`, `fasta_entry`, and `fasta_reader_options` in the C++ I/O reference ([#102](https://github.com/genogrove/docs/pull/102), closes [#99](https://github.com/genogrove/docs/issues/99))
+
+### Changed
+- Updated grove constructor docs: minimum order raised from 2 to 3; throws `std::invalid_argument`; dropped removed `fill_factor` parameter and `get_fill_factor`/`set_fill_factor` references ([#102](https://github.com/genogrove/docs/pull/102), closes [#100](https://github.com/genogrove/docs/issues/100), closes [#101](https://github.com/genogrove/docs/issues/101))
+- Removed stale `fill_factor` bullet from serialization guide ([#102](https://github.com/genogrove/docs/pull/102), closes [#100](https://github.com/genogrove/docs/issues/100))
+- Replaced outdated "BED, GFF/GTF, VCF" feature bullet on the landing page with "BED, GFF/GTF, BAM/SAM, FASTA/FASTQ" ([#102](https://github.com/genogrove/docs/pull/102))
+- Bumped version to 0.21.0 in `conf.py` and README badge ([#102](https://github.com/genogrove/docs/pull/102))
+
+### Fixed
+- Corrected `fasta_reader` example to use try/catch on `std::runtime_error` instead of a post-loop `get_error_message()` check (reader has no lenient mode; `read_next()` throws on parse/I/O errors) ([#102](https://github.com/genogrove/docs/pull/102))
+
 ## 2026-03-30
 
 ### Added
