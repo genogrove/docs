@@ -502,15 +502,15 @@ namespace gio = genogrove::io;
 int main() {
     gio::fasta_reader reader("reads.fq.gz");
 
-    for (const auto& entry : reader) {
-        std::cout << entry.name << " (" << entry.sequence.size() << " bp)\n";
-        if (entry.quality) {
-            std::cout << "  quality: " << *entry.quality << "\n";
+    try {
+        for (const auto& entry : reader) {
+            std::cout << entry.name << " (" << entry.sequence.size() << " bp)\n";
+            if (entry.quality) {
+                std::cout << "  quality: " << *entry.quality << "\n";
+            }
         }
-    }
-
-    if (!reader.get_error_message().empty()) {
-        std::cerr << reader.get_error_message() << "\n";
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Parse error: " << e.what() << "\n";
     }
     return 0;
 }
@@ -521,6 +521,8 @@ int main() {
 - `entry.quality` is `std::optional<std::string>` — populated for FASTQ records, `std::nullopt`
   for FASTA records.
 - `fasta_reader_options{.skip_empty_sequences = true}` skips records whose sequence is empty.
+- `fasta_reader` has no lenient mode: `read_next()` throws `std::runtime_error` on truncated
+  quality strings or I/O errors, so use the same try/catch pattern shown for `bam_reader` above.
 
 ### FASTA Entry Fields
 
