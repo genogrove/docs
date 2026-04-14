@@ -12,7 +12,7 @@ Genogrove provides a specialized B+ tree data structure (the **grove**) optimize
 - **Multi-Index Organization**: Separate trees per chromosome for efficient queries
 - **Sorted Insertion**: O(1) amortized insertion for pre-sorted genomic data
 - **Graph Overlay**: Link keys within the grove to represent feature relationships
-- **File I/O**: Automatic format detection and compression support (BED, GFF/GTF, VCF)
+- **File I/O**: Automatic format detection and compression support (BED, GFF/GTF, BAM/SAM, FASTA/FASTQ)
 - **Modern C++20**: Type-safe, concept-based design
 
 ## Quick Example

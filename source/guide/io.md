@@ -4,8 +4,9 @@ The `genogrove::io` namespace provides efficient readers for common genomic file
 
 ## Reader Ownership
 
-All file readers (`bed_reader`, `gff_reader`, `bam_reader`) own raw htslib resource pointers and are
-**non-copyable** but **movable**. Attempting to copy a reader will produce a compile error.
+All streaming file readers (`bed_reader`, `gff_reader`, `bam_reader`, `fasta_reader`) own raw
+htslib resource pointers and are **non-copyable** but **movable**. Attempting to copy a reader will
+produce a compile error. `fasta_index` (indexed random-access FASTA) follows the same rule.
 
 ```cpp
 namespace gio = genogrove::io;
@@ -53,6 +54,8 @@ int main() {
 - GFF (General Feature Format)
 - GTF (Gene Transfer Format)
 - BAM/SAM/CRAM (Sequence Alignments)
+- FASTA (`.fa`, `.fasta`, `.fna`)
+- FASTQ (`.fq`, `.fastq`, `.fnq`)
 - VCF (Variant Call Format)
 - GG (Genogrove native format)
 
@@ -476,4 +479,106 @@ std::cout << "Header:\n" << header << "\n";
 - `is_primary()` — not secondary and not supplementary
 - `is_mapped()` — not unmapped
 - `cigar_string_repr()` — CIGAR as a human-readable string (e.g. `"50M2I30M"`)
+
+## FASTA / FASTQ Files
+
+Genogrove provides two complementary APIs for FASTA/FASTQ data:
+
+- **`fasta_reader`** — streaming iteration over every record in a FASTA or FASTQ file
+  (including gzip-compressed variants). Follows the same `file_reader<EntryType>` iterator pattern
+  as the other readers. Backed by htslib's `kseq` parser.
+- **`fasta_index`** — indexed random-access reader for `.fa` / `.fasta` / `.fna` files. Fetches
+  regions or whole sequences in O(1) using a `.fai` index (auto-created on first use). Backed by
+  htslib's `faidx` API.
+
+### Streaming: `fasta_reader`
+
+```cpp
+#include <genogrove/io/fasta_reader.hpp>
+#include <iostream>
+
+namespace gio = genogrove::io;
+
+int main() {
+    gio::fasta_reader reader("reads.fq.gz");
+
+    for (const auto& entry : reader) {
+        std::cout << entry.name << " (" << entry.sequence.size() << " bp)\n";
+        if (entry.quality) {
+            std::cout << "  quality: " << *entry.quality << "\n";
+        }
+    }
+
+    if (!reader.get_error_message().empty()) {
+        std::cerr << reader.get_error_message() << "\n";
+    }
+    return 0;
+}
+```
+
+- Format (FASTA vs. FASTQ) is auto-detected per record by `kseq` — mixed `>` and `@` headers are
+  handled transparently.
+- `entry.quality` is `std::optional<std::string>` — populated for FASTQ records, `std::nullopt`
+  for FASTA records.
+- `fasta_reader_options{.skip_empty_sequences = true}` skips records whose sequence is empty.
+
+### FASTA Entry Fields
+
+- `name` (std::string): Sequence name (text after `>` or `@`, up to the first whitespace)
+- `comment` (std::string): Rest of the header line after the name (empty if none)
+- `sequence` (std::string): Nucleotide sequence
+- `quality` (std::optional\<std::string>): Per-base quality string (FASTQ only, `std::nullopt` for FASTA)
+
+### Indexed Access: `fasta_index`
+
+`fasta_index` is useful when you already have genomic coordinates (e.g., from a BED or GFF file)
+and want to pull out the underlying sequence without scanning the entire FASTA.
+
+```cpp
+#include <genogrove/io/fasta_index.hpp>
+#include <iostream>
+
+namespace gio = genogrove::io;
+
+int main() {
+    // Opens the FASTA and loads (or creates) its .fai index.
+    gio::fasta_index fasta("genome.fa");
+
+    // Fetch a region — coordinates are 0-based half-open [start, end),
+    // matching BED / BAM conventions.
+    std::string promoter = fasta.fetch("chr1", 1000, 2000);
+
+    // Fetch an entire sequence by name.
+    std::string chrM = fasta.fetch("chrM");
+
+    // Enumerate sequences in the index.
+    for (size_t i = 0; i < fasta.sequence_count(); ++i) {
+        auto name = fasta.sequence_name(i);
+        std::cout << name << ": " << fasta.sequence_length(name) << " bp\n";
+    }
+
+    if (fasta.has_sequence("chrUn")) {
+        // ...
+    }
+}
+```
+
+**Coordinate reminder**: `fetch(name, start, end)` follows BED/BAM's 0-based half-open convention.
+When pairing with a GFF/GTF record (which is 1-based inclusive), shift the start by one:
+
+```cpp
+// GFF: 1-based inclusive [start, end] → FASTA: 0-based half-open [start-1, end)
+for (const auto& entry : gff_reader) {
+    std::string seq = fasta.fetch(entry.seqid, entry.start - 1, entry.end);
+    // ...
+}
+```
+
+**Notes:**
+
+- `fasta_index` throws `std::out_of_range` on unknown sequence names and `std::runtime_error` on
+  I/O or fetch failures.
+- The `.fai` file is created on first use if missing (requires write permission to the FASTA
+  directory).
+- `fasta_index` is non-copyable and movable.
 

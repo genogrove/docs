@@ -85,9 +85,9 @@ namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 int main() {
-    // grove<key_type, data_type, edge_data_type>(order, fill_factor)
+    // grove<key_type, data_type, edge_data_type>(order)
     // Order determines max keys per node (higher = more cache-friendly)
-    // Order must be >= 2 (throws std::out_of_range otherwise)
+    // Order must be >= 3 (throws std::invalid_argument otherwise)
 
     // Using built-in interval type
     gst::grove<gdt::interval, std::string> grove1(100);
@@ -95,8 +95,8 @@ int main() {
     // Using genomic_coordinate (with strand)
     gst::grove<gdt::genomic_coordinate, std::string> grove2(100);
 
-    // With custom fill factor for sorted insertion splits (default: 1.0)
-    gst::grove<gdt::interval, std::string> grove3(100, 0.7f);
+    // Default-constructed grove uses order 3
+    gst::grove<gdt::interval, std::string> grove3;
 
     return 0;
 }
@@ -110,8 +110,10 @@ int main() {
 
 **Constructor Parameters:**
 
-- `order` (int): Maximum keys per node. Must be >= 2; throws `std::out_of_range` otherwise.
-- `fill_factor` (float, default `1.0f`): Controls how full the left node is after a sorted-path split. Must be in `[0.5, 1.0]`. At 1.0, leaves are packed fully (~100%). At 0.5, classic midpoint split. Use `get_fill_factor()` / `set_fill_factor()` to inspect or change after construction.
+- `order` (int): Maximum children per node (and `order - 1` keys). Must be `>= 3`; throws
+  `std::invalid_argument("grove order must be >= 3")` otherwise. Order 2 is degenerate — internal
+  splits with `order == 2` would produce a sibling with zero keys, which classical B+ trees forbid.
+  The default constructor (`grove()`) uses order 3.
 
 ## Ownership Semantics
 
@@ -269,6 +271,43 @@ For loading 1M intervals into an empty index:
 - Bulk insertion is most beneficial for datasets >10K intervals
 - When appending to existing data, ensure new keys are strictly greater than all existing keys in that index
 - Genomic files (BED, GFF, GTF) are typically pre-sorted by position
+
+## Removing Keys
+
+Use `remove_key()` to remove a previously-inserted key from the B+ tree. The method takes the
+index name (e.g., chromosome) and a pointer to the key — typically one that was returned from
+`insert_data()` or looked up via `intersect()`.
+
+```cpp
+gst::grove<gdt::interval, std::string> my_grove(100);
+
+auto* k = my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1", gst::sorted);
+
+// Remove the key. Returns true if found and removed, false otherwise.
+bool removed = my_grove.remove_key("chr1", k);
+```
+
+**Behaviour:**
+
+- Returns `true` if the key was found and removed, `false` otherwise (unknown index, null pointer,
+  or key not present in the index's tree).
+- Handles leaf underflow via borrow-from-sibling, merge, cascading rebalance, and root collapse —
+  the tree stays balanced automatically.
+- **Graph edges are cleaned up automatically**: all incoming and outgoing edges for the removed
+  key are dropped, so callers never need to call `remove_edge`/`remove_edges_from`/`remove_edges_to`
+  manually after `remove_key`.
+- The key object itself is *not* deallocated — it remains in the grove's internal deque so that
+  pointer stability is preserved. It is simply unlinked from the tree and graph.
+
+```cpp
+// Example: prune genes that fall below a coverage threshold
+auto results = my_grove.intersect(gdt::interval{0, 1000000}, "chr1");
+for (auto* key : results.get_keys()) {
+    if (coverage_of(key) < min_coverage) {
+        my_grove.remove_key("chr1", key);
+    }
+}
+```
 
 ## Querying Intervals
 

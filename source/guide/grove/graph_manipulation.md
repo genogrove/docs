@@ -369,6 +369,61 @@ grove.remove_edge(exon1, exon2);
 - Updating graph topology based on new evidence
 - Removing erroneous connections
 
+### Bulk edge removal
+
+For removing many edges at once, the grove provides bulk operations that forward to the underlying
+graph overlay. Each returns the number of edges removed.
+
+**Function Signatures:**
+
+```cpp
+size_t remove_edges_from(gdt::key<key_type, data_type>* source);
+size_t remove_edges_to(gdt::key<key_type, data_type>* target);
+size_t remove_all_edges(gdt::key<key_type, data_type>* key);
+
+template<typename Predicate>
+size_t remove_edges_if(Predicate predicate);
+```
+
+- **`remove_edges_from(source)`** — removes all outgoing edges from `source`. O(1) in the number of
+  sources (drops the adjacency entry).
+- **`remove_edges_to(target)`** — removes all incoming edges to `target`. O(E) — scans every
+  adjacency list in the graph.
+- **`remove_all_edges(key)`** — removes both incoming and outgoing edges for `key` (equivalent to
+  `remove_edges_from` + `remove_edges_to`).
+- **`remove_edges_if(predicate)`** — removes every edge for which `predicate(const edge&)` returns
+  `true`. Useful for threshold-based pruning on edge metadata. Requires
+  `std::predicate<Predicate, const edge&>`.
+
+**Example: clean up all edges for a retired key**
+
+```cpp
+gst::grove<gdt::interval, std::string, double> grove(100);
+
+auto* hub = grove.insert_data("chr1", gdt::interval{1000, 2000}, "hub");
+// ... add many edges pointing to and from hub ...
+
+size_t removed = grove.remove_all_edges(hub);
+std::cout << "Pruned " << removed << " edges\n";
+```
+
+**Example: drop low-confidence edges in a single pass**
+
+```cpp
+gst::grove<gdt::interval, std::string, double> grove(100);
+
+// ... build a graph where edge metadata is a confidence score ...
+
+auto dropped = grove.remove_edges_if(
+    [](const auto& e) { return e.metadata < 0.5; });
+std::cout << "Dropped " << dropped << " low-confidence edges\n";
+```
+
+```{note}
+`grove::remove_key(index, key)` already calls `remove_all_edges(key)` internally, so callers do
+not need to remove edges manually before removing a key from the tree.
+```
+
 ## Graph Statistics
 
 ### Counting outgoing edges (`out_degree`)

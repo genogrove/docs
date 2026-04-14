@@ -36,6 +36,22 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### fasta_reader
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::fasta_reader
+   :members:
+   :undoc-members:
+```
+
+### fasta_index
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::fasta_index
+   :members:
+   :undoc-members:
+```
+
 
 ## Entry Types
 
@@ -63,6 +79,14 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### fasta_entry
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::fasta_entry
+   :members:
+   :undoc-members:
+```
+
 ## Reader Options
 
 ### bed_reader_options
@@ -85,6 +109,14 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
 
 ```{eval-rst}
 .. doxygenstruct:: genogrove::io::bam_reader_options
+   :members:
+   :undoc-members:
+```
+
+### fasta_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::fasta_reader_options
    :members:
    :undoc-members:
 ```
