@@ -355,6 +355,9 @@ int main() {
 - Accepts temporaries and named variables (const reference parameter)
 - Returns `query_result` containing matching keys
 
+For the closest features on each side of a query (rather than features overlapping
+it), see [Flanking-Key Queries](#flanking-key-queries) below.
+
 **Concept Constraints:**
 
 The grove uses C++20 concepts to provide clear compile-time errors:
@@ -379,6 +382,8 @@ covering it (for example, the upstream and downstream genes of an enhancer).
 namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
+// flanking() works on any populated grove regardless of how it was built —
+// `gst::sorted` here is just for parity with surrounding examples.
 gst::grove<gdt::interval, std::string> g(100);
 g.insert_data("chr1", gdt::interval{100, 200}, "A", gst::sorted);
 g.insert_data("chr1", gdt::interval{500, 600}, "B", gst::sorted);
@@ -419,15 +424,23 @@ intervals: `query.start - predecessor->get_value().get_end() - 1`; for numeric s
 A second overload accepts a binary predicate `is_compatible(candidate, query)` that
 filters candidates before the overlap and ordering checks. Use this to express
 domain-specific constraints that are not encoded in `key_type::overlaps()` — for
-example, restricting the search to same-strand neighbors:
+example, restricting the search to same-strand neighbors when keys carry strand
+information:
 
 ```cpp
+// Assumes a grove parameterised with genomic_coordinate (which carries strand);
+//   gst::grove<gdt::genomic_coordinate, /* data */> grove(...);
+//   gdt::genomic_coordinate q{...};
 auto r = grove.flanking(q, "chr1",
     [](const auto& candidate, const auto& q) {
         return q.get_strand() == '*' || candidate.get_strand() == '*'
             || candidate.get_strand() == q.get_strand();
     });
 ```
+
+The `get_strand()` calls assume `genomic_coordinate` keys; for plain `interval`
+keys (no strand), use a predicate that inspects whatever metadata your key
+type exposes.
 
 The predicate is invoked at leaf level only. Internal-node pruning is purely
 structural (based on aggregate ranges) and never consults the predicate, so

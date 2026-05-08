@@ -161,15 +161,18 @@ if (!any) {
 }
 ```
 
-The single-pass iterator returned by `begin()` is consumed as it is advanced, so when checking
-without iterating, call `begin()` exactly once:
+The iterator is single-pass: each call to `begin()` on a reader that still has data
+consumes the next record from the underlying stream (the iterator's constructor calls
+`read_next()` eagerly so that `*it` is immediately valid). Call `begin()` at most once
+per reader. When detecting empty inputs without iterating, do the comparison and stop:
 
 ```cpp
 gio::gff_reader reader(path);
 if (reader.begin() == reader.end()) {
-    // no records
+    // no records — safe: begin() consumed nothing because the file was empty
 }
-// do not iterate again — begin() already consumed the (non-existent) first record
+// do not call begin() again on the same reader if you already called it above —
+// for a non-empty file, that second call would skip the first record
 ```
 
 The following error conditions still throw `std::runtime_error` (or skip the line, in lenient mode):
@@ -179,7 +182,7 @@ The following error conditions still throw `std::runtime_error` (or skip the lin
 - Per-line parse errors discovered mid-iteration
 
 In other words, "valid file with zero records" is now a quiet success; only structurally broken
-inputs raise.
+inputs raise errors.
 
 ## Coordinate Semantics
 
