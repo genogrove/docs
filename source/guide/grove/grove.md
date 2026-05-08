@@ -364,6 +364,82 @@ The grove uses C++20 concepts to provide clear compile-time errors:
 - `insert_data(index, data, sorted, bulk)` and `build_tree_bottom_up`: `Container` must satisfy `std::ranges::forward_range` and `std::ranges::sized_range`
 - `insert_data(index, data, bulk)`: `Container` must satisfy `std::ranges::random_access_range` and `std::ranges::sized_range`
 
+## Flanking-Key Queries
+
+In addition to `intersect()`, which finds keys that overlap a query, the grove supports a
+`flanking()` query that returns the **predecessor** and **successor** of a query — the
+two nearest non-overlapping keys that bracket it in sort order. This is useful when the
+caller needs the closest features on each side of a position rather than the features
+covering it (for example, the upstream and downstream genes of an enhancer).
+
+```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+gst::grove<gdt::interval, std::string> g(100);
+g.insert_data("chr1", gdt::interval{100, 200}, "A", gst::sorted);
+g.insert_data("chr1", gdt::interval{500, 600}, "B", gst::sorted);
+g.insert_data("chr1", gdt::interval{900, 1000}, "C", gst::sorted);
+
+auto r = g.flanking(gdt::interval{650, 700}, "chr1");
+
+if (auto* pred = r.get_predecessor()) {
+    // "B" — largest non-overlapping key < query
+}
+if (auto* succ = r.get_successor()) {
+    // "C" — smallest non-overlapping key > query
+}
+```
+
+Each field of the returned `flanking_query_result` may be `nullptr` if no such
+key exists (for example, the query is past the rightmost key, or the index does
+not exist). Returned pointers reference keys owned by the grove and remain valid
+as long as the referenced key is not removed.
+
+**Selection rule.** Keys that satisfy `key_type::overlaps(K, query)` are
+excluded by definition. Among the remaining candidates:
+
+- For interval-like keys (`interval`, `genomic_coordinate`), the predecessor is the key
+  with the largest `end` below `query.start` (smallest left-side gap), and the successor
+  is the key with the smallest `start` above `query.end` (smallest right-side gap). For
+  nested intervals these can differ from the sort-order extremum — e.g., between `[50, 100]`
+  and `[80, 90]`, sort picks `[80, 90]` but `[50, 100]` is closer to a query at `[150, …]`.
+- For scalar keys (`numeric`, `kmer`), nearest-by-value coincides with the sort-order
+  extremum, so the predecessor/successor are simply the closest values on each side.
+
+**Distance is computed by the caller** because it is type-specific. For closed-coord
+intervals: `query.start - predecessor->get_value().get_end() - 1`; for numeric scalars:
+`query.value - predecessor->get_value()`.
+
+### Filtering by a Predicate
+
+A second overload accepts a binary predicate `is_compatible(candidate, query)` that
+filters candidates before the overlap and ordering checks. Use this to express
+domain-specific constraints that are not encoded in `key_type::overlaps()` — for
+example, restricting the search to same-strand neighbors:
+
+```cpp
+auto r = grove.flanking(q, "chr1",
+    [](const auto& candidate, const auto& q) {
+        return q.get_strand() == '*' || candidate.get_strand() == '*'
+            || candidate.get_strand() == q.get_strand();
+    });
+```
+
+The predicate is invoked at leaf level only. Internal-node pruning is purely
+structural (based on aggregate ranges) and never consults the predicate, so
+subtrees that contain only incompatible keys are still visited but filtered
+out at the leaves.
+
+```{note}
+`flanking()` is named to avoid collision with the graph-overlay `get_neighbors()`,
+which returns graph-edge-connected keys — a distinct concept from spatial nearest
+neighbors.
+```
+
 ```{toctree}
 :maxdepth: 1
 

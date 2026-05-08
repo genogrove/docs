@@ -67,6 +67,13 @@ int main() {
 - ZSTD (.zst)
 - LZ4 (.lz4)
 
+For `bed_reader` and `gff_reader`, both BGZF (block-gzip, `bgzip`) and plain gzip
+(`gzip`) compressed inputs are accepted with the `.gz` extension — internally they
+share htslib's `bgzf_open()`, which reads both formats transparently. BGZF files
+support random-access seeks; plain gzip files are read sequentially. This is useful
+when consuming files from sources that distribute plain-gzip compression (e.g.,
+ENCODE GTFs, GENCODE annotations) — there is no need to re-compress with `bgzip`.
+
 ## Error Handling
 
 All file readers throw `std::runtime_error` on parse and I/O errors by default. The `read_next()`
@@ -130,6 +137,49 @@ for (const auto& entry : reader) {
     // process valid entry...
 }
 ```
+
+### Zero-Record Inputs
+
+For `bed_reader` and `gff_reader`, structurally valid inputs that contain no records — empty files,
+files where every line is blank, and files that contain only `#`-prefixed comments or header lines —
+are **not** an error. The constructor returns successfully and the iterator immediately compares
+equal to `end()`, so the body of a `for (...)` loop simply runs zero times.
+
+This means callers decide the policy for "no data" rather than the reader. Detect zero records
+either by checking inside the loop or by comparing iterators directly:
+
+```cpp
+gio::gff_reader reader(path);
+
+bool any = false;
+for (const auto& entry : reader) {
+    any = true;
+    // process entry...
+}
+if (!any) {
+    // no records — consumer-defined policy: warn, skip, or fail
+}
+```
+
+The single-pass iterator returned by `begin()` is consumed as it is advanced, so when checking
+without iterating, call `begin()` exactly once:
+
+```cpp
+gio::gff_reader reader(path);
+if (reader.begin() == reader.end()) {
+    // no records
+}
+// do not iterate again — begin() already consumed the (non-existent) first record
+```
+
+The following error conditions still throw `std::runtime_error` (or skip the line, in lenient mode):
+
+- File-open failures (missing file, permission denied, unreadable BGZF header)
+- Malformed first record that fails to parse
+- Per-line parse errors discovered mid-iteration
+
+In other words, "valid file with zero records" is now a quiet success; only structurally broken
+inputs raise.
 
 ## Coordinate Semantics
 

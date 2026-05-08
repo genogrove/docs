@@ -45,6 +45,14 @@ All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) sat
    :undoc-members:
 ```
 
+## flanking_query_result
+
+```{eval-rst}
+.. doxygenclass:: genogrove::data_type::flanking_query_result
+   :members:
+   :undoc-members:
+```
+
 ## numeric
 
 ```{eval-rst}
