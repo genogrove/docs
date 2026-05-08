@@ -2,6 +2,16 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-05-08
+
+### Added
+- Documented `grove::flanking()` predecessor/successor query API and `flanking_query_result`, including the predicate-filtered overload, the interval-vs-scalar selection rule, and a Doxygen reference stub ([#107](https://github.com/genogrove/docs/pull/107), closes [#103](https://github.com/genogrove/docs/issues/103))
+- Documented that `bed_reader`/`gff_reader` accept both BGZF and plain gzip transparently via htslib's `bgzf_open()` ([#107](https://github.com/genogrove/docs/pull/107), closes [#104](https://github.com/genogrove/docs/issues/104))
+- Documented new zero-record reader behavior: structurally valid but record-less inputs yield an empty iterator instead of throwing; added empty-detection pattern and explicit list of conditions that still raise ([#107](https://github.com/genogrove/docs/pull/107), closes [#105](https://github.com/genogrove/docs/issues/105))
+
+### Changed
+- Bumped version to 0.22.0 in `conf.py` and README badge ([#107](https://github.com/genogrove/docs/pull/107), closes [#106](https://github.com/genogrove/docs/issues/106))
+
 ## 2026-04-13
 
 ### Added
