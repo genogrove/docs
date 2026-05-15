@@ -29,8 +29,8 @@ When data is already sorted (common for BED/GFF files), use sorted insertion:
 // For sorted data (e.g., BED files)
 grove.insert_data(index, interval, data, gst::sorted);  // Much faster!
 
-// For unsorted data
-grove.insert_data(index, interval, data, gst::unsorted);  // Default
+// For unsorted data — no tag, full tree traversal (O(log n))
+grove.insert_data(index, interval, data);
 ```
 
 Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted.
@@ -185,10 +185,11 @@ Save and load grove structures for faster startup:
 - Tree structure
 - All keys and data
 - Order parameter
+- External (graph-only) keys
+- Graph overlay edges (with metadata when `edge_data_type` is non-void)
 
 **Not saved:**
 
-- Graph edges (must be rebuilt)
 - Rightmost node cache (recalculated on load)
 
 ## Query Optimization

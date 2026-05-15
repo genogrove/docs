@@ -116,7 +116,7 @@ GitHub Repository
 
 ## License
 
-Genogrove is distributed under the [MIT License](https://opensource.org/licenses/MIT).
+genogrove is distributed under the [GNU General Public License v3.0 or later](https://www.gnu.org/licenses/gpl-3.0.html).
 
 ```{toctree}
 :caption: Documentation

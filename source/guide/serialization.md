@@ -69,9 +69,9 @@ int main() {
     auto& reg = gdt::registry<std::string>::instance();
     gst::grove<gdt::interval, uint32_t> my_grove(100);
 
-    // Register shared metadata, store IDs in the grove
-    auto id1 = reg.register_data("SampleA_liver");
-    auto id2 = reg.register_data("SampleB_brain");
+    // Intern shared metadata, store IDs in the grove
+    auto id1 = reg.intern("SampleA_liver");
+    auto id2 = reg.intern("SampleB_brain");
     my_grove.insert_data("chr1", gdt::interval{100, 200}, id1);
     my_grove.insert_data("chr1", gdt::interval{150, 250}, id2);
 
