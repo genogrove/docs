@@ -6,6 +6,7 @@ All notable changes to the genogrove documentation project will be documented in
 
 ### Changed
 - Rewrote `registry` guide around the new dedup-on-insert API (`intern()`, `find()`, `registry_value` concept with custom-type `std::hash` example, thread-safety section); dropped the removed mutable `get()` example and updated `register_data()` → `intern()` in the serialization combined-persistence example ([#112](https://github.com/genogrove/docs/pull/112), closes [#108](https://github.com/genogrove/docs/issues/108))
+- Bumped version to 0.23.0 in `conf.py` and README badge ([b89d818](https://github.com/genogrove/docs/commit/b89d818), closes [#109](https://github.com/genogrove/docs/issues/109))
 
 ### Fixed
 - Corrected project license in `source/index.md` and the README badge: MIT → GPL-3.0-or-later, matching upstream `LICENSE` and SPDX headers ([#112](https://github.com/genogrove/docs/pull/112), closes [#110](https://github.com/genogrove/docs/issues/110))
