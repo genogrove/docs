@@ -2,6 +2,27 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-05-18
+
+### Added
+- New "Tagged Singletons" and "Storing Richer Payloads" sections in `registry.md` covering the `Tag` phantom parameter and the new `Payload` parameter + `intern(key, payload)` two-arg overload with first-write-wins semantics ([#127](https://github.com/genogrove/docs/pull/127), closes [#113](https://github.com/genogrove/docs/issues/113), closes [#124](https://github.com/genogrove/docs/issues/124))
+- New "Serialization and Deserialization" subsection in `registry.md` documenting the strong exception guarantee, count validation, duplicate-key rejection, and concurrency note for `registry::deserialize` ([#127](https://github.com/genogrove/docs/pull/127), closes [#120](https://github.com/genogrove/docs/issues/120))
+- New "Reclaiming removed-key storage (`compact`)" section in `grove.md` covering `compact()` and `key_storage_size()`, pointer-invalidation rules, and external-keys-unaffected guarantee ([#127](https://github.com/genogrove/docs/pull/127), closes [#116](https://github.com/genogrove/docs/issues/116))
+- New "Source Stream Must Be Seekable for Concatenated Payloads" section in `serialization.md` for the `grove::deserialize` non-seekable-source error and `stringstream` workaround ([#127](https://github.com/genogrove/docs/pull/127), closes [#119](https://github.com/genogrove/docs/issues/119))
+- New "Iterator Equality Contract" section in `io.md` documenting position-aware equality on `file_reader_iterator` ([#127](https://github.com/genogrove/docs/pull/127), closes [#118](https://github.com/genogrove/docs/issues/118))
+- Documented `sam_entry::consumes_reference()` and the zero-ref-consuming CIGAR semantics on `start`/`end`; added recommended insertion pattern gated on `consumes_reference()` ([#127](https://github.com/genogrove/docs/pull/127), closes [#117](https://github.com/genogrove/docs/issues/117))
+
+### Changed
+- Rewrote `key<>` comparison section: value-only semantics, added `operator<` / `operator>`, fixed the now-incorrect `kd1 == kd3` example, noted that `<=`/`>=` are not auto-generated ([#127](https://github.com/genogrove/docs/pull/127), closes [#122](https://github.com/genogrove/docs/issues/122))
+- Documented const-pointer return contract and `key_type_base` concept constraint on `query_result` / `flanking_query_result`; switched query iteration examples to `const auto*` ([#127](https://github.com/genogrove/docs/pull/127), closes [#121](https://github.com/genogrove/docs/issues/121))
+- Updated read-only graph_overlay accessor signatures (`has_edge`, `get_edges`, `get_edge_list`, `get_neighbors`, `get_neighbors_if`, `out_degree`) to `const key*`; noted that `serialize()` works on a `const grove&` ([#127](https://github.com/genogrove/docs/pull/127), closes [#115](https://github.com/genogrove/docs/issues/115))
+- Tightened `bam_reader` docs: `read_next()` now throws on truncated auxiliary data (not just I/O errors) ([#127](https://github.com/genogrove/docs/pull/127), closes [#114](https://github.com/genogrove/docs/issues/114))
+- Marked the CLI `idx` subcommand as "not yet implemented" and removed the examples that would fail at runtime ([#127](https://github.com/genogrove/docs/pull/127), closes [#126](https://github.com/genogrove/docs/issues/126))
+- Bumped version to 0.24.1 in `conf.py` and README badge ([#127](https://github.com/genogrove/docs/pull/127), closes [#125](https://github.com/genogrove/docs/issues/125), closes [#123](https://github.com/genogrove/docs/issues/123))
+
+### Issues filed
+- [#126](https://github.com/genogrove/docs/issues/126) — `cli.md` documented `idx` subcommand as working, but implementation throws "not yet implemented" (resolved in this release)
+
 ## 2026-05-15
 
 ### Changed
