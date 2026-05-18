@@ -10,7 +10,7 @@ import os
 project = "genogrove"
 copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
-release = "0.23.0"
+release = "0.24.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

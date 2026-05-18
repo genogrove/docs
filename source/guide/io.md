@@ -74,6 +74,24 @@ support random-access seeks; plain gzip files are read sequentially. This is use
 when consuming files from sources that distribute plain-gzip compression (e.g.,
 ENCODE GTFs, GENCODE annotations) — there is no need to re-compress with `bgzip`.
 
+## Iterator Equality Contract
+
+The iterator returned by `reader.begin()` is a **single-pass input iterator**. Equality is
+position-aware:
+
+- End iterators (`reader.end()`) compare equal to each other.
+- A non-end iterator compares equal to an end iterator only if it has hit EOF or an error.
+- Two non-end iterators are equal **iff they share the same parent reader AND have advanced
+  the same number of times** (an internal monotonic position counter is bumped on each
+  successful advance).
+
+The common range-for pattern (`for (const auto& entry : reader)`) and the `it != reader.end()`
+loop are unaffected by this rule. The rule matters only when you copy an iterator and advance
+one copy — that pattern violates the single-pass nature of the underlying reader anyway (the
+older copy keeps its cached `current_entry_` but the reader state has moved forward), so it is
+not a recommended idiom; the equality contract just makes the resulting iterators distinguishable
+rather than silently equal.
+
 ## Error Handling
 
 All file readers throw `std::runtime_error` on parse and I/O errors by default. The `read_next()`
@@ -398,6 +416,15 @@ BAM, SAM, and CRAM files store sequence alignments. The `bam_reader` auto-detect
 decompression via htslib. SAM uses 1-based positions (POS); these are converted to 0-based half-open
 `[start, end)` values using the CIGAR string to compute the aligned reference length.
 
+```{note}
+**`read_next()` error contract.** When `read_next()` returns `true` the record is fully populated
+and `get_error_message()` reads empty. `bam_reader::read_next()` throws `std::runtime_error` on
+both I/O errors **and on truncated auxiliary data** (`"Truncated auxiliary data at record N"`) —
+truncated aux is no longer a silent post-hoc warning in `get_error_message()`. Always wrap BAM
+iteration in `try`/`catch` rather than relying on a post-loop `get_error_message()` check to
+detect aux truncation.
+```
+
 ```cpp
 #include <genogrove/io/bam_reader.hpp>
 #include <iostream>
@@ -466,8 +493,8 @@ gio::bam_reader reader5("reads.bam", opts);
 
 - `qname` (std::string): Read name
 - `chrom` (std::string): Reference sequence name
-- `start` (size_t): Start position (0-based, half-open, computed from POS)
-- `end` (size_t): End position (0-based, half-open, computed from POS + CIGAR)
+- `start` (size_t): Start position (0-based, half-open, computed from POS). For unmapped reads and for records whose CIGAR consumes zero reference bases (pure soft-clip `100S`, hard-clip-only secondary alignments `100H`+`FLAG=256`), `start == POS` and `end == start` — gate on `consumes_reference()` before treating the record as a real interval.
+- `end` (size_t): End position (0-based, half-open, computed from POS + CIGAR-consumed reference length). Equals `start` for unmapped / zero-ref-consuming records (see above).
 - `flags` (alignment_flags): Bitwise flags with convenience methods (`is_paired()`, `is_reverse()`, `is_duplicate()`, etc.)
 - `mapq` (uint8_t): Mapping quality
 - `cigar` (cigar_string): CIGAR operations as a `std::vector<cigar_element>`
@@ -531,7 +558,18 @@ std::cout << "Header:\n" << header << "\n";
 - `get_strand()` — returns `'+'`, `'-'`, or `'.'`
 - `is_primary()` — not secondary and not supplementary
 - `is_mapped()` — not unmapped
+- `consumes_reference()` — `true` iff the record covers any reference bases (`start < end`). Returns `false` for unmapped reads and for mapped records whose CIGAR consumes zero reference bases (pure soft-clip, hard-clip-only secondary alignments). Use this as the gate before converting to a closed `gdt::interval(start, end - 1)` or inserting into a grove — the closed-interval conversion underflows otherwise.
 - `cigar_string_repr()` — CIGAR as a human-readable string (e.g. `"50M2I30M"`)
+
+```cpp
+// Recommended insertion pattern: gate on consumes_reference()
+for (const auto& entry : reader) {
+    if (!entry.consumes_reference()) continue;   // skip soft-clip / hard-clip-only
+    grove.insert_data(entry.chrom,
+                      gdt::interval(entry.start, entry.end - 1),
+                      entry);
+}
+```
 
 ## FASTA / FASTQ Files
 

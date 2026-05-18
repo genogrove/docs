@@ -6,36 +6,28 @@ The genogrove command-line interface provides tools for indexing and querying ge
 
 ### idx (Index)
 
+```{note}
+The `idx` subcommand is **not yet implemented**. The CLI accepts the
+arguments but `execute()` currently throws
+`std::runtime_error("Error: idx subcommand not yet implemented")`. The
+options listed below describe the planned interface — see the [tracking
+issue](https://github.com/genogrove/genogrove) for status.
+```
+
 Creates an index from an interval file for efficient queries.
 
-**Usage:**
+**Planned usage:**
 
 ```bash
 genogrove idx [OPTIONS] <inputfile>
 ```
 
-**Options:**
+**Planned options:**
 
 - `-o, --outputfile <file>`: Specify output file (default: `<inputfile>.gg`)
 - `-k, --order <int>`: B+ tree order (default: 3)
 - `-s, --sorted`: Flag indicating intervals are pre-sorted
 - `-t, --timed`: Display indexing time
-
-**Examples:**
-
-```bash
-# Index a BED file
-genogrove idx genes.bed
-
-# Index with custom output file
-genogrove idx -o genes.idx genes.bed
-
-# Index pre-sorted data with higher tree order
-genogrove idx -s -k 5 genes.bed
-
-# Index and show timing
-genogrove idx -t genes.bed
-```
 
 ### isec (Intersect)
 

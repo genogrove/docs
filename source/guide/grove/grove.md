@@ -297,16 +297,62 @@ bool removed = my_grove.remove_key("chr1", k);
   key are dropped, so callers never need to call `remove_edge`/`remove_edges_from`/`remove_edges_to`
   manually after `remove_key`.
 - The key object itself is *not* deallocated — it remains in the grove's internal deque so that
-  pointer stability is preserved. It is simply unlinked from the tree and graph.
+  pointer stability is preserved. It is simply unlinked from the tree and graph. Call
+  [`compact()`](#reclaiming-removed-key-storage-compact) to reclaim the slots when the dead
+  storage adds up.
 
 ```cpp
 // Example: prune genes that fall below a coverage threshold
 auto results = my_grove.intersect(gdt::interval{0, 1000000}, "chr1");
-for (auto* key : results.get_keys()) {
+for (const auto* key : results.get_keys()) {
     if (coverage_of(key) < min_coverage) {
-        my_grove.remove_key("chr1", key);
+        // get_keys() yields `const key*`; const_cast only required when remove_key
+        // is called with a key obtained from a query result rather than from the
+        // original insert_data() return value.
+        my_grove.remove_key("chr1",
+            const_cast<gdt::key<gdt::interval, std::string>*>(key));
     }
 }
+```
+
+### Reclaiming removed-key storage (`compact`)
+
+`remove_key()` unlinks keys from the tree but **does not free** the underlying `key<>` objects
+in the grove's internal deque. Across many insert/remove cycles the deque grows without bound
+while `indexed_vertex_count()` decreases — invisible to public counters. `compact()` is the
+caller-controlled, transactional rebuild that reclaims that memory.
+
+```cpp
+gst::grove<gdt::interval, std::string> my_grove(100);
+
+// ... many insert / remove cycles ...
+
+std::cout << "Live indexed keys: "   << my_grove.indexed_vertex_count() << "\n";
+std::cout << "Deque slots in use: "  << my_grove.key_storage_size()     << "\n";
+
+if (my_grove.key_storage_size() > 2 * my_grove.indexed_vertex_count()) {
+    my_grove.compact();   // O(N + E); rebuilds key_storage, rewrites graph adjacency
+}
+```
+
+**Behaviour:**
+
+- **O(N + E)** — single pre-order walk of every tree to migrate keys + a single pass over the
+  graph adjacency map to remap pointers.
+- **Invalidates every indexed-key pointer** previously returned by `insert_data()`, query
+  results, or `get_neighbors()`. Callers must rediscover keys via queries after compaction.
+- **External keys are unaffected.** Pointers returned by `add_external_key()` and any graph
+  edges referring to them remain valid.
+
+Use `key_storage_size()` to decide when compaction is worth running. The value strictly grows
+with internal separator keys (a healthy property of B+ trees) and with `remove_key()` calls;
+compaction is only useful once the latter starts dominating.
+
+```cpp
+// Typical pattern: bulk-remove, then compact when no callers hold stale pointers
+for (auto* k : victims) my_grove.remove_key("chr1", k);
+// ... ensure no callers still hold `k` pointers ...
+my_grove.compact();
 ```
 
 ## Querying Intervals
@@ -332,8 +378,10 @@ int main() {
     // Query specific chromosome (temporaries work directly)
     auto results = my_grove.intersect(gdt::interval{175, 225}, "chr1");
 
-    // Process results
-    for (auto* key : results.get_keys()) {
+    // Process results — get_keys() returns const-pointers, so iterating with
+    // `auto*` deduces `const key*`. Mutating through a result pointer would
+    // corrupt B+ tree ordering; the type prevents it at compile time.
+    for (const auto* key : results.get_keys()) {
         std::cout << "Found: " << key->get_data()
                   << " at " << key->get_value().to_string() << "\n";
     }
@@ -354,6 +402,31 @@ int main() {
 - Global queries (all chromosomes)
 - Accepts temporaries and named variables (const reference parameter)
 - Returns `query_result` containing matching keys
+
+**Result type — const-pointer guarantee:**
+
+`query_result::get_keys()` returns `const std::vector<const key<...>*>&` — the pointers are
+const-qualified to prevent callers from mutating a key via
+`result.get_keys()[i]->set_value(...)` and silently corrupting B+ tree ordering invariants.
+The container template `query_result<key_type, data_type>` is also constrained with the
+`key_type_base` concept, so misuse with a non-conforming type fails at the result-container
+instantiation site with a clean concept diagnostic instead of a deep template instantiation
+error inside `key<>`.
+
+```cpp
+auto results = my_grove.intersect(query, "chr1");
+
+// OK — read-only access through const pointer
+for (const auto* k : results.get_keys()) {
+    std::cout << k->get_value().to_string() << "\n";
+}
+
+// Compile error — cannot mutate through a const pointer
+// results.get_keys()[0]->set_value(...);   // ❌ silently corrupts tree ordering
+```
+
+If you genuinely need a mutating `key*` (e.g. to pass into `add_edge`), hold on to the pointer
+returned by the original `insert_data()` call rather than re-deriving one from a query result.
 
 For the closest features on each side of a query (rather than features overlapping
 it), see [Flanking-Key Queries](#flanking-key-queries) below.
@@ -391,18 +464,21 @@ g.insert_data("chr1", gdt::interval{900, 1000}, "C", gst::sorted);
 
 auto r = g.flanking(gdt::interval{650, 700}, "chr1");
 
-if (auto* pred = r.get_predecessor()) {
+if (const auto* pred = r.get_predecessor()) {
     // "B" — largest non-overlapping key < query
 }
-if (auto* succ = r.get_successor()) {
+if (const auto* succ = r.get_successor()) {
     // "C" — smallest non-overlapping key > query
 }
 ```
 
 Each field of the returned `flanking_query_result` may be `nullptr` if no such
 key exists (for example, the query is past the rightmost key, or the index does
-not exist). Returned pointers reference keys owned by the grove and remain valid
-as long as the referenced key is not removed.
+not exist). Returned pointers are **`const`-qualified** and reference keys owned
+by the grove; they remain valid as long as the referenced key is not removed.
+Like `query_result`, `flanking_query_result<key_type, data_type>` is constrained
+with the `key_type_base` concept so non-conforming `key_type` arguments fail at
+the result-container instantiation site.
 
 **Selection rule.** Keys that satisfy `key_type::overlaps(K, query)` are
 excluded by definition. Among the remaining candidates:

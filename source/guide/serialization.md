@@ -39,6 +39,16 @@ int main() {
 
 Always open streams with `std::ios::binary` to avoid platform-specific newline translation.
 
+`grove::serialize()` (and the supporting `grove_to_sif()` and `node::serialize()`) are
+**`const`-qualified**, so consumers holding a `const grove&` — for example a read-only post-build
+query layer — can serialize without a `const_cast`:
+
+```cpp
+void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) {
+    g.serialize(os);   // OK — serialize() is const
+}
+```
+
 ## How It Works
 
 The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
@@ -180,11 +190,38 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 - **`std::string`** — built-in specialization (length-prefixed)
 - **Built-in key types** (`interval`, `genomic_coordinate`, `numeric`, `kmer`) — member methods provided
 
+## Source Stream Must Be Seekable for Concatenated Payloads
+
+`grove::deserialize()` uses zlib's streaming decoder, which may finish consuming the compressed
+payload before exhausting the input buffer. To preserve any bytes that follow the grove (e.g.,
+concatenated payloads, sentinel markers, file tails), the internal `inflate_streambuf` rewinds
+the unconsumed bytes via `source.seekg(...)`.
+
+**The source stream must therefore be seekable when anything follows the grove in the stream.**
+On non-seekable sources (pipes, sockets, custom non-seekable streambufs) the seek fails and
+`deserialize()` throws:
+
+> `inflate_streambuf: source stream is not seekable; concatenated payloads require a seekable source`
+
+For a single-payload `.ggx` file loaded via `std::ifstream`, this requirement is automatically
+satisfied — file streams are seekable. The requirement matters only for the concatenated-payload
+pattern (registry then grove from the same stream, multiple grove payloads back-to-back, sentinel
+trailers).
+
+If you must deserialize from a non-seekable source, copy it into a `std::stringstream` first:
+
+```cpp
+std::stringstream buf;
+buf << non_seekable_source.rdbuf();        // drain into a seekable buffer
+auto g = gst::grove<...>::deserialize(buf);
+```
+
 ## Important Notes
 
 - `grove::deserialize()` returns a grove **by value**. Because `grove` is a move-only type (copy is deleted), the return relies on Named Return Value Optimization (NRVO) or implicit move. No special handling is needed—just assign the result to a local variable as shown in the examples above.
-- All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams
-- `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order)
-- Graph edges added via `add_edge()` or `link_if()` are now persisted during serialization and restored on deserialize
+- All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams.
+- `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order).
+- `registry::deserialize` provides a **strong exception guarantee**: if the stream throws or is truncated, the singleton is left exactly as it was before the call. The new state is built into local containers and committed via noexcept move-assign only after the read loop completes. It also rejects header counts that exceed the `id_type` capacity (`"Failed to deserialize registry: entry count exceeds id_type capacity"`) and streams containing duplicate keys (`"Failed to deserialize registry: duplicate key"`). See {doc}`data_types/registry` for details.
+- Graph edges added via `add_edge()` or `link_if()` are now persisted during serialization and restored on deserialize.
 - **Breaking format change**: The serialized format now includes graph edges after external keys. Files serialized with older versions are incompatible and must be re-created.
-- All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result
+- All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result.
