@@ -11,13 +11,21 @@ The `has_edge` function checks whether a directed edge exists from a source key 
 **Function Signature:**
 
 ```cpp
-bool has_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_type>* target) const
+bool has_edge(const gdt::key<key_type, data_type>* source,
+              const gdt::key<key_type, data_type>* target) const
 ```
+
+The read-only graph accessors (`has_edge`, `get_edges`, `get_edge_list`,
+`get_neighbors`, `get_neighbors_if`, `out_degree`) take **`const` source/target
+pointers**. The mutating accessors (`add_edge`, `remove_edge`, `remove_edges_*`)
+still take non-const pointers. Existing call sites that pass non-const `key*`
+keep working via the implicit `key* -> const key*` conversion — no migration
+required.
 
 **Parameters:**
 
-- `source` - Pointer to the source key
-- `target` - Pointer to the target key
+- `source` - Pointer to the source key (const)
+- `target` - Pointer to the target key (const)
 
 **Return Value:**
 
@@ -58,7 +66,7 @@ The `get_edges` function retrieves the metadata for all outgoing edges from a so
 
 ```cpp
 template<typename M = edge_data_type>
-std::vector<M> get_edges(gdt::key<key_type, data_type>* source) const
+std::vector<M> get_edges(const gdt::key<key_type, data_type>* source) const
     requires (!std::is_void_v<edge_data_type>)
 ```
 
@@ -114,7 +122,7 @@ The `get_edge_list` function retrieves all outgoing edges from a source key as `
 **Function Signature:**
 
 ```cpp
-const std::vector<edge>& get_edge_list(gdt::key<key_type, data_type>* source) const
+const std::vector<edge>& get_edge_list(const gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
@@ -163,7 +171,7 @@ The `get_neighbors` function returns all target keys that are connected from a s
 **Function Signature:**
 
 ```cpp
-std::vector<gdt::key<key_type, data_type>*> get_neighbors(gdt::key<key_type, data_type>* source) const
+std::vector<gdt::key<key_type, data_type>*> get_neighbors(const gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
@@ -240,7 +248,7 @@ The `get_neighbors_if` function returns only neighbors whose edges satisfy a giv
 
 ```cpp
 template<typename Predicate>
-std::vector<gdt::key<key_type, data_type>*> get_neighbors_if(gdt::key<key_type, data_type>* source, Predicate pred) const
+std::vector<gdt::key<key_type, data_type>*> get_neighbors_if(const gdt::key<key_type, data_type>* source, Predicate pred) const
 ```
 
 **Parameters:**
@@ -433,7 +441,7 @@ The `out_degree` function returns the number of outgoing edges from a specific k
 **Function Signature:**
 
 ```cpp
-size_t out_degree(gdt::key<key_type, data_type>* source) const
+size_t out_degree(const gdt::key<key_type, data_type>* source) const
 ```
 
 **Parameters:**
