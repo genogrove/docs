@@ -190,7 +190,7 @@ for (const auto& entry : reader) {
 
 The serialized layout depends on whether `Key` and `Payload` are the same type:
 
-- **`Key == Payload`** (the default): `uint64_t count` followed by each payload via `serializer<Payload>`. This matches the historical format — **old `.ggx` files still load**.
+- **`Key == Payload`** (the default): `uint64_t count` followed by each payload via `serializer<Payload>`. This matches the historical format — **old `.gg` files still load**.
 - **`Key != Payload`**: `uint64_t count` followed by `(key, payload)` pairs in ID order. Requires both `serializer<Key>` and `serializer<Payload>` to be available.
 
 ### Failure semantics

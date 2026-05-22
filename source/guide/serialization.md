@@ -189,6 +189,10 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 - **Trivially copyable types** (`int`, `double`, `uint32_t`, etc.) — serialized via `memcpy`
 - **`std::string`** — built-in specialization (length-prefixed)
 - **Built-in key types** (`interval`, `genomic_coordinate`, `numeric`, `kmer`) — member methods provided
+- **`gio::bed_entry`** (with its nested `gio::block_info`) — member `serialize`/`deserialize` provided
+  as of v0.24.3, so a `grove<gdt::interval, gio::bed_entry>` can be persisted directly. The `.gg`
+  files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and `gio::thick_info`
+  are trivially copyable and serialize automatically.
 
 ## Source Stream Must Be Seekable for Concatenated Payloads
 
@@ -203,7 +207,7 @@ On non-seekable sources (pipes, sockets, custom non-seekable streambufs) the see
 
 > `inflate_streambuf: source stream is not seekable; concatenated payloads require a seekable source`
 
-For a single-payload `.ggx` file loaded via `std::ifstream`, this requirement is automatically
+For a single-payload `.gg` file loaded via `std::ifstream`, this requirement is automatically
 satisfied — file streams are seekable. The requirement matters only for the concatenated-payload
 pattern (registry then grove from the same stream, multiple grove payloads back-to-back, sentinel
 trailers).

@@ -669,8 +669,9 @@ for (const auto& entry : gff_reader) {
 
 **Notes:**
 
-- `fasta_index` throws `std::out_of_range` on unknown sequence names and `std::runtime_error` on
-  I/O or fetch failures.
+- `fasta_index::fetch` throws `std::out_of_range` on unknown sequence names and on invalid regions
+  (`start >= end`, or a region exceeding htslib's coordinate limit), and `std::runtime_error` only
+  on an actual htslib fetch failure.
 - The `.fai` file is created on first use if missing (requires write permission to the FASTA
   directory).
 - `fasta_index` is non-copyable and movable.
