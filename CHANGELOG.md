@@ -4,8 +4,22 @@ All notable changes to the genogrove documentation project will be documented in
 
 ## 2026-05-22
 
+### Added
+- Documented the `idx` CLI subcommand (implemented as of genogrove v0.24.3) — usage, options (`-o`, `-k`, `-s`, `-t`), examples, and the BED-only-input note — replacing the previous "not yet implemented" admonition ([#138](https://github.com/genogrove/docs/pull/138), closes [#131](https://github.com/genogrove/docs/issues/131))
+- Documented the new `isec -i/--indexfile` option for searching a prebuilt `.gg` index; clarified that `-t` and `-i` are alternatives (at least one required, `-i` takes precedence) and added an index-then-search workflow example ([#138](https://github.com/genogrove/docs/pull/138), closes [#132](https://github.com/genogrove/docs/issues/132))
+- Noted that `gio::bed_entry` (with nested `gio::block_info`) is a serializable grove payload in `serialization.md` — `grove<gdt::interval, gio::bed_entry>` can be persisted directly, and the `.gg` files produced by the `idx` CLI subcommand are this form ([#138](https://github.com/genogrove/docs/pull/138), closes [#130](https://github.com/genogrove/docs/issues/130))
+
 ### Changed
+- Broadened `fasta_index` exception note in `io.md`: all lookup methods (`fetch`, `sequence_name`, `sequence_length`) throw `std::out_of_range` on missing/invalid inputs; `fetch` additionally throws it on invalid regions (`start >= end`, or exceeding htslib's coordinate limit); `std::runtime_error` is reserved for an actual htslib fetch failure ([#138](https://github.com/genogrove/docs/pull/138), closes [#129](https://github.com/genogrove/docs/issues/129))
 - Bumped version to 0.24.4 in `conf.py` and README badge ([7f24f69](https://github.com/genogrove/docs/commit/7f24f69), closes [#128](https://github.com/genogrove/docs/issues/128), closes [#133](https://github.com/genogrove/docs/issues/133), closes [#134](https://github.com/genogrove/docs/issues/134))
+
+### Fixed
+- Corrected the native grove file extension from `.ggx` to `.gg` in `serialization.md` and `registry.md`, and added the missing built-in key types `numeric` and `kmer` to the `index.md` feature list ([#138](https://github.com/genogrove/docs/pull/138), closes [#136](https://github.com/genogrove/docs/issues/136))
+- Corrected installation guide: CMake minimum version is 3.14 (not 3.15) per `CMakeLists.txt`; sanitizer CMake option is `ENABLE_SANITIZER` (singular), not the silently-ignored `ENABLE_SANITIZERS` ([#138](https://github.com/genogrove/docs/pull/138), closes [#137](https://github.com/genogrove/docs/issues/137))
+- Suppressed Sphinx's `cpp.duplicate_declaration` warning for C++20 `requires`-clause overloads with identical visible signatures — the v0.24.4 `key<T, void>` default constructor collides with the existing `key<T, D>` default constructor under Breathe ([#138](https://github.com/genogrove/docs/pull/138))
+
+### Issues filed
+- [#135](https://github.com/genogrove/docs/issues/135) — `graph.md` examples that feed query-result keys into `add_edge`/`link_if` fail to compile because `query_result::get_keys()` returns `const key*`; closed in favour of upstream library issue [genogrove/genogrove#435](https://github.com/genogrove/genogrove/issues/435) (revert `query_result` to non-const pointers)
 
 ## 2026-05-18
 
