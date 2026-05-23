@@ -54,8 +54,8 @@ genogrove isec -q <queryfile> (-t <targetfile> | -i <indexfile>) [OPTIONS]
 **Options:**
 
 - `-q, --queryfile <file>`: Query BED file (required)
-- `-t, --targetfile <file>`: Target BED file to build the grove from
-- `-i, --indexfile <file>`: Prebuilt `.gg` index to search against
+- `-t, --targetfile <file>`: Target BED file to build the grove from (one of `-t` / `-i` required)
+- `-i, --indexfile <file>`: Prebuilt `.gg` index to search against (one of `-t` / `-i` required)
 - `-o, --outputfile <file>`: Output destination (default: stdout)
 - `-k, --order <int>`: B+ tree order used when building from `-t` (default: 3, minimum: 3)
 
@@ -88,9 +88,11 @@ Build an index once, then reuse it across many queries:
 
 ```bash
 # 1. Build the index from a target BED file
+#    Writes genes.gg and prints "Index written to genes.gg" on success.
 genogrove idx genes.bed -o genes.gg
 
 # 2. Search the prebuilt index — no need to re-parse genes.bed
+#    Writes overlapping BED records to stdout (use -o to redirect to a file).
 genogrove isec -q regions.bed -i genes.gg
 ```
 

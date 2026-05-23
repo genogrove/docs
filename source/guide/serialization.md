@@ -189,8 +189,8 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 - **Trivially copyable types** (`int`, `double`, `uint32_t`, etc.) — serialized via `memcpy`
 - **`std::string`** — built-in specialization (length-prefixed)
 - **Built-in key types** (`interval`, `genomic_coordinate`, `numeric`, `kmer`) — member methods provided
-- **`gio::bed_entry`** (with its nested `gio::block_info`) — member `serialize`/`deserialize` provided
-  as of v0.24.3, so a `grove<gdt::interval, gio::bed_entry>` can be persisted directly. The `.gg`
+- **`gio::bed_entry`** (with its nested `gio::block_info`) — member `serialize`/`deserialize`
+  provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted directly. The `.gg`
   files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and `gio::thick_info`
   are trivially copyable and serialize automatically.
 
