@@ -8,7 +8,7 @@ Genogrove provides a specialized B+ tree data structure (the **grove**) optimize
 
 **Key Features:**
 
-- **Flexible Key Types**: Works with any type satisfying the `key_type_base` concept (built-in: `interval`, `genomic_coordinate`)
+- **Flexible Key Types**: Works with any type satisfying the `key_type_base` concept (built-in: `interval`, `genomic_coordinate`, `numeric`, `kmer`)
 - **Multi-Index Organization**: Separate trees per chromosome for efficient queries
 - **Sorted Insertion**: O(1) amortized insertion for pre-sorted genomic data
 - **Graph Overlay**: Link keys within the grove to represent feature relationships
@@ -83,7 +83,7 @@ int main() {
 ## Requirements
 
 - **Compiler**: C++20 compatible (GCC 13+, Clang 16+, Apple Clang 15+)
-- **Build System**: CMake 3.15 or higher
+- **Build System**: CMake 3.14 or higher
 - **Dependencies**: htslib (for compressed file support)
 
 ## Getting Started

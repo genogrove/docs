@@ -10,7 +10,7 @@ Before building genogrove, ensure you have:
   \- GCC 13 or newer
   \- Clang 16 or newer
   \- Apple Clang 15 or newer
-- **CMake 3.15 or higher**
+- **CMake 3.14 or higher**
 - **htslib** (for compressed file support)
   \- On Ubuntu/Debian: `sudo apt-get install libhts-dev`
   \- On macOS with Homebrew: `brew install htslib`
@@ -138,7 +138,7 @@ For development with debugging symbols and sanitizers:
 cmake -S . -B build-debug \
     -DCMAKE_BUILD_TYPE=Debug \
     -DBUILD_TESTING=ON \
-    -DENABLE_SANITIZERS=ON
+    -DENABLE_SANITIZER=ON
 cmake --build build-debug
 ```
 
