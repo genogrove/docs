@@ -304,13 +304,9 @@ bool removed = my_grove.remove_key("chr1", k);
 ```cpp
 // Example: prune genes that fall below a coverage threshold
 auto results = my_grove.intersect(gdt::interval{0, 1000000}, "chr1");
-for (const auto* key : results.get_keys()) {
+for (auto* key : results.get_keys()) {
     if (coverage_of(key) < min_coverage) {
-        // get_keys() yields `const key*`; const_cast only required when remove_key
-        // is called with a key obtained from a query result rather than from the
-        // original insert_data() return value.
-        my_grove.remove_key("chr1",
-            const_cast<gdt::key<gdt::interval, std::string>*>(key));
+        my_grove.remove_key("chr1", key);
     }
 }
 ```
@@ -378,10 +374,8 @@ int main() {
     // Query specific chromosome (temporaries work directly)
     auto results = my_grove.intersect(gdt::interval{175, 225}, "chr1");
 
-    // Process results — get_keys() returns const-pointers, so iterating with
-    // `auto*` deduces `const key*`. Mutating through a result pointer would
-    // corrupt B+ tree ordering; the type prevents it at compile time.
-    for (const auto* key : results.get_keys()) {
+    // Process results — get_keys() returns pointers to keys owned by the grove.
+    for (auto* key : results.get_keys()) {
         std::cout << "Found: " << key->get_data()
                   << " at " << key->get_value().to_string() << "\n";
     }
@@ -403,30 +397,21 @@ int main() {
 - Accepts temporaries and named variables (const reference parameter)
 - Returns `query_result` containing matching keys
 
-**Result type — const-pointer guarantee:**
+**Result type:**
 
-`query_result::get_keys()` returns `const std::vector<const key<...>*>&` — the pointers are
-const-qualified to prevent callers from mutating a key via
-`result.get_keys()[i]->set_value(...)` and silently corrupting B+ tree ordering invariants.
-The container template `query_result<key_type, data_type>` is also constrained with the
-`key_type_base` concept, so misuse with a non-conforming type fails at the result-container
-instantiation site with a clean concept diagnostic instead of a deep template instantiation
-error inside `key<>`.
+`query_result::get_keys()` returns `const std::vector<key<...>*>&` — pointers to keys owned by
+the grove, suitable for feeding directly into mutating graph operations such as `add_edge` or
+`link_if` without a `const_cast`. The container template `query_result<key_type, data_type>` is
+constrained with the `key_type_base` concept, so misuse with a non-conforming type fails at the
+result-container instantiation site with a clean concept diagnostic instead of a deep template
+instantiation error inside `key<>`.
 
-```cpp
-auto results = my_grove.intersect(query, "chr1");
-
-// OK — read-only access through const pointer
-for (const auto* k : results.get_keys()) {
-    std::cout << k->get_value().to_string() << "\n";
-}
-
-// Compile error — cannot mutate through a const pointer
-// results.get_keys()[0]->set_value(...);   // ❌ silently corrupts tree ordering
+```{warning}
+Mutating a key's value via `key::set_value(...)` corrupts B+ tree ordering invariants. The same
+risk exists through the pointer returned by `insert_data()`, so the convention is enforced by
+discipline rather than at the API level — only mutate the *data* payload through these
+pointers, never the key value.
 ```
-
-If you genuinely need a mutating `key*` (e.g. to pass into `add_edge`), hold on to the pointer
-returned by the original `insert_data()` call rather than re-deriving one from a query result.
 
 For the closest features on each side of a query (rather than features overlapping
 it), see [Flanking-Key Queries](#flanking-key-queries) below.
@@ -464,21 +449,21 @@ g.insert_data("chr1", gdt::interval{900, 1000}, "C", gst::sorted);
 
 auto r = g.flanking(gdt::interval{650, 700}, "chr1");
 
-if (const auto* pred = r.get_predecessor()) {
+if (auto* pred = r.get_predecessor()) {
     // "B" — largest non-overlapping key < query
 }
-if (const auto* succ = r.get_successor()) {
+if (auto* succ = r.get_successor()) {
     // "C" — smallest non-overlapping key > query
 }
 ```
 
 Each field of the returned `flanking_query_result` may be `nullptr` if no such
 key exists (for example, the query is past the rightmost key, or the index does
-not exist). Returned pointers are **`const`-qualified** and reference keys owned
-by the grove; they remain valid as long as the referenced key is not removed.
-Like `query_result`, `flanking_query_result<key_type, data_type>` is constrained
-with the `key_type_base` concept so non-conforming `key_type` arguments fail at
-the result-container instantiation site.
+not exist). Returned pointers reference keys owned by the grove and remain valid
+as long as the referenced key is not removed. Like `query_result`,
+`flanking_query_result<key_type, data_type>` is constrained with the
+`key_type_base` concept so non-conforming `key_type` arguments fail at the
+result-container instantiation site.
 
 **Selection rule.** Keys that satisfy `key_type::overlaps(K, query)` are
 excluded by definition. Among the remaining candidates:
