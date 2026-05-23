@@ -5,6 +5,7 @@ All notable changes to the genogrove documentation project will be documented in
 ## 2026-05-23
 
 ### Changed
+- Reverted the const-pointer wording for `query_result::get_keys()` and `flanking_query_result::get_predecessor()`/`get_successor()` in `guide/grove/grove.md` to match the v0.24.5 library revert ([genogrove#436](https://github.com/genogrove/genogrove/pull/436)); dropped the `const_cast` workaround in the `remove_key` example added in [#138](https://github.com/genogrove/docs/pull/138), switched result iteration to `auto*`, and replaced the "const-pointer guarantee" section with a `warning` block noting that `key::set_value()`-corruption discipline is convention-enforced (same risk exists via `insert_data()`), not API-enforced ([#141](https://github.com/genogrove/docs/pull/141), closes [#139](https://github.com/genogrove/docs/issues/139))
 - Bumped version to 0.24.5 in `conf.py` and README badge ([ce90e61](https://github.com/genogrove/docs/commit/ce90e61), closes [#140](https://github.com/genogrove/docs/issues/140))
 
 ## 2026-05-22
