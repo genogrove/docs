@@ -42,6 +42,15 @@ breathe_show_include = False
 templates_path = ["_templates"]
 exclude_patterns = []
 
+# Breathe renders each Doxygen function declaration as a `cpp:function::`
+# directive using only the visible signature. C++20 `requires`-clause overloads
+# with identical signatures collapse to the same Sphinx declaration and trigger
+# a duplicate-declaration warning — e.g. `key<T, D>::key()` (requires
+# `default_initializable<D>`) and `key<T, void>::key()` (added in v0.24.4) both
+# read as `inline key ()`. Both declarations are correct upstream; the warning
+# is a tooling limitation.
+suppress_warnings = ["cpp.duplicate_declaration"]
+
 # MyST-Parser configuration
 source_suffix = {
     ".rst": "restructuredtext",
