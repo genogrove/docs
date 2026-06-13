@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-06-13
+
+### Added
+- Documented the **pygenogrove** Python API (current v0.5.0 surface, reflecting the 0.4.0+ genomics-first redesign), replacing the "coming soon" placeholder with a 7-page reference under `reference/python/`: `coordinates.md` (strand-aware `GenomicCoordinate` key, `*` wildcard vs `.` unstranded, sort order), `grove.md` (universal JSON `Grove`, predicate-filtered `flanking`, `remove_key`/`compact` + vertex/storage counts, serialization), `graph.md` (graph overlay, external keys, labelled edges, edge cleanup/bulk linking), `typed_groves.md` (`BedGrove`/`GffGrove` + `BedEntry`/`GffEntry`, entry-deriving and fast-path bulk inserts), `io.md` (`BedReader`/`GffReader`/`BamReader`/`FastaReader`, `FastaIndex`, `FiletypeDetector`), `registry.md` (`StringRegistry`), and `index.md` (overview, install, `__version__`/`__genogrove_version__`, coordinate-systems table); also dropped the "coming soon" framing for the Python library in `reference/index.md` ([#164](https://github.com/genogrove/docs/pull/164), closes [#148](https://github.com/genogrove/docs/issues/148), closes [#149](https://github.com/genogrove/docs/issues/149), closes [#150](https://github.com/genogrove/docs/issues/150), closes [#151](https://github.com/genogrove/docs/issues/151), closes [#152](https://github.com/genogrove/docs/issues/152), closes [#153](https://github.com/genogrove/docs/issues/153), closes [#154](https://github.com/genogrove/docs/issues/154), closes [#155](https://github.com/genogrove/docs/issues/155), closes [#156](https://github.com/genogrove/docs/issues/156), closes [#157](https://github.com/genogrove/docs/issues/157), closes [#158](https://github.com/genogrove/docs/issues/158), closes [#159](https://github.com/genogrove/docs/issues/159), closes [#160](https://github.com/genogrove/docs/issues/160))
+
 ## 2026-05-23
 
 ### Changed
