@@ -20,7 +20,9 @@ The core C++ library provides high-performance genomic data structures and I/O u
 
 ## Python Library
 
-Python bindings for the C++ library (coming soon).
+`pygenogrove` — Python bindings for the C++ library: a strand-aware
+`GenomicCoordinate` key, a universal JSON-payload `Grove`, typed BED/GFF groves,
+a graph overlay, and file readers (BED/GFF/BAM/FASTA).
 
 {doc}`python/index`
 
