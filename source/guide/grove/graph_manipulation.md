@@ -2,9 +2,13 @@
 
 Once you've built a graph by linking keys, GenoGrove provides a comprehensive set of functions to inspect, modify, and analyze the graph structure. This section covers operations for checking edge existence, retrieving edges, navigating neighbors, gathering statistics, and managing the graph lifecycle.
 
-## Edge Inspection
+:::::{tab-set}
 
-### Checking if an edge exists (`has_edge`)
+::::{tab-item} C++
+
+### Edge Inspection
+
+#### Checking if an edge exists (`has_edge`)
 
 The `has_edge` function checks whether a directed edge exists from a source key to a target key.
 
@@ -58,7 +62,7 @@ if (!grove.has_edge(exon1, exon3)) {
 - Preventing duplicate edge creation
 - Conditional edge operations based on existing connections
 
-### Retrieving edge metadata (`get_edges`)
+#### Retrieving edge metadata (`get_edges`)
 
 The `get_edges` function retrieves the metadata for all outgoing edges from a source key. This is only available when the grove has a non-void `edge_data_type`. To get the target keys themselves, use `get_neighbors()` instead.
 
@@ -115,7 +119,7 @@ for (const auto& edge : edges) {
 - Aggregating metadata values (e.g., average confidence)
 - Use `get_edge_list()` when you need both targets and metadata together
 
-### Getting the edge list for a source (`get_edge_list`)
+#### Getting the edge list for a source (`get_edge_list`)
 
 The `get_edge_list` function retrieves all outgoing edges from a source key as `edge` structs, each containing the target pointer and metadata (if any). Unlike `get_edges()` (metadata only) or `get_neighbors()` (targets only), this returns the full edge objects.
 
@@ -162,9 +166,9 @@ for (const auto& edge : edges) {
 - Efficient read-only access (returns a const reference, no copy)
 - Building adjacency representations for graph algorithms
 
-## Neighbor Queries
+### Neighbor Queries
 
-### Getting all neighbors (`get_neighbors`)
+#### Getting all neighbors (`get_neighbors`)
 
 The `get_neighbors` function returns all target keys that are connected from a source key via outgoing edges.
 
@@ -240,7 +244,7 @@ std::cout << "\n";
 - Analyzing connectivity patterns
 - Building adjacency lists for graph algorithms
 
-### Filtered neighbor queries (`get_neighbors_if`)
+#### Filtered neighbor queries (`get_neighbors_if`)
 
 The `get_neighbors_if` function returns only neighbors whose edges satisfy a given predicate, allowing you to filter by edge metadata.
 
@@ -310,9 +314,9 @@ std::cout << "Nearby genes (<10kb): " << nearby.size() << "\n";
 - Distance-based queries in spatial networks
 - Selecting edges by quality metrics
 
-## Edge Modification
+### Edge Modification
 
-### Removing edges (`remove_edge`)
+#### Removing edges (`remove_edge`)
 
 The `remove_edge` function removes a specific directed edge from the graph. The keys themselves remain in the grove.
 
@@ -377,7 +381,7 @@ grove.remove_edge(exon1, exon2);
 - Updating graph topology based on new evidence
 - Removing erroneous connections
 
-### Bulk edge removal
+#### Bulk edge removal
 
 For removing many edges at once, the grove provides bulk operations that forward to the underlying
 graph overlay. Each returns the number of edges removed.
@@ -432,9 +436,9 @@ std::cout << "Dropped " << dropped << " low-confidence edges\n";
 not need to remove edges manually before removing a key from the tree.
 ```
 
-## Graph Statistics
+### Graph Statistics
 
-### Counting outgoing edges (`out_degree`)
+#### Counting outgoing edges (`out_degree`)
 
 The `out_degree` function returns the number of outgoing edges from a specific key.
 
@@ -495,7 +499,7 @@ for (auto* gene : all_genes) {
 - Analyzing node importance by connectivity
 - Filtering nodes by degree thresholds
 
-### Total edge count (`edge_count`)
+#### Total edge count (`edge_count`)
 
 The `edge_count` function returns the total number of edges in the entire graph.
 
@@ -533,7 +537,7 @@ std::cout << "Graph has " << grove.edge_count() << " edges\n";
 - Tracking graph size during construction
 - Validating graph operations
 
-### Counting vertices (`vertex_count`, `indexed_vertex_count`, `external_vertex_count`)
+#### Counting vertices (`vertex_count`, `indexed_vertex_count`, `external_vertex_count`)
 
 These functions count vertices (keys) in the grove.
 
@@ -603,9 +607,9 @@ std::cout << "Graph density: " << density << "\n";
 - Identifying isolated vs. connected components
 - Validating graph construction
 
-## Graph Management
+### Graph Management
 
-### Clearing the graph (`clear_graph`)
+#### Clearing the graph (`clear_graph`)
 
 The `clear_graph` function removes all edges from the graph while keeping all keys in the grove.
 
@@ -682,7 +686,7 @@ std::cout << "Rebuilt graph: " << grove.edge_count() << " edges\n";
 - Resetting graph state while preserving spatial data
 - Separating graph construction from spatial indexing
 
-### Checking if graph is empty (`graph_empty`)
+#### Checking if graph is empty (`graph_empty`)
 
 The `graph_empty` function checks whether the graph contains any edges.
 
@@ -747,3 +751,121 @@ if (grove.graph_empty()) {
 - Validating graph state before operations
 - Conditional graph building
 - Lazy graph initialization
+
+::::
+
+::::{tab-item} Python
+
+Every grove carries an embedded **graph overlay** of directed edges between keys.
+The methods below inspect, navigate, prune, and manage that overlay. Keys are the
+`Key` handles returned by `insert` / `add_external_key`; edge-metadata methods are
+only available on the universal `Grove` and the point grove (the typed `BedGrove`
+/ `GffGrove` keep unlabelled edges for binary interop).
+
+### Inspecting edges
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))
+g.add_edge(a, b, {"type": "exon->transcript", "weight": 7})
+
+g.has_edge(a, b)          # True
+g.get_edges(a)            # [{"type": "exon->transcript", "weight": 7}]
+g.get_edge_list(a)        # [(b, {"type": "exon->transcript", "weight": 7})]
+```
+
+- `get_edges(source: Key) -> list` — the **decoded edge payloads** of `source`'s
+  outgoing edges, parallel to `get_neighbors(source)`. Universal `Grove` / point
+  grove only; edges added without a payload yield `None`.
+- `get_edge_list(source: Key) -> list[tuple[Key, object]]` — the full outgoing
+  edges as `(target, metadata)` pairs, pairing each neighbor with its payload in a
+  single call.
+
+### Navigating neighbors
+
+```python
+g.get_neighbors(a)                                 # [b]
+g.get_neighbors_if(a, lambda m: m["weight"] > 5)   # [b]
+```
+
+- `get_neighbors(source: Key) -> list[Key]` — the target keys directly reachable
+  from `source` via outgoing edges.
+- `get_neighbors_if(source: Key, predicate) -> list[Key]` — only those target keys
+  whose edge metadata satisfies `predicate(metadata)`. The predicate receives the
+  **decoded** payload (edges with no payload yield `None`, so guard for it when
+  mixing labelled and unlabelled edges).
+
+### Removing edges
+
+```python
+g.remove_edge(a, b)        # True if an edge was removed
+g.remove_edges_from(a)     # count of outgoing edges removed
+g.remove_edges_to(b)       # count of incoming edges removed
+g.remove_all_edges(a)      # count of all edges touching `a` removed
+```
+
+- `remove_edge(source: Key, target: Key) -> bool` — remove a single directed edge;
+  `True` if one was found and removed. The keys themselves stay in the grove.
+- `remove_edges_from(source: Key) -> int` — remove all outgoing edges from
+  `source`; returns the count.
+- `remove_edges_to(target: Key) -> int` — remove all incoming edges to `target`;
+  returns the count.
+- `remove_all_edges(key: Key) -> int` — remove every edge touching `key` (incoming
+  and outgoing); returns the count.
+- `remove_edges_if(predicate) -> int` — remove every edge for which the predicate
+  returns `True`; returns the count. The **predicate signature depends on the grove
+  type**: on `Grove`, `NumericGrove`, and `KmerGrove` it is
+  `predicate(target: Key, metadata) -> bool` (the decoded edge payload is passed);
+  on `BedGrove` and `GffGrove`, whose edges carry no payload, it is
+  `predicate(target: Key) -> bool`.
+
+```python
+# Universal / numeric / kmer grove: (target, metadata) -> bool
+g.remove_edges_if(lambda target, meta: meta is not None and meta["weight"] < 5)
+
+# BedGrove / GffGrove: (target) -> bool
+bed.remove_edges_if(lambda target: target.start() > 1_000_000)
+```
+
+:::{note}
+`remove_key(index, key)` internally removes all edges touching the key, so you do
+not need to call `remove_all_edges` before removing a key.
+:::
+
+### Graph statistics and management
+
+```python
+g.out_degree(a)               # outgoing edges from `a`
+g.edge_count()                # total edges in the overlay
+g.vertex_count_with_edges()   # keys with at least one outgoing edge
+g.graph_empty()               # False
+g.clear_graph()               # drop all edges; keys are left intact
+g.graph_empty()               # True
+```
+
+- `out_degree(source: Key) -> int` — number of outgoing edges from `source`.
+- `edge_count() -> int` — total number of directed edges in the overlay.
+- `vertex_count_with_edges() -> int` — number of keys with at least one outgoing
+  edge.
+- `clear_graph()` — remove all edges; keys remain in the grove with their spatial
+  indices intact.
+- `graph_empty() -> bool` — whether the overlay has no edges.
+
+### Predicate callbacks
+
+The predicate-driven methods (`remove_edges_if`, `link_if`, `link_with`,
+`get_neighbors_if`) call back into your Python callable while genogrove iterates
+the graph. Two cautions apply.
+
+:::{warning}
+**Partial effect if the predicate raises.** These methods apply their effect *as they iterate*; if the Python predicate raises partway through, edges already processed before the throw have **already** been removed/added — there is no rollback. Validate inputs first, or catch and reconcile.
+
+**Do not mutate the graph from within the predicate.** The predicate runs while genogrove iterates the adjacency structure; calling `add_edge` / `remove_edges_*` / `clear_graph` / `link_*` on the same grove from inside the predicate is **undefined behavior**. Keep the predicate a pure inspector; mutate after the call returns.
+:::
+
+::::
+
+:::::

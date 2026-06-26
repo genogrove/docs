@@ -1,8 +1,14 @@
 # Key
 
+A key wraps a key value (e.g., interval, genomic_coordinate, kmer) together with optional associated data, serving as the fundamental storage unit inside grove structures.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
 The `key` class is a wrapper that combines a key value (e.g., interval, genomic_coordinate, kmer) with optional associated data. It serves as the fundamental storage unit in grove structures, enabling efficient indexing while maintaining arbitrary metadata.
 
-## Template Parameters
+### Template Parameters
 
 The key class takes two template parameters:
 
@@ -34,7 +40,7 @@ gdt::key<gdt::interval, GeneInfo> k2{
 };
 ```
 
-## Basic Usage
+### Basic Usage
 
 ```cpp
 #include <genogrove/data_type/key.hpp>
@@ -83,7 +89,7 @@ int main() {
 }
 ```
 
-## Keys Without Data
+### Keys Without Data
 
 When `data_type` is `void`, the key contains only the value with zero memory overhead:
 
@@ -110,7 +116,7 @@ int main() {
 }
 ```
 
-## Comparison Operators
+### Comparison Operators
 
 Keys support equality and ordering comparisons. **All comparisons are
 value-only — the `data` payload is ignored.** This matches the B+ tree's
@@ -155,7 +161,7 @@ Available operators:
   `key_type`. C++20 does **not** auto-generate `<=` / `>=` from `<` / `>`,
   so callers that need them should spell `!(a > b)` / `!(a < b)`.
 
-## Serialization
+### Serialization
 
 Keys support binary serialization for persistence:
 
@@ -188,7 +194,7 @@ int main() {
 }
 ```
 
-## Using Keys with Grove
+### Using Keys with Grove
 
 The key class is the internal storage type used by grove. When you insert data into a grove, it creates keys internally:
 
@@ -223,7 +229,7 @@ int main() {
 }
 ```
 
-## Memory Optimization
+### Memory Optimization
 
 The key class uses several C++ techniques to minimize memory overhead:
 
@@ -253,3 +259,50 @@ static_assert(sizeof(gdt::key<gdt::interval, int>) ==
 - `to_string()`: String representation (delegates to key_type)
 - `serialize(os)`, `deserialize(is)`: Binary persistence
 - `operator==`, `operator!=`, `operator<`, `operator>`: Value-only comparison (data ignored)
+
+::::
+
+::::{tab-item} Python
+
+A `Key` wraps a coordinate stored in the grove. It is returned by inserts and
+yielded by query results, and it keeps its owning grove alive.
+
+### Attributes
+
+- `value` — the key's value (e.g. a `GenomicCoordinate`), returned **by copy**, so
+  mutating the copy cannot corrupt the grove's ordering.
+- `data` — the payload. On the universal `Grove` this is the JSON value you stored,
+  returned as a freshly decoded copy on **each** access; on the typed groves
+  (`BedGrove` / `GffGrove`) `data` is a live, mutable `BedEntry` / `GffEntry`
+  reference.
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
+
+k.value          # GenomicCoordinate('+', 100, 200) — a copy
+k.data           # {'gene': 'FOO'} — freshly decoded copy on each access
+
+# Keys are also yielded by query results
+hit = list(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))[0]
+hit.value, hit.data
+```
+
+### Typed and point variants
+
+`BedKey`, `GffKey`, `NumericKey`, and `KmerKey` present the same surface
+(`value` / `data`) for the typed and point-keyed groves. On the typed groves,
+`data` yields a live, mutable entry reference rather than a decoded copy.
+
+:::{note}
+`Key` objects are only valid while their owning grove is alive (the binding keeps
+the grove alive while you hold a `Key`). They cannot be pickled or carried across
+groves. Indexed keys are also invalidated by `grove.compact()` — re-discover them
+via a fresh query.
+:::
+
+::::
+
+:::::

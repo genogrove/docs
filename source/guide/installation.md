@@ -2,7 +2,13 @@
 
 This guide covers how to build and install genogrove for use in your projects.
 
-## Prerequisites
+:::::{tab-set}
+
+::::{tab-item} C++
+
+This guide covers how to build and install genogrove for use in your projects.
+
+### Prerequisites
 
 Before building genogrove, ensure you have:
 
@@ -16,7 +22,7 @@ Before building genogrove, ensure you have:
   \- On macOS with Homebrew: `brew install htslib`
   \- On other systems: Build from source at <https://github.com/samtools/htslib>
 
-## Building from Source
+### Building from Source
 
 1. Clone the repository:
 
@@ -42,9 +48,9 @@ Before building genogrove, ensure you have:
    ctest -C Release
    ```
 
-## Using in Your Project
+### Using in Your Project
 
-### CMake Integration
+#### CMake Integration
 
 If you're using CMake, add genogrove to your project:
 
@@ -89,7 +95,7 @@ add_executable(my_program main.cpp)
 target_link_libraries(my_program genogrove::genogrove)
 ```
 
-### Manual Integration
+#### Manual Integration
 
 If not using CMake:
 
@@ -104,7 +110,7 @@ If not using CMake:
    \- htslib (`-lhts`)
    \- pthread (`-lpthread`) on Linux
 
-## Verify Installation
+### Verify Installation
 
 Create a simple test program:
 
@@ -130,7 +136,7 @@ g++ -std=c++20 test.cpp -o test
 # Output: Genogrove is working! Interval: [100, 200]
 ```
 
-## Development Build
+### Development Build
 
 For development with debugging symbols and sanitizers:
 
@@ -144,7 +150,7 @@ cmake --build build-debug
 
 See `SANITIZERS.md` in the repository for more information on using AddressSanitizer and UndefinedBehaviorSanitizer.
 
-## Troubleshooting
+### Troubleshooting
 
 **htslib not found**
 
@@ -179,6 +185,39 @@ sudo apt install gcc-13 g++-13
 export CXX=g++-13
 ```
 
-## Next Steps
+### Next Steps
 
 Once installed, proceed to the next sections of the user guide to learn how to use genogrove effectively.
+
+::::
+
+::::{tab-item} Python
+
+### Install
+
+```bash
+pip install pygenogrove
+```
+
+Building from source requires a C++20 compiler, CMake 3.15+, and Python 3.8+:
+
+```bash
+git clone --recursive https://github.com/genogrove/pygenogrove.git
+cd pygenogrove
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+### Checking your version
+
+`pygenogrove` exposes two module-level version attributes that move on independent cadences — the binding package versions its own surface, while `__genogrove_version__` advertises the bound C++ library. When filing a bug, report **both**:
+
+```python
+import pygenogrove as pg
+print(pg.__version__)             # the pygenogrove package version, e.g. "0.5.0"
+print(pg.__genogrove_version__)   # the genogrove C++ library it was built against, e.g. "0.24.7"
+```
+
+::::
+
+:::::

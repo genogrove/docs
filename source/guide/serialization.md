@@ -3,7 +3,11 @@
 Genogrove supports serialization for persisting groves to disk and loading them back. This avoids
 re-parsing and re-inserting data from source files, which is significantly faster for large datasets.
 
-## Basic Usage
+:::::{tab-set}
+
+::::{tab-item} C++
+
+### Basic Usage
 
 Save a grove to disk and load it back:
 
@@ -49,7 +53,7 @@ void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) 
 }
 ```
 
-## How It Works
+### How It Works
 
 The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
 compressed binary stream (not raw bytes), so files are compact but not directly inspectable with
@@ -63,7 +67,7 @@ hex editors. Internally the data is written in a depth-first traversal:
 All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and common data types
 (`std::string`, trivially copyable types like `int`, `double`, `uint32_t`) are serialized automatically.
 
-## Combined Persistence with Registry
+### Combined Persistence with Registry
 
 When using `registry` to store shared metadata (e.g., sample names referenced by ID in the grove),
 serialize the registry **before** the grove and deserialize in the same order:
@@ -110,7 +114,7 @@ int main() {
 }
 ```
 
-## Custom Key Type Serialization
+### Custom Key Type Serialization
 
 If you use a custom key type with the grove, it must implement a `serialize` member method and a
 static `deserialize` factory method:
@@ -137,11 +141,11 @@ struct CustomInterval {
 };
 ```
 
-## Custom Data Type Serialization
+### Custom Data Type Serialization
 
 For custom data types stored as associated data in keys, you have two options:
 
-### Option 1: Member methods
+#### Option 1: Member methods
 
 Add `serialize` and `deserialize` methods directly to your type:
 
@@ -165,7 +169,7 @@ struct Annotation {
 };
 ```
 
-### Option 2: Specialize serialization_traits
+#### Option 2: Specialize serialization_traits
 
 For third-party types you cannot modify, specialize `serialization_traits`:
 
@@ -184,7 +188,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 };
 ```
 
-### What works automatically
+#### What works automatically
 
 - **Trivially copyable types** (`int`, `double`, `uint32_t`, etc.) — serialized via `memcpy`
 - **`std::string`** — built-in specialization (length-prefixed)
@@ -194,7 +198,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
   files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and `gio::thick_info`
   are trivially copyable and serialize automatically.
 
-## Source Stream Must Be Seekable for Concatenated Payloads
+### Source Stream Must Be Seekable for Concatenated Payloads
 
 `grove::deserialize()` uses zlib's streaming decoder, which may finish consuming the compressed
 payload before exhausting the input buffer. To preserve any bytes that follow the grove (e.g.,
@@ -220,7 +224,7 @@ buf << non_seekable_source.rdbuf();        // drain into a seekable buffer
 auto g = gst::grove<...>::deserialize(buf);
 ```
 
-## Important Notes
+### Important Notes
 
 - `grove::deserialize()` returns a grove **by value**. Because `grove` is a move-only type (copy is deleted), the return relies on Named Return Value Optimization (NRVO) or implicit move. No special handling is needed—just assign the result to a local variable as shown in the examples above.
 - All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams.
@@ -229,3 +233,44 @@ auto g = gst::grove<...>::deserialize(buf);
 - Graph edges added via `add_edge()` or `link_if()` are now persisted during serialization and restored on deserialize.
 - **Breaking format change**: The serialized format now includes graph edges after external keys. Files serialized with older versions are incompatible and must be re-created.
 - All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result.
+
+::::
+
+::::{tab-item} Python
+
+### Serialization
+
+Groves persist to a zlib-compressed `.gg` binary.
+
+- `grove.serialize(path)` — write the grove (keys + payloads + graph overlay) to `path`. Releases the GIL.
+- `Grove.deserialize(path) -> Grove` (static) — load a grove written by `serialize`. Releases the GIL.
+
+```python
+g.serialize("out.gg")
+reloaded = pg.Grove.deserialize("out.gg")
+```
+
+Note the C++ interop: an edgeless universal-`Grove` `.gg` stores its payload as JSON text, readable
+by a C++ `grove<genomic_coordinate, std::string>`; with labelled edges the interop type is
+`grove<genomic_coordinate, std::string, std::string>`. Typed `BedGrove` / `GffGrove` `.gg` files
+round-trip the structured `BedEntry` / `GffEntry` payloads.
+
+### SIF export (visualization)
+
+`grove.to_sif(path)` writes the grove to a **SIF** (Simple Interaction Format) text file for
+Cytoscape — available on every grove. Tab-separated interactions: `nodelink` (node → child),
+`leaflink` (leaf → next leaf), `keylink` (key → graph-overlay neighbour). An empty grove writes an
+empty file. Releases the GIL.
+
+:::{warning}
+Line and index order are **not stable across runs** (hash-map iteration) — treat the output as a
+*set* of interactions.
+:::
+
+```python
+g.to_sif("graph.sif")
+```
+
+::::
+
+:::::

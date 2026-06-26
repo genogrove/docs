@@ -1,6 +1,12 @@
 # Complete Examples
 
-## Processing BED Files
+End-to-end workflows combining file I/O, data structures, queries, and graph overlays.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
+### Processing BED Files
 
 Here's a complete workflow combining file I/O, data structures, and queries:
 
@@ -52,7 +58,7 @@ int main() {
 }
 ```
 
-## Processing GFF/GTF Files
+### Processing GFF/GTF Files
 
 Working with gene annotations:
 
@@ -125,7 +131,7 @@ int main() {
 }
 ```
 
-## Building Transcript Graphs
+### Building Transcript Graphs
 
 Representing transcript structures with graph overlays:
 
@@ -203,3 +209,62 @@ int main() {
     return 0;
 }
 ```
+
+::::
+
+::::{tab-item} Python
+
+### Processing BED Files
+
+A complete workflow combining file I/O, a typed grove, and an overlap query:
+
+```python
+import pygenogrove as pg
+
+# Create a typed grove to store BED entries
+g = pg.BedGrove(256)
+
+# Read the BED file and insert each entry, keyed by chromosome
+for e in pg.BedReader("data.bed.gz"):
+    g.insert(e.chrom, e)               # key derived from each entry
+
+# Query for features overlapping chr1:1500-1600
+query = pg.GenomicCoordinate(".", 1500, 1600)
+for hit in g.intersect(query, "chr1"):
+    print(hit.data.name, hit.data.score)
+```
+
+:::{note}
+`BedReader` yields parsed BED entries, and `BedGrove.insert` derives the grove
+key from each entry's coordinates. Use `pg.GffGrove` / `pg.GffReader` for
+GFF/GTF annotation workflows.
+:::
+
+### Building Transcript Graphs
+
+Representing a transcript as a chain of exons on the universal `Grove`, then
+walking the graph overlay:
+
+```python
+import pygenogrove as pg
+
+# Exon coordinates of one transcript (start, end), in transcription order
+coords = [(1000, 1200), (1500, 1700), (2100, 2400)]
+
+g = pg.Grove(256)
+
+# Insert each exon on the '+' strand and keep the returned keys
+exons = [g.insert("chr1", pg.GenomicCoordinate("+", s, e)) for s, e in coords]
+
+# Chain consecutive exons of the transcript with directed edges
+for a, b in zip(exons, exons[1:]):
+    g.add_edge(a, b)
+
+# Walk downstream from the first exon
+for nb in g.get_neighbors(exons[0]):
+    print("downstream exon:", nb)
+```
+
+::::
+
+:::::

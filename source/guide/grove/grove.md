@@ -1,5 +1,11 @@
 # Grove
 
+The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It organizes data by index (e.g., chromosome) and supports efficient overlap queries, with an embedded graph overlay for directed edges between keys.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
 The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It organizes data by index (e.g., chromosome) and supports efficient overlap queries. An embedded graph overlay allows you to create directed edges between keys, representing relationships between genomic features.
 
 Beyond the core data structure covered on this page, the grove also supports:
@@ -8,7 +14,7 @@ Beyond the core data structure covered on this page, the grove also supports:
 - **{doc}`graph_manipulation`** — Inspect, modify, and analyze the graph structure with operations for edge management, neighbor traversal, and graph statistics
 - **{doc}`loading_data`** — Load genomic data from BED, GFF/GTF, and BAM/SAM files directly into a grove
 
-## Key Types and the key_type_base Concept
+### Key Types and the key_type_base Concept
 
 The grove is highly flexible and can work with any key type that satisfies the `key_type_base` concept. Genogrove provides four built-in key types:
 
@@ -73,7 +79,7 @@ struct CustomInterval {
 gst::grove<CustomInterval, std::string> my_grove(100);
 ```
 
-## Creating a Grove
+### Creating a Grove
 
 Create a grove with specified template parameters and tree order:
 
@@ -115,7 +121,7 @@ int main() {
   splits with `order == 2` would produce a sibling with zero keys, which classical B+ trees forbid.
   The default constructor (`grove()`) uses order 3.
 
-## Ownership Semantics
+### Ownership Semantics
 
 `grove` (and its internal `node` type) is **non-copyable and move-only**. Copy construction and
 copy assignment are deleted because these types own raw pointers internally—a shallow copy would
@@ -140,7 +146,7 @@ groves.push_back(std::move(my_grove));
 
 Always pass groves by reference or move them explicitly with `std::move`.
 
-## Accessing Indices
+### Accessing Indices
 
 Use `get_root_nodes()` to access the grove's index map (chromosome → root node). It returns a
 **const reference** to the internal `std::unordered_map`, so use `.at()` or `.find()` for lookups
@@ -156,7 +162,7 @@ if (auto it = roots.find("chr1"); it != roots.end()) {
 
 `set_root_nodes()` is private — indices are created automatically on first insertion.
 
-## Inserting Data
+### Inserting Data
 
 The grove supports multiple insertion modes with multi-index organization:
 
@@ -207,7 +213,7 @@ int main() {
 - Enables efficient chromosome-specific queries
 - Automatic index creation on first insertion
 
-## Bulk Insertion
+### Bulk Insertion
 
 For loading large datasets efficiently, use bulk insertion. Bulk insertion uses a hybrid bottom-up/append approach that is significantly faster than incremental insertion.
 
@@ -272,7 +278,7 @@ For loading 1M intervals into an empty index:
 - When appending to existing data, ensure new keys are strictly greater than all existing keys in that index
 - Genomic files (BED, GFF, GTF) are typically pre-sorted by position
 
-## Removing Keys
+### Removing Keys
 
 Use `remove_key()` to remove a previously-inserted key from the B+ tree. The method takes the
 index name (e.g., chromosome) and a pointer to the key — typically one that was returned from
@@ -311,7 +317,7 @@ for (auto* key : results.get_keys()) {
 }
 ```
 
-### Reclaiming removed-key storage (`compact`)
+#### Reclaiming removed-key storage (`compact`)
 
 `remove_key()` unlinks keys from the tree but **does not free** the underlying `key<>` objects
 in the grove's internal deque. Across many insert/remove cycles the deque grows without bound
@@ -351,7 +357,7 @@ for (auto* k : victims) my_grove.remove_key("chr1", k);
 my_grove.compact();
 ```
 
-## Querying Intervals
+### Querying Intervals
 
 Find all intervals that overlap with a query region:
 
@@ -406,12 +412,12 @@ constrained with the `key_type_base` concept, so misuse with a non-conforming ty
 result-container instantiation site with a clean concept diagnostic instead of a deep template
 instantiation error inside `key<>`.
 
-```{warning}
+:::{warning}
 Mutating a key's value via `key::set_value(...)` corrupts B+ tree ordering invariants. The same
 risk exists through the pointer returned by `insert_data()`, so the convention is enforced by
 discipline rather than at the API level — only mutate the *data* payload through these
 pointers, never the key value.
-```
+:::
 
 For the closest features on each side of a query (rather than features overlapping
 it), see [Flanking-Key Queries](#flanking-key-queries) below.
@@ -425,7 +431,7 @@ The grove uses C++20 concepts to provide clear compile-time errors:
 - `insert_data(index, data, sorted, bulk)` and `build_tree_bottom_up`: `Container` must satisfy `std::ranges::forward_range` and `std::ranges::sized_range`
 - `insert_data(index, data, bulk)`: `Container` must satisfy `std::ranges::random_access_range` and `std::ranges::sized_range`
 
-## Flanking-Key Queries
+### Flanking-Key Queries
 
 In addition to `intersect()`, which finds keys that overlap a query, the grove supports a
 `flanking()` query that returns the **predecessor** and **successor** of a query — the
@@ -480,7 +486,7 @@ excluded by definition. Among the remaining candidates:
 intervals: `query.start - predecessor->get_value().get_end() - 1`; for numeric scalars:
 `query.value - predecessor->get_value()`.
 
-### Filtering by a Predicate
+#### Filtering by a Predicate
 
 A second overload accepts a binary predicate `is_compatible(candidate, query)` that
 filters candidates before the overlap and ordering checks. Use this to express
@@ -508,11 +514,200 @@ structural (based on aggregate ranges) and never consults the predicate, so
 subtrees that contain only incompatible keys are still visited but filtered
 out at the leaves.
 
-```{note}
+:::{note}
 `flanking()` is named to avoid collision with the graph-overlay `get_neighbors()`,
 which returns graph-edge-connected keys — a distinct concept from spatial nearest
 neighbors.
+:::
+
+::::
+
+::::{tab-item} Python
+
+The universal `Grove` is `grove<genomic_coordinate, json>`: a B+ tree keyed by
+{doc}`../data_types` coordinates that stores any JSON-serializable payload
+(dict / list / scalar / `None`) per key. Each key may carry a **different** shape —
+no schema is enforced.
+
+```python
+Grove(order: int = 3)
 ```
+
+- `order` — maximum branching factor (max keys per node = `order - 1`). Minimum 3.
+  Higher orders (100–500) reduce tree height for large datasets.
+
+Groves support **multiple indices** (typically one per chromosome): the first
+argument to `insert` / `intersect` selects the index.
+
+### Inserting and querying
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
+g.insert("chr1", pg.GenomicCoordinate(".", 300, 400))   # no payload -> None
+
+hit = list(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))[0]
+hit.value, hit.data        # GenomicCoordinate('+', 100, 200), {'gene': 'FOO'}
+```
+
+**Methods**:
+
+- `insert(index: str, key: GenomicCoordinate, data=None) -> Key` — insert a
+  coordinate with an optional JSON-serializable payload at the given index.
+- `intersect(query: GenomicCoordinate) -> QueryResult` — strand-aware overlaps
+  across **all** indices.
+- `intersect(query: GenomicCoordinate, index: str) -> QueryResult` — overlaps in
+  a **specific** index (faster; prefer this when you know the chromosome).
+- `len(grove)` / `size()` / `indexed_vertex_count()` — number of indexed
+  intervals across all indices.
+- `get_order()` — the tree's branching factor.
+
+### Key
+
+A `Key` is a wrapper for a coordinate stored in the grove. It is returned by
+inserts and yielded by query results, and it keeps its owning `Grove` alive.
+
+**Attributes**:
+
+- `value` — the `GenomicCoordinate`, returned **by copy** (mutating it cannot
+  corrupt ordering).
+- `data` — the payload. On the universal `Grove` this is the JSON value you
+  stored, returned as a freshly decoded copy on each access.
+
+:::{note}
+`Key` objects are only valid while their owning `Grove` is alive. The bindings
+keep the `Grove` alive for as long as you hold a `Key`, but keys cannot be
+pickled or carried across groves.
+:::
+
+### QueryResult
+
+The object returned by `intersect`.
+
+**Attributes**: `query` (the query coordinate), `keys` (the matching keys).
+
+**Methods**: `__len__()` (number of results), `__iter__()` (iterate the keys).
+
+### Flanking (nearest neighbours)
+
+`flanking` finds the nearest **non-overlapping** keys on either side of a query.
+
+```python
+flanking(query: GenomicCoordinate, index: str) -> FlankingResult
+```
+
+**FlankingResult**:
+
+- `predecessor` — the closest key entirely **before** the query (a `Key`), or `None`.
+- `successor` — the closest key entirely **after** the query (a `Key`), or `None`.
+
+Keys overlapping the query are excluded; for nested intervals the predecessor is
+the one with the largest end (smallest gap). Compute a gap distance from the
+returned key, e.g. `query.start - result.predecessor.value.end - 1` (closed
+coordinates).
+
+#### Predicate-filtered flanking
+
+A third argument filters candidates with a Python callable
+`is_compatible(candidate, query) -> bool` applied at each leaf candidate; only
+keys for which it returns `True` are considered. The headline use is the nearest
+neighbour **on the same strand**:
+
+```python
+import pygenogrove as pg
+g = pg.Grove()
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+g.insert("chr1", pg.GenomicCoordinate("-", 300, 400))   # opposite strand, nearer
+
+q = pg.GenomicCoordinate("+", 500, 510)
+# Without the predicate, the nearer '-' key would be the predecessor.
+# A same-strand predicate skips it -> nearest '+' neighbour:
+r = g.flanking(q, "chr1", lambda cand, q: cand.strand == q.strand)
+r.predecessor.value         # GenomicCoordinate('+', 100, 200)
+```
+
+- The predicate receives the key **values** (e.g. `GenomicCoordinate`); for the
+  typed groves it receives the interval value.
+- Predicate exceptions propagate to Python; the call holds the GIL.
+
+### Removal and storage
+
+- `remove_key(index: str, key: Key) -> bool` — remove a key from the index's B+
+  tree (rebalancing as needed) and drop every graph edge touching it. Returns
+  `True` if found; a `None` key or unknown index returns `False`. The key remains
+  as a **dead storage slot** until `compact()`.
+- `compact() -> None` — reclaim the dead slots left by `remove_key()`.
+- `vertex_count()` — indexed + external keys.
+- `external_vertex_count()` — external keys only (see the {doc}`graph overlay guide <./graph>`).
+- `key_storage_size()` — total storage slots (live + B+ tree separators + dead slots).
+
+:::{warning}
+**`compact()` invalidates indexed `Key` handles.** It moves key storage, so every
+previously-returned indexed `Key` (from `insert` / `insert_bulk` / `intersect` /
+`flanking`) becomes invalid and must not be used afterward — re-discover keys via
+a fresh query. Keys from `add_external_key()` are unaffected.
+:::
+
+```python
+import pygenogrove as pg
+g = pg.Grove()
+k = g.insert("chr1", pg.GenomicCoordinate(".", 100, 200))
+g.remove_key("chr1", k)        # True; edges to/from k are also removed
+g.key_storage_size()           # still counts the dead slot
+g.compact()                    # reclaims it — k (and all old indexed Keys) now invalid
+# Re-query to get fresh, valid handles:
+for key in g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"):
+    ...
+```
+
+### Serialization
+
+Groves persist to a zlib-compressed `.gg` binary.
+
+- `serialize(path: str)` — write the grove (coordinates + payloads + graph
+  overlay) to `path`.
+- `deserialize(path: str) -> Grove` *(static)* — load a grove written by `serialize`.
+
+```python
+g.serialize("out.gg")
+reloaded = pg.Grove.deserialize("out.gg")
+```
+
+An edgeless universal-`Grove` `.gg` stores its payload as **JSON text**, so it is
+readable by a C++ `grove<genomic_coordinate, std::string>`. With labelled edges
+(see the {doc}`graph overlay guide <./graph>`) the C++ interop type is
+`grove<genomic_coordinate, std::string, std::string>`.
+
+### Point-key groves: NumericGrove and KmerGrove
+
+Two additional groves keyed by the point types `Numeric` and `Kmer` (see the
+{doc}`Data Types guide <../data_types>`):
+
+- `NumericGrove` = `grove<numeric, json, json>` — a point-lookup B+ tree (overlap =
+  exact equality).
+- `KmerGrove` = `grove<kmer, json, json>` — a k-mer membership dictionary.
+
+Both expose the **same surface** as the universal `Grove`: optional JSON payload
+(insert without data → `None`), labelled graph edges, `.gg` serialization, plus
+`NumericKey`/`KmerKey`, `NumericQueryResult`/`KmerQueryResult`, etc.
+
+```python
+import pygenogrove as pg
+
+g = pg.NumericGrove()
+g.insert("ids", pg.Numeric(42), {"label": "answer"})
+list(g.intersect(pg.Numeric(42), "ids"))[0].data   # {'label': 'answer'}
+
+km = pg.KmerGrove()
+km.insert("seqs", pg.Kmer("ACGT"), {"count": 3})
+pg.Kmer.is_valid("ACGN")                            # False
+```
+
+::::
+
+:::::
 
 ```{toctree}
 :maxdepth: 1

@@ -1,8 +1,12 @@
 # Performance Optimization
 
-## Tips for Optimal Performance
+:::::{tab-set}
 
-### Choose Appropriate Tree Order
+::::{tab-item} C++
+
+### Tips for Optimal Performance
+
+#### Choose Appropriate Tree Order
 
 The tree order parameter significantly affects performance:
 
@@ -21,7 +25,7 @@ Higher order values provide:
 gst::grove<gdt::interval, std::string> my_grove(500);
 ```
 
-### Use Sorted Insertion for Pre-sorted Data
+#### Use Sorted Insertion for Pre-sorted Data
 
 When data is already sorted (common for BED/GFF files), use sorted insertion:
 
@@ -35,7 +39,7 @@ grove.insert_data(index, interval, data);
 
 Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted.
 
-### Use Bulk Insertion for Large Datasets
+#### Use Bulk Insertion for Large Datasets
 
 For loading large datasets (>10K intervals), bulk insertion provides dramatic performance improvements:
 
@@ -77,7 +81,7 @@ grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 - Building indices for production use
 - **Important**: Data must be sorted before using bulk insertion
 
-### Organize by Chromosome
+#### Organize by Chromosome
 
 Always use chromosome/contig names as the index parameter:
 
@@ -96,9 +100,9 @@ Benefits:
 - Reduced tree traversal for most genomic queries
 - Better memory locality for same-chromosome data
 
-## Compression Support
+### Compression Support
 
-### Choosing the Right Compression Format
+#### Choosing the Right Compression Format
 
 Different compression formats have different trade-offs:
 
@@ -131,9 +135,9 @@ gio::bed_reader reader3("data.bed.lz4");   // LZ4
 gio::bed_reader reader4("data.bed");       // Uncompressed
 ```
 
-## Memory Management
+### Memory Management
 
-### Efficient Memory Usage
+#### Efficient Memory Usage
 
 The grove uses a deque for key storage, providing:
 
@@ -147,7 +151,7 @@ auto* key = grove.insert_data("chr1", interval, data);
 // Pointer remains valid until grove is destroyed
 ```
 
-### Graph Overlay Considerations
+#### Graph Overlay Considerations
 
 When using graph overlays, consider:
 
@@ -160,7 +164,7 @@ When using graph overlays, consider:
 grove.clear_graph();  // Frees edge memory, keeps keys
 ```
 
-## Serialization
+### Serialization
 
 Save and load grove structures for faster startup:
 
@@ -192,9 +196,9 @@ Save and load grove structures for faster startup:
 
 - Rightmost node cache (recalculated on load)
 
-## Query Optimization
+### Query Optimization
 
-### Chromosome-Specific Queries
+#### Chromosome-Specific Queries
 
 Always specify the chromosome when possible:
 
@@ -206,7 +210,7 @@ auto results = grove.intersect(query, "chr1");
 auto all_results = grove.intersect(query);
 ```
 
-### Result Processing
+#### Result Processing
 
 Process query results efficiently:
 
@@ -222,7 +226,7 @@ for (auto* key : keys) {
 }
 ```
 
-## Benchmarking
+### Benchmarking
 
 Example benchmark for insertion:
 
@@ -257,7 +261,7 @@ void benchmark_insertion() {
 }
 ```
 
-## Best Practices Summary
+### Best Practices Summary
 
 1. **Choose appropriate tree order** based on dataset size
 2. **Use bulk insertion** for large datasets (>10K intervals)
@@ -268,3 +272,76 @@ void benchmark_insertion() {
 7. **Clear graph** when edges are no longer needed
 8. **Serialize** large groves for faster loading
 9. **Benchmark** your specific use case
+
+::::
+
+::::{tab-item} Python
+
+### Bulk and Fast-Path Inserts
+
+For large loads, prefer `insert_bulk(index, items, presorted=False)`: the tree is
+built bottom-up in a single native pass, which is much faster than repeated
+`insert`. For an incremental rightmost-append fast path, use
+`insert_sorted(index, key, data)`.
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+
+# Bulk load: per-index (one chromosome at a time), built bottom-up
+items = [(pg.Interval(i * 100, i * 100 + 50), f"feature{i}") for i in range(1_000_000)]
+g.insert_bulk("chr1", items, presorted=True)   # presorted skips the internal sort
+
+# Rightmost-append fast path for incremental sorted inserts
+g.insert_sorted("chr2", pg.Interval(100, 200), "feat")
+```
+
+- `insert_bulk` is **per-index** — call it once per chromosome / contig.
+- Pass `presorted=True` only when `items` is already sorted; otherwise leave it
+  `False` and the call sorts for you.
+- Both `insert_bulk` and `insert_sorted` release the GIL around the native build.
+
+### Threading & the GIL
+
+pygenogrove releases the Python GIL around its I/O-bound native work, so multiple
+Python threads can run during that native work.
+
+**Calls that RELEASE the GIL** (other Python threads run during the native work):
+
+- File readers `__next__`: `BedReader` / `GffReader` / `BamReader` / `VcfReader` /
+  `FastaReader` (disk read + htslib/parse).
+- `FastaIndex` — construction (builds a missing `.fai`) and both `fetch` overloads.
+- `Grove.serialize` / `Grove.deserialize` / `Grove.to_sif` (file + zlib).
+- `insert_bulk` — around the C++ build loop.
+
+**Calls that KEEP the GIL** (and why):
+
+- Single `insert` / `insert_sorted` / `intersect` — short, hot operations.
+- The predicate-callback methods `flanking(..., predicate)` / `get_neighbors_if` /
+  `link_if` / `link_with` / `remove_edges_if` — their C++ re-enters Python, so the
+  GIL is required.
+
+:::{warning}
+**Thread-safety contract:** a genogrove object (reader / grove / index) is **not**
+internally synchronized. The safe pattern is **one object per thread** — e.g. a
+pool where each worker has its own reader / grove, overlapping only the native
+work. Sharing a single object across threads is a data race.
+:::
+
+Example (parallel I/O with a thread pool):
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+import pygenogrove as pg
+
+def count(path):                        # each worker its own reader
+    return sum(1 for _ in pg.BedReader(path))
+
+with ThreadPoolExecutor() as ex:        # readers' disk I/O now overlaps
+    totals = list(ex.map(count, bed_paths))
+```
+
+::::
+
+:::::
