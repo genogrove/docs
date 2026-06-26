@@ -1,6 +1,5 @@
 import importlib.util
 import os
-import sys
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -18,11 +17,10 @@ release = "0.24.5"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-# Autodoc imports the *compiled* pygenogrove extension, so it must be installed
-# in the build env (`pip install pygenogrove`). The path below also picks up a
-# local build placed in the binding repo. The guard further down skips the
-# Python API reference cleanly when the module is not importable.
-sys.path.insert(0, os.path.abspath("../repos/pygenogrove"))
+# Autodoc imports the *compiled* pygenogrove extension to build the Python API
+# reference, so it must be installed in the build env. It is listed in
+# source/requirements.txt; the guard further down skips that section cleanly
+# when the module is not importable (e.g. a C++-only build).
 
 extensions = [
     "myst_parser",  # MyST Markdown parser

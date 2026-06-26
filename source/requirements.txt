@@ -5,3 +5,6 @@ myst-parser>=4.0.0
 linkify-it-py>=2.0.0
 sphinx-copybutton>=0.5.0
 sphinx-design>=0.5.0
+# Imported by autodoc to generate the Python API reference (reference/python/*).
+# If it cannot be installed/imported, conf.py skips that section gracefully.
+pygenogrove
