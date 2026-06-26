@@ -313,7 +313,7 @@ pg.Numeric.overlaps(pg.Numeric(100), pg.Numeric(101))   # False
 ```
 
 ```python
-GenomicCoordinate -> Numeric(value: int)
+Numeric(value: int)
 ```
 
 **Attributes** (read-only): `value`

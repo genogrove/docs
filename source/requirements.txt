@@ -7,4 +7,6 @@ sphinx-copybutton>=0.5.0
 sphinx-design>=0.5.0
 # Imported by autodoc to generate the Python API reference (reference/python/*).
 # If it cannot be installed/imported, conf.py skips that section gracefully.
-pygenogrove
+# Pinned to the surface the reference docs were written against (avoids autodoc
+# drifting to a newer PyPI release than the documented API).
+pygenogrove==0.5.0
