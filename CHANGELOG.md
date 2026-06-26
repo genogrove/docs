@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-06-26
+
+### Changed
+- Bumped the `repos/genogrove` clone to upstream `1af9e79` to pick up the Doxygen header-comment fixes ([genogrove#455](https://github.com/genogrove/genogrove/pull/455), closes [genogrove#454](https://github.com/genogrove/genogrove/issues/454)), clearing the `@HD`/`#CHROM`/`grove_insert @param` warnings from the docs build
+
 ## 2026-06-13
 
 ### Added
