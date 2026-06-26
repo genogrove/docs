@@ -6,6 +6,11 @@ All notable changes to the genogrove documentation project will be documented in
 
 ### Changed
 - Bumped the `repos/genogrove` clone to upstream `1af9e79` to pick up the Doxygen header-comment fixes ([genogrove#455](https://github.com/genogrove/genogrove/pull/455), closes [genogrove#454](https://github.com/genogrove/genogrove/issues/454)), clearing the `@HD`/`#CHROM`/`grove_insert @param` warnings from the docs build
+- Pinned `pygenogrove==0.5.0` in `source/requirements.txt` so autodoc builds against the documented API surface instead of drifting to the latest PyPI release ([#171](https://github.com/genogrove/docs/pull/171))
+- Dropped the unused `pygenogrove` clone from `.readthedocs.yaml` `pre_build` — `Doxyfile` only scans `repos/genogrove/include` and the Python reference comes from the pinned PyPI wheel ([#171](https://github.com/genogrove/docs/pull/171))
+
+### Fixed
+- Corrected the `Numeric` constructor signature in `guide/data_types.md` (stray `GenomicCoordinate ->` copy-paste artifact) ([#171](https://github.com/genogrove/docs/pull/171))
 
 ## 2026-06-13
 
