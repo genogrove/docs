@@ -22,8 +22,17 @@ workflows.
 .. autoclass:: pygenogrove.SamEntry
 .. autoclass:: pygenogrove.FastaEntry
 .. autoclass:: pygenogrove.VcfEntry
+   :exclude-members: is_symbolic_allele
 .. autoclass:: pygenogrove.SampleGenotype
 ```
+
+:::{note}
+`VcfEntry.is_symbolic_allele(allele)` *(static)* — returns `True` when `allele`
+is a symbolic / non-reference placeholder such as `<*>`, `<NON_REF>`, or `*`.
+It is documented here manually and excluded from autodoc above because its
+binding docstring contains an unescaped `*` that the RST parser misreads;
+re-include it once that is fixed upstream in pygenogrove.
+:::
 
 ## Alignment flags
 
