@@ -64,6 +64,11 @@ if not pygenogrove_available:
 # `default_initializable<D>`) and `key<T, void>::key()` (added in v0.24.4) both
 # read as `inline key ()`. Both declarations are correct upstream; the warning
 # is a tooling limitation.
+#
+# This Sphinx version emits that warning WITHOUT a suppressible type (it prints
+# with no `[cpp.duplicate_declaration]` tag), so `suppress_warnings` below is a
+# no-op for it. It is kept in case a future Sphinx tags the warning; the
+# effective silencing is the logging filter installed in `setup()` at the bottom.
 suppress_warnings = ["cpp.duplicate_declaration"]
 
 # MyST-Parser configuration
@@ -130,3 +135,28 @@ html_theme_options = {
 }
 
 html_sidebars = {"**": ["sidebar-nav-bs"]}
+
+
+def setup(app):
+    """Drop the un-suppressible breathe duplicate-declaration warning.
+
+    Breathe renders the two `requires`-constrained ``genogrove::data_type::key``
+    default constructors with identical visible signatures, so Sphinx's C++
+    domain reports a duplicate. The warning carries no suppressible type (see the
+    note by ``suppress_warnings``), so it is filtered here by message. Both
+    declarations are valid C++; this is purely a rendering artifact.
+    """
+    import logging
+
+    class _DropCppKeyDuplicate(logging.Filter):
+        def filter(self, record):
+            return "Duplicate C++ declaration" not in record.getMessage()
+
+    # The warning is emitted from a child logger (sphinx.domains.cpp). Child
+    # records bypass the parent logger's own filters but still pass through the
+    # parent's handlers, so the filter must live on the handlers.
+    sphinx_logger = logging.getLogger("sphinx")
+    drop = _DropCppKeyDuplicate()
+    sphinx_logger.addFilter(drop)
+    for handler in sphinx_logger.handlers:
+        handler.addFilter(drop)
