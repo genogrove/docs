@@ -4,9 +4,9 @@
 
 ::::{tab-item} C++
 
-## Tips for Optimal Performance
+### Tips for Optimal Performance
 
-### Choose Appropriate Tree Order
+#### Choose Appropriate Tree Order
 
 The tree order parameter significantly affects performance:
 
@@ -25,7 +25,7 @@ Higher order values provide:
 gst::grove<gdt::interval, std::string> my_grove(500);
 ```
 
-### Use Sorted Insertion for Pre-sorted Data
+#### Use Sorted Insertion for Pre-sorted Data
 
 When data is already sorted (common for BED/GFF files), use sorted insertion:
 
@@ -39,7 +39,7 @@ grove.insert_data(index, interval, data);
 
 Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted.
 
-### Use Bulk Insertion for Large Datasets
+#### Use Bulk Insertion for Large Datasets
 
 For loading large datasets (>10K intervals), bulk insertion provides dramatic performance improvements:
 
@@ -81,7 +81,7 @@ grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 - Building indices for production use
 - **Important**: Data must be sorted before using bulk insertion
 
-### Organize by Chromosome
+#### Organize by Chromosome
 
 Always use chromosome/contig names as the index parameter:
 
@@ -100,9 +100,9 @@ Benefits:
 - Reduced tree traversal for most genomic queries
 - Better memory locality for same-chromosome data
 
-## Compression Support
+### Compression Support
 
-### Choosing the Right Compression Format
+#### Choosing the Right Compression Format
 
 Different compression formats have different trade-offs:
 
@@ -135,9 +135,9 @@ gio::bed_reader reader3("data.bed.lz4");   // LZ4
 gio::bed_reader reader4("data.bed");       // Uncompressed
 ```
 
-## Memory Management
+### Memory Management
 
-### Efficient Memory Usage
+#### Efficient Memory Usage
 
 The grove uses a deque for key storage, providing:
 
@@ -151,7 +151,7 @@ auto* key = grove.insert_data("chr1", interval, data);
 // Pointer remains valid until grove is destroyed
 ```
 
-### Graph Overlay Considerations
+#### Graph Overlay Considerations
 
 When using graph overlays, consider:
 
@@ -164,7 +164,7 @@ When using graph overlays, consider:
 grove.clear_graph();  // Frees edge memory, keeps keys
 ```
 
-## Serialization
+### Serialization
 
 Save and load grove structures for faster startup:
 
@@ -196,9 +196,9 @@ Save and load grove structures for faster startup:
 
 - Rightmost node cache (recalculated on load)
 
-## Query Optimization
+### Query Optimization
 
-### Chromosome-Specific Queries
+#### Chromosome-Specific Queries
 
 Always specify the chromosome when possible:
 
@@ -210,7 +210,7 @@ auto results = grove.intersect(query, "chr1");
 auto all_results = grove.intersect(query);
 ```
 
-### Result Processing
+#### Result Processing
 
 Process query results efficiently:
 
@@ -226,7 +226,7 @@ for (auto* key : keys) {
 }
 ```
 
-## Benchmarking
+### Benchmarking
 
 Example benchmark for insertion:
 
@@ -261,7 +261,7 @@ void benchmark_insertion() {
 }
 ```
 
-## Best Practices Summary
+### Best Practices Summary
 
 1. **Choose appropriate tree order** based on dataset size
 2. **Use bulk insertion** for large datasets (>10K intervals)

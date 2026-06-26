@@ -699,7 +699,7 @@ restarted or iterated twice.
 ### BedReader / GffReader
 
 `BedReader` and `GffReader` iterate BED and GFF3/GTF files, yielding `BedEntry` /
-`GffEntry` records (see the [loading data guide](./grove/loading_data)).
+`GffEntry` records (see the {doc}`loading data guide <./grove/loading_data>`).
 
 ```python
 import pygenogrove as pg

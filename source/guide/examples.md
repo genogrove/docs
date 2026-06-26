@@ -6,7 +6,7 @@ End-to-end workflows combining file I/O, data structures, queries, and graph ove
 
 ::::{tab-item} C++
 
-## Processing BED Files
+### Processing BED Files
 
 Here's a complete workflow combining file I/O, data structures, and queries:
 
@@ -58,7 +58,7 @@ int main() {
 }
 ```
 
-## Processing GFF/GTF Files
+### Processing GFF/GTF Files
 
 Working with gene annotations:
 
@@ -131,7 +131,7 @@ int main() {
 }
 ```
 
-## Building Transcript Graphs
+### Building Transcript Graphs
 
 Representing transcript structures with graph overlays:
 
@@ -214,7 +214,7 @@ int main() {
 
 ::::{tab-item} Python
 
-## Processing BED Files
+### Processing BED Files
 
 A complete workflow combining file I/O, a typed grove, and an overlap query:
 
@@ -240,7 +240,7 @@ key from each entry's coordinates. Use `pg.GffGrove` / `pg.GffReader` for
 GFF/GTF annotation workflows.
 :::
 
-## Building Transcript Graphs
+### Building Transcript Graphs
 
 Representing a transcript as a chain of exons on the universal `Grove`, then
 walking the graph overlay:

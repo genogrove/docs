@@ -7,7 +7,7 @@ re-parsing and re-inserting data from source files, which is significantly faste
 
 ::::{tab-item} C++
 
-## Basic Usage
+### Basic Usage
 
 Save a grove to disk and load it back:
 
@@ -53,7 +53,7 @@ void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) 
 }
 ```
 
-## How It Works
+### How It Works
 
 The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
 compressed binary stream (not raw bytes), so files are compact but not directly inspectable with
@@ -67,7 +67,7 @@ hex editors. Internally the data is written in a depth-first traversal:
 All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and common data types
 (`std::string`, trivially copyable types like `int`, `double`, `uint32_t`) are serialized automatically.
 
-## Combined Persistence with Registry
+### Combined Persistence with Registry
 
 When using `registry` to store shared metadata (e.g., sample names referenced by ID in the grove),
 serialize the registry **before** the grove and deserialize in the same order:
@@ -114,7 +114,7 @@ int main() {
 }
 ```
 
-## Custom Key Type Serialization
+### Custom Key Type Serialization
 
 If you use a custom key type with the grove, it must implement a `serialize` member method and a
 static `deserialize` factory method:
@@ -141,11 +141,11 @@ struct CustomInterval {
 };
 ```
 
-## Custom Data Type Serialization
+### Custom Data Type Serialization
 
 For custom data types stored as associated data in keys, you have two options:
 
-### Option 1: Member methods
+#### Option 1: Member methods
 
 Add `serialize` and `deserialize` methods directly to your type:
 
@@ -169,7 +169,7 @@ struct Annotation {
 };
 ```
 
-### Option 2: Specialize serialization_traits
+#### Option 2: Specialize serialization_traits
 
 For third-party types you cannot modify, specialize `serialization_traits`:
 
@@ -188,7 +188,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 };
 ```
 
-### What works automatically
+#### What works automatically
 
 - **Trivially copyable types** (`int`, `double`, `uint32_t`, etc.) — serialized via `memcpy`
 - **`std::string`** — built-in specialization (length-prefixed)
@@ -198,7 +198,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
   files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and `gio::thick_info`
   are trivially copyable and serialize automatically.
 
-## Source Stream Must Be Seekable for Concatenated Payloads
+### Source Stream Must Be Seekable for Concatenated Payloads
 
 `grove::deserialize()` uses zlib's streaming decoder, which may finish consuming the compressed
 payload before exhausting the input buffer. To preserve any bytes that follow the grove (e.g.,
@@ -224,7 +224,7 @@ buf << non_seekable_source.rdbuf();        // drain into a seekable buffer
 auto g = gst::grove<...>::deserialize(buf);
 ```
 
-## Important Notes
+### Important Notes
 
 - `grove::deserialize()` returns a grove **by value**. Because `grove` is a move-only type (copy is deleted), the return relies on Named Return Value Optimization (NRVO) or implicit move. No special handling is needed—just assign the result to a local variable as shown in the examples above.
 - All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams.

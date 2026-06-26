@@ -640,7 +640,7 @@ r.predecessor.value         # GenomicCoordinate('+', 100, 200)
   as a **dead storage slot** until `compact()`.
 - `compact() -> None` — reclaim the dead slots left by `remove_key()`.
 - `vertex_count()` — indexed + external keys.
-- `external_vertex_count()` — external keys only (see [](./graph)).
+- `external_vertex_count()` — external keys only (see the {doc}`graph overlay guide <./graph>`).
 - `key_storage_size()` — total storage slots (live + B+ tree separators + dead slots).
 
 :::{warning}
@@ -677,7 +677,7 @@ reloaded = pg.Grove.deserialize("out.gg")
 
 An edgeless universal-`Grove` `.gg` stores its payload as **JSON text**, so it is
 readable by a C++ `grove<genomic_coordinate, std::string>`. With labelled edges
-(see [](./graph)) the C++ interop type is
+(see the {doc}`graph overlay guide <./graph>`) the C++ interop type is
 `grove<genomic_coordinate, std::string, std::string>`.
 
 ### Point-key groves: NumericGrove and KmerGrove

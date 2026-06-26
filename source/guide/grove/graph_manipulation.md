@@ -6,9 +6,9 @@ Once you've built a graph by linking keys, GenoGrove provides a comprehensive se
 
 ::::{tab-item} C++
 
-## Edge Inspection
+### Edge Inspection
 
-### Checking if an edge exists (`has_edge`)
+#### Checking if an edge exists (`has_edge`)
 
 The `has_edge` function checks whether a directed edge exists from a source key to a target key.
 
@@ -62,7 +62,7 @@ if (!grove.has_edge(exon1, exon3)) {
 - Preventing duplicate edge creation
 - Conditional edge operations based on existing connections
 
-### Retrieving edge metadata (`get_edges`)
+#### Retrieving edge metadata (`get_edges`)
 
 The `get_edges` function retrieves the metadata for all outgoing edges from a source key. This is only available when the grove has a non-void `edge_data_type`. To get the target keys themselves, use `get_neighbors()` instead.
 
@@ -119,7 +119,7 @@ for (const auto& edge : edges) {
 - Aggregating metadata values (e.g., average confidence)
 - Use `get_edge_list()` when you need both targets and metadata together
 
-### Getting the edge list for a source (`get_edge_list`)
+#### Getting the edge list for a source (`get_edge_list`)
 
 The `get_edge_list` function retrieves all outgoing edges from a source key as `edge` structs, each containing the target pointer and metadata (if any). Unlike `get_edges()` (metadata only) or `get_neighbors()` (targets only), this returns the full edge objects.
 
@@ -166,9 +166,9 @@ for (const auto& edge : edges) {
 - Efficient read-only access (returns a const reference, no copy)
 - Building adjacency representations for graph algorithms
 
-## Neighbor Queries
+### Neighbor Queries
 
-### Getting all neighbors (`get_neighbors`)
+#### Getting all neighbors (`get_neighbors`)
 
 The `get_neighbors` function returns all target keys that are connected from a source key via outgoing edges.
 
@@ -244,7 +244,7 @@ std::cout << "\n";
 - Analyzing connectivity patterns
 - Building adjacency lists for graph algorithms
 
-### Filtered neighbor queries (`get_neighbors_if`)
+#### Filtered neighbor queries (`get_neighbors_if`)
 
 The `get_neighbors_if` function returns only neighbors whose edges satisfy a given predicate, allowing you to filter by edge metadata.
 
@@ -314,9 +314,9 @@ std::cout << "Nearby genes (<10kb): " << nearby.size() << "\n";
 - Distance-based queries in spatial networks
 - Selecting edges by quality metrics
 
-## Edge Modification
+### Edge Modification
 
-### Removing edges (`remove_edge`)
+#### Removing edges (`remove_edge`)
 
 The `remove_edge` function removes a specific directed edge from the graph. The keys themselves remain in the grove.
 
@@ -381,7 +381,7 @@ grove.remove_edge(exon1, exon2);
 - Updating graph topology based on new evidence
 - Removing erroneous connections
 
-### Bulk edge removal
+#### Bulk edge removal
 
 For removing many edges at once, the grove provides bulk operations that forward to the underlying
 graph overlay. Each returns the number of edges removed.
@@ -436,9 +436,9 @@ std::cout << "Dropped " << dropped << " low-confidence edges\n";
 not need to remove edges manually before removing a key from the tree.
 ```
 
-## Graph Statistics
+### Graph Statistics
 
-### Counting outgoing edges (`out_degree`)
+#### Counting outgoing edges (`out_degree`)
 
 The `out_degree` function returns the number of outgoing edges from a specific key.
 
@@ -499,7 +499,7 @@ for (auto* gene : all_genes) {
 - Analyzing node importance by connectivity
 - Filtering nodes by degree thresholds
 
-### Total edge count (`edge_count`)
+#### Total edge count (`edge_count`)
 
 The `edge_count` function returns the total number of edges in the entire graph.
 
@@ -537,7 +537,7 @@ std::cout << "Graph has " << grove.edge_count() << " edges\n";
 - Tracking graph size during construction
 - Validating graph operations
 
-### Counting vertices (`vertex_count`, `indexed_vertex_count`, `external_vertex_count`)
+#### Counting vertices (`vertex_count`, `indexed_vertex_count`, `external_vertex_count`)
 
 These functions count vertices (keys) in the grove.
 
@@ -607,9 +607,9 @@ std::cout << "Graph density: " << density << "\n";
 - Identifying isolated vs. connected components
 - Validating graph construction
 
-## Graph Management
+### Graph Management
 
-### Clearing the graph (`clear_graph`)
+#### Clearing the graph (`clear_graph`)
 
 The `clear_graph` function removes all edges from the graph while keeping all keys in the grove.
 
@@ -686,7 +686,7 @@ std::cout << "Rebuilt graph: " << grove.edge_count() << " edges\n";
 - Resetting graph state while preserving spatial data
 - Separating graph construction from spatial indexing
 
-### Checking if graph is empty (`graph_empty`)
+#### Checking if graph is empty (`graph_empty`)
 
 The `graph_empty` function checks whether the graph contains any edges.
 

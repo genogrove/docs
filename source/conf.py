@@ -85,7 +85,8 @@ myst_enable_extensions = [
     "tasklist",  # Task lists
 ]
 
-myst_heading_anchors = 3  # Auto-generate anchors for headers up to level 3
+myst_heading_anchors = 4  # Auto-generate anchors for headers up to level 4
+# (level 4 because guide pages nest content one level deeper inside C++/Python tabs)
 
 # Copybutton configuration
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
