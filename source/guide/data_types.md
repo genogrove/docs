@@ -1,8 +1,14 @@
 # Working with Data Types
 
+The `genogrove::data_type` namespace (C++) / `pygenogrove` module (Python) provides the core genomic data types.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
 The `genogrove::data_type` namespace provides core genomic data types.
 
-## Common Interface
+### Common Interface
 
 All data types in genogrove implement a shared interface:
 
@@ -21,7 +27,7 @@ static_assert(region.get_start() == 100);
 static_assert(gdt::interval::overlaps(region, gdt::interval{150, 250}));
 ```
 
-## Intervals
+### Intervals
 
 The `interval` class represents genomic regions using closed `[start, end]` coordinates (both endpoints inclusive):
 
@@ -65,7 +71,7 @@ int main() {
 - `get_start()`, `get_end()`, `set_range(start, end)` — validates both positions atomically
 - `to_string()` - String representation
 
-## Genomic Coordinates
+### Genomic Coordinates
 
 The `genomic_coordinate` class extends intervals with strand information:
 
@@ -98,7 +104,7 @@ int main() {
 }
 ```
 
-## Keys and Associated Data
+### Keys and Associated Data
 
 The `key` class wraps genomic types with optional associated data:
 
@@ -137,7 +143,7 @@ int main() {
 }
 ```
 
-## Numeric
+### Numeric
 
 The `numeric` type provides integer wrapper semantics for point-based operations:
 
@@ -175,7 +181,7 @@ int main() {
 - Overlap: Only when values are exactly equal
 - Aggregation: Returns the maximum value
 
-## K-mer
+### K-mer
 
 The `kmer` type represents DNA sequences using compact 2-bit encoding:
 
@@ -215,6 +221,165 @@ int main() {
 - Comparison: Orders by k-value first, then encoding
 - Overlap: Exact sequence match required
 - Aggregation: Returns k-mer with maximum encoding
+
+::::
+
+::::{tab-item} Python
+
+### GenomicCoordinate
+
+`GenomicCoordinate` is the standard key type for every grove. It is a **stranded**
+genomic coordinate with closed `[start, end]` bounds (0-based, both endpoints
+inclusive).
+
+```python
+GenomicCoordinate(strand: str, start: int, end: int)
+```
+
+`strand` is one of `'+'`, `'-'`, `'.'`, `'*'`. Overlap requires **both**
+coordinate overlap **and** strand compatibility.
+
+```python
+import pygenogrove as pg
+
+gc = pg.GenomicCoordinate("+", 100, 200)
+gc.strand, gc.start, gc.end       # '+', 100, 200
+str(gc)                           # "+:100-200"
+```
+
+#### Strand semantics
+
+| Strand | Meaning                                                    |
+| ------ | --------------------------------------------------------- |
+| `'+'`  | Forward strand                                            |
+| `'-'`  | Reverse strand                                            |
+| `'.'`  | A **concrete unstranded** value — matches only `'.'`      |
+| `'*'`  | A **wildcard** query strand — matches any strand          |
+
+The `'.'` vs `'*'` distinction trips people up: `'.'` is a real value that only
+matches other `'.'` coordinates, whereas `'*'` is a wildcard that matches
+everything. Plain unstranded intervals are just `GenomicCoordinate('.', start, end)`.
+
+```python
+import pygenogrove as pg
+g = pg.Grove()
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+g.insert("chr1", pg.GenomicCoordinate("-", 100, 200))
+
+# strand-aware: only the '+' coordinate matches a '+' query
+len(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))   # 1
+# a '*' wildcard query matches both strands
+len(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))   # 2
+```
+
+#### Sorting
+
+Sort order is **coordinate-first**: `start` → `end` → `strand`, with strand
+order `* < . < + < -`.
+
+#### Attributes and methods
+
+**Attributes** (read-only): `strand`, `start`, `end`
+
+**Methods**:
+
+- `set_range(start, end)` / `set_strand(strand)` — **pre-insertion only**.
+- `GenomicCoordinate.overlaps(a, b)` — static, strand-aware overlap check.
+
+:::{warning}
+Do **not** mutate a coordinate after inserting it. `start`, `end`, and `strand`
+are read-only, and `set_range()` / `set_strand()` must only be used on
+coordinates you have **not** yet inserted (e.g. a query you want to reuse).
+Mutating a stored key silently corrupts B+ tree ordering. Note that `key.value`
+returns the coordinate **by copy**, so reading it back from a grove is always
+safe.
+:::
+
+### Numeric
+
+`Numeric` is an integer **point** key (ids, timestamps, ranks). Two `Numeric`
+values "overlap" only when they are **exactly equal** — there is no range
+intersection.
+
+```python
+import pygenogrove as pg
+
+n = pg.Numeric(100)
+n.value                           # 100
+str(n)                            # "100"
+
+pg.Numeric.overlaps(pg.Numeric(100), pg.Numeric(100))   # True
+pg.Numeric.overlaps(pg.Numeric(100), pg.Numeric(101))   # False
+```
+
+```python
+GenomicCoordinate -> Numeric(value: int)
+```
+
+**Attributes** (read-only): `value`
+
+**Methods**:
+
+- `set_value(value)` — **pre-insertion only**, for reusing a query object.
+- `Numeric.overlaps(a, b)` — static, equality-based overlap check.
+- Comparison operators (`<`, `>`, `==`) use standard integer ordering.
+- Value-based `__hash__`, plus `str` / `repr`.
+
+:::{warning}
+The default-constructed `Numeric()` is **not** zero — it is the aggregation
+sentinel `INT_MIN` (and `Numeric(INT_MIN)` aliases the same value). Always pass
+an explicit value unless you specifically want the sentinel.
+:::
+
+### Kmer
+
+`Kmer` is a **2-bit-encoded DNA k-mer** (`k ≤ 32`; bases `A`/`C`/`G`/`T`,
+case-insensitive). Like `Numeric`, two k-mers "overlap" only when they are
+**exactly equal**.
+
+```python
+import pygenogrove as pg
+
+km = pg.Kmer("ACGT")
+km.encoding                       # 2-bit packed encoding (int)
+km.k                              # 4
+len(km)                           # 4
+str(km)                           # "ACGT"
+
+# Build from a raw encoding; the encoding is masked to k bases
+km2 = pg.Kmer(0b00011011, 4)      # "ACGT"
+
+pg.Kmer.overlaps(pg.Kmer("ACGT"), pg.Kmer("ACGT"))   # True
+pg.Kmer.is_valid("ACGT")          # True
+pg.Kmer.is_valid("ACGN")          # False
+pg.Kmer.max_k                     # 32
+```
+
+```python
+Kmer(sequence: str)
+Kmer(encoding: int, k: int)       # encoding is masked to k bases
+```
+
+**Attributes** (read-only): `encoding`, `k`; `len(kmer)` returns `k`.
+
+**Methods**:
+
+- `Kmer.overlaps(a, b)` — static, equality-based overlap check.
+- `Kmer.is_valid(sequence) -> bool` — static validity check.
+- `Kmer.max_k` — class attribute, `32`.
+- Value-based `__hash__`, plus `str` / `repr`.
+
+`Kmer` is **immutable** — there are no setters. Invalid bases or `k > 32` raise
+`ValueError` (both from the constructor and reflected by `is_valid`).
+
+:::{note}
+`GenomicCoordinate`, `Numeric`, and `Kmer` all implement a value-based
+`__hash__`, so any of them can be used directly as a `set` member or `dict` key.
+:::
+
+::::
+
+:::::
 
 ```{toctree}
 :maxdepth: 1

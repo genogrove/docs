@@ -1,6 +1,16 @@
 # Registry
 
-The `registry<Key, Tag, Payload>` is a per-type singleton that **interns** values: every distinct `Key` gets one stable 4-byte ID, and asking to intern the same key again returns the existing ID. This is useful for collapsing many references to the same value (chromosome names, transcript/gene IDs, sample identifiers seen thousands of times across grove entries) down to a single ID that can be stored alongside grove keys.
+A **registry** interns values: every distinct key gets one stable 4-byte ID, and
+interning the same key again returns the existing ID. This collapses many
+references to the same value (chromosome names, transcript/gene IDs, sample
+identifiers seen thousands of times) down to a single ID stored alongside grove
+keys.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
+The `registry<Key, Tag, Payload>` is a per-type singleton.
 
 The full template signature is:
 
@@ -68,7 +78,7 @@ int main() {
 }
 ```
 
-## Tagged Singletons
+### Tagged Singletons
 
 Each `(Key, Tag, Payload)` triple has its own singleton with an independent ID space. The `Tag` parameter is a phantom type — it never appears in the registry's body, contributes no storage or serialization, and has zero runtime cost. Its only purpose is to discriminate singletons that would otherwise collide.
 
@@ -86,7 +96,7 @@ Without the tag, both pools would collapse into a single `registry<std::string>`
 
 The bare form `registry<std::string>` remains the right default whenever a single pool is what you actually want (e.g. one global pool of chromosome names).
 
-## Storing Richer Payloads
+### Storing Richer Payloads
 
 When identity is a subset of a larger record — e.g. `gene_id` keying a struct of gene fields — set `Payload` to the full record type:
 
@@ -108,113 +118,82 @@ This pattern avoids overloading `gene_info::operator==` and `std::hash<gene_info
 **Key points:**
 
 - **Two-argument `intern(key, payload)`** is the primary form when `Payload != Key`. The single-arg `intern(value)` is still available, but only when `Key == Payload` (enforced by a `requires` clause).
-- **First-write-wins on payload.** Re-interning a key that is already present returns the existing ID and silently drops the new payload. Matches the typical "first source carries the canonical record; later sources may carry placeholder fields" pattern (e.g. annotations sorted first, downstream entries reusing the ID).
+- **First-write-wins on payload.** Re-interning a key that is already present returns the existing ID and silently drops the new payload.
 - **`find(key)` and `get(id)`** signatures use `Key` and `Payload` respectively: `find(const Key&) -> std::optional<id_type>`, `get(id_type) -> const Payload&`.
 
-The tagged form reads naturally when both `Tag` and `Payload` are explicit:
+### The `registry_value` Concept
 
-```cpp
-using gene_reg = gdt::registry<std::string, gene_tag, gene_info>;
-```
+`registry<Key, ...>` constrains `Key` with the `registry_value` concept, which requires `Key` to be **equality-comparable** (`std::equality_comparable`) and **hashable** via `std::hash<Key>`. Built-in types like `std::string` and `int` satisfy this out of the box; custom types need both `operator==` and a `std::hash` specialization.
 
-## The `registry_value` Concept
-
-`registry<Key, ...>` constrains `Key` with the `registry_value` concept, which requires `Key` to be:
-
-- **Equality-comparable** (`std::equality_comparable`) — used to detect existing entries.
-- **Hashable** via `std::hash<Key>` — used by the internal key→ID lookup.
-
-(`Payload` has no concept requirement of its own. The serialization methods additionally need both `serializer<Key>` and `serializer<Payload>` to be available — see [Serialization](#serialization-and-deserialization).)
-
-Built-in types like `std::string`, `int`, and trivial wrappers satisfy this out of the box. Custom types need both `operator==` and a `std::hash` specialization:
-
-```cpp
-struct SampleInfo {
-    std::string name;
-    std::string tissue;
-    int replicate;
-
-    bool operator==(const SampleInfo& other) const {
-        return name == other.name
-            && tissue == other.tissue
-            && replicate == other.replicate;
-    }
-};
-
-template <>
-struct std::hash<SampleInfo> {
-    size_t operator()(const SampleInfo& s) const noexcept {
-        size_t h1 = std::hash<std::string>{}(s.name);
-        size_t h2 = std::hash<std::string>{}(s.tissue);
-        size_t h3 = std::hash<int>{}(s.replicate);
-        return h1 ^ (h2 << 1) ^ (h3 << 2);
-    }
-};
-
-auto& reg = gdt::registry<SampleInfo>::instance();
-auto id = reg.intern(SampleInfo{"sample1", "liver", 1});
-```
-
-Without these, the registry will fail to compile with a clear `registry_value` constraint error.
-
-## Thread Safety
+### Thread Safety
 
 `registry<T>` is safe to use concurrently:
 
 - **Lock-protected:** `intern()`, `find()`, `clear()`, `serialize()`, `deserialize()` acquire an internal `std::mutex`.
 - **Unlocked fast paths:** `get(id)`, `contains(id)`, `size()`, `empty()`.
 
-`get(id)` is safe to call concurrently with `intern()` as long as `id` was obtained from an `intern()` call that **happens-before** the `get()` (the natural pattern: one thread interns and publishes the returned ID via a queue, atomic, or thread join, and another thread then reads it). `size()`, `empty()`, and `contains()` return best-effort snapshots under concurrent writes.
+`get(id)` is safe to call concurrently with `intern()` as long as `id` was obtained from an `intern()` call that **happens-before** the `get()`. `size()`, `empty()`, and `contains()` return best-effort snapshots under concurrent writes.
 
-## Why Dedup-on-Insert?
+### Serialization and Deserialization
 
-Calling `intern(x)` is idempotent: `intern(x) == intern(x)` for all `x`. This means callers don't have to maintain their own value→ID map — the registry collapses N references to the same value down to a single ID slot:
+`registry::serialize()` / `deserialize()` persist the registry to and from a binary stream.
 
-```cpp
-auto& reg = gdt::registry<std::string>::instance();
+- **Wire format** depends on whether `Key == Payload`: the default stores a `uint64_t count` then each payload (old `.gg` files still load); `Key != Payload` stores `(key, payload)` pairs in ID order.
+- **Strong exception guarantee on `deserialize()`** — the singleton is committed only after the read loop completes; a throw mid-stream leaves it exactly as before.
+- **Count validation** rejects a header count beyond `id_type` capacity with `std::runtime_error("...entry count exceeds id_type capacity")`.
+- **Duplicate-key rejection** with `std::runtime_error("...duplicate key")`; legitimate `serialize()` output never trips this.
 
-// 10,000 BED entries on chr1 → only one registry slot
-for (const auto& entry : reader) {
-    auto chrom_id = reg.intern(entry.chrom);
-    grove.insert_data(entry.chrom, interval{...}, chrom_id);
-}
+### Registry Features
 
-// reg.size() is the number of distinct chromosomes, not the number of entries.
+- `instance()`, `intern(key, payload)` / `intern(value)` (`[[nodiscard]]`), `find(key)`, `get(id)`, `contains(id)`, `size()`, `empty()`, `clear()`, `reset()`, `serialize(os)`, `deserialize(is)`, `null_id`, `key_is_payload` (`static constexpr bool`, true iff `Key == Payload`).
+
+::::
+
+::::{tab-item} Python
+
+`Registry` exposes `registry<std::string, void, json_value>` — a process-wide
+singleton mapping a **string key** to any JSON-serializable payload (dict / list /
+scalar / `None`), deduplicated on the key.
+
+```python
+import pygenogrove as pg
+
+r = pg.Registry.instance()
+
+# Plain string interning: get(id) returns the string back
+a = r.intern("chr1")          # 0
+b = r.intern("chr1")          # 0 (deduplicated -> same id)
+r.get(a)                      # "chr1"
+r.find("chr2")                # None (lookup without inserting)
+
+# Key -> JSON payload (two-argument form, first-write-wins on the payload)
+g = r.intern("ENSG001", {"name": "BRCA2"})
+r.get(g)                      # {"name": "BRCA2"}
+
+r.serialize("names.gg")       # round-trips keys AND their JSON payloads
 ```
 
-## Serialization and Deserialization
+**Surface:**
 
-`registry::serialize()` and `registry::deserialize()` persist the registry's contents to and from a binary stream.
+- `Registry.instance()` — the process-wide singleton.
+- `intern(value)` — intern a string as its own payload; `get(id)` returns the string.
+- `intern(key, payload)` — intern a string key against a JSON payload; dedups on
+  the key with **first-write-wins** on the payload.
+- `find(key) -> int | None` — lookup without inserting.
+- `get(id) -> payload` — raises `IndexError` on an invalid id.
+- `contains(id)`, `size()` / `len(r)`, `empty()`, `clear()`, `Registry.reset()`.
+- `Registry.null_id` (= `2**32 − 1`).
+- `serialize(path)` / `Registry.deserialize(path)` — binary; `deserialize` loads
+  into the singleton, **replacing** current data (keys and payloads round-trip).
 
-### Wire format
+:::{note}
+`Registry` was previously named `StringRegistry`; the rename generalized it from
+string-only interning to a string identity mapped to a JSON payload. It is a
+**singleton** — one global pool per process; use `reset()` / `clear()` to wipe it
+(e.g. between runs or tests). Multiple independent / per-grove registries are not
+yet exposed.
+:::
 
-The serialized layout depends on whether `Key` and `Payload` are the same type:
+::::
 
-- **`Key == Payload`** (the default): `uint64_t count` followed by each payload via `serializer<Payload>`. This matches the historical format — **old `.gg` files still load**.
-- **`Key != Payload`**: `uint64_t count` followed by `(key, payload)` pairs in ID order. Requires both `serializer<Key>` and `serializer<Payload>` to be available.
-
-### Failure semantics
-
-- **Strong exception guarantee on `deserialize()`.** Reads build into local containers; the singleton is committed via a noexcept move-assign only after the read loop completes. If anything throws partway through (truncated stream, `serializer::read` failure, key/payload ctor failure), the singleton is left **exactly as it was before the call**. Callers can safely retry, fall back, or bail.
-- **Count validation.** A header count greater than the `id_type` capacity is rejected before any read attempts with `std::runtime_error("Failed to deserialize registry: entry count exceeds id_type capacity")`. This protects against pathological allocations on attacker-crafted or malformed streams.
-- **Duplicate-key rejection.** A stream containing two entries with the same key is rejected with `std::runtime_error("Failed to deserialize registry: duplicate key")`. Legitimate `serialize()` output never trips this check (since `intern()` deduplicates) — it matters only for hand-crafted or corrupted streams.
-
-### Concurrency note
-
-The slow read loop in `deserialize()` runs **without holding the registry mutex**; only the brief commit step is locked. As a result, concurrent `intern()`/`find()`/`get()` calls on the singleton are not blocked by ongoing deserialization.
-
-## Registry Features
-
-- `instance()`: Get the singleton registry for a given `(Key, Tag, Payload)` triple
-- `intern(key, payload)`: Intern a `(key, payload)` pair; returns the existing ID and silently drops `payload` if `key` is already present (first-write-wins, `[[nodiscard]]`)
-- `intern(value)`: Single-arg form — only available when `Key == Payload` (the default)
-- `find(key)`: Look up a key without inserting; returns `std::optional<id_type>`
-- `get(id)`: Retrieve a payload by ID (returns `const Payload&`, throws `std::out_of_range` on invalid ID)
-- `contains(id)`: Check if an ID is valid
-- `size()`, `empty()`: Query registry state
-- `clear()`, `reset()`: Clear all data (invalidates all IDs)
-- `serialize(os)`, `deserialize(is)`: Persist and restore registry data (see [Serialization](#serialization-and-deserialization) for failure semantics and wire format)
-- `null_id`: Sentinel value representing an invalid/unset ID
-- `key_is_payload`: `static constexpr bool`, true iff `Key == Payload`
-
-Each `(Key, Tag, Payload)` triple gets its own independent singleton with its own ID space.
+:::::

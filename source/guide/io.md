@@ -1,8 +1,14 @@
 # Reading Genomic Files (I/O)
 
+Genogrove provides efficient readers for common genomic file formats with automatic compression detection.
+
+:::::{tab-set}
+
+::::{tab-item} C++
+
 The `genogrove::io` namespace provides efficient readers for common genomic file formats with automatic compression detection.
 
-## Reader Ownership
+### Reader Ownership
 
 All streaming file readers (`bed_reader`, `gff_reader`, `bam_reader`, `fasta_reader`) own raw
 htslib resource pointers and are **non-copyable** but **movable**. Attempting to copy a reader will
@@ -27,7 +33,7 @@ void process(gio::bed_reader& reader) {      // pass by reference
 }
 ```
 
-## Automatic File Type Detection
+### Automatic File Type Detection
 
 Genogrove can automatically detect file types and compression formats:
 
@@ -74,7 +80,7 @@ support random-access seeks; plain gzip files are read sequentially. This is use
 when consuming files from sources that distribute plain-gzip compression (e.g.,
 ENCODE GTFs, GENCODE annotations) — there is no need to re-compress with `bgzip`.
 
-## Iterator Equality Contract
+### Iterator Equality Contract
 
 The iterator returned by `reader.begin()` is a **single-pass input iterator**. Equality is
 position-aware:
@@ -92,7 +98,7 @@ older copy keeps its cached `current_entry_` but the reader state has moved forw
 not a recommended idiom; the equality contract just makes the resulting iterators distinguishable
 rather than silently equal.
 
-## Error Handling
+### Error Handling
 
 All file readers throw `std::runtime_error` on parse and I/O errors by default. The `read_next()`
 method returns `false` only at end-of-file. Wrap iteration in a try-catch to handle errors:
@@ -115,7 +121,7 @@ try {
 
 This pattern applies to all readers (`bed_reader`, `gff_reader`, `bam_reader`).
 
-### Lenient Mode
+#### Lenient Mode
 
 To skip malformed records instead of throwing, enable lenient mode via the reader's options struct.
 Use `get_error_message()` to check for errors on individual records:
@@ -136,7 +142,7 @@ for (const auto& entry : reader) {
 }
 ```
 
-### Error Message Lifecycle
+#### Error Message Lifecycle
 
 `get_error_message()` reflects the **most recently attempted record** only — it is cleared at the
 start of each iteration. It does not accumulate errors across records.
@@ -156,7 +162,7 @@ for (const auto& entry : reader) {
 }
 ```
 
-### Zero-Record Inputs
+#### Zero-Record Inputs
 
 For `bed_reader` and `gff_reader`, structurally valid inputs that contain no records — empty files,
 files where every line is blank, and files that contain only `#`-prefixed comments or header lines —
@@ -202,7 +208,7 @@ The following error conditions still throw `std::runtime_error` (or skip the lin
 In other words, "valid file with zero records" is now a quiet success; only structurally broken
 inputs raise errors.
 
-## Coordinate Semantics
+### Coordinate Semantics
 
 Readers preserve format-native coordinate conventions. The grove uses **closed** `[start, end]` coordinates (both endpoints inclusive). When inserting reader entries, convert as needed:
 
@@ -227,7 +233,7 @@ for (const auto& entry : gff_reader) {
 }
 ```
 
-## BED Files
+### BED Files
 
 BED files store genomic intervals with optional metadata. The `bed_reader` provides iterator-based access:
 
@@ -263,7 +269,7 @@ int main() {
 }
 ```
 
-### Mixed BED Formats
+#### Mixed BED Formats
 
 The `bed_reader` supports files that mix BED3, BED6, and BED12 records. Optional fields are reset
 on each record, so a BED6 line following a BED12 line will not carry over stale block or RGB data:
@@ -289,7 +295,7 @@ for (const auto& entry : reader) {
 }
 ```
 
-### BED Entry Fields
+#### BED Entry Fields
 
 - `chrom` (std::string): Chromosome name
 - `start` (size_t): Start position (0-based, half-open)
@@ -301,7 +307,7 @@ for (const auto& entry : reader) {
 - `item_rgb` (std::optional\<rgb_color>): RGB color value
 - `blocks` (std::optional\<block_info>): Block information
 
-## GFF/GTF Files
+### GFF/GTF Files
 
 GFF3 and GTF files contain gene annotations. The `gff_reader` auto-detects the format variant
 by inspecting the attribute column (GFF3 uses `key=value`, GTF uses `key "value"`).
@@ -343,7 +349,7 @@ int main() {
 }
 ```
 
-### GFF Entry Fields
+#### GFF Entry Fields
 
 - `seqid` (std::string): Chromosome/contig name
 - `source` (std::string): Source of the feature
@@ -356,7 +362,7 @@ int main() {
 - `attributes` (std::map\<std::string, std::string, std::less\<>>): Key-value pairs from column 9 (transparent comparator enables `string_view` lookups)
 - `format` (gff_format): Detected format — `gff_format::GFF3`, `gff_format::GTF`, or `gff_format::UNKNOWN`
 
-### Attribute Access
+#### Attribute Access
 
 Helper methods return `std::optional<std::string>` (or `std::optional<int>` for `get_exon_number()`).
 Some helpers try multiple attribute keys to work across GFF3 and GTF conventions:
@@ -378,13 +384,13 @@ if (it != entry.attributes.end()) {
 }
 ```
 
-### GTF Quoted Semicolons
+#### GTF Quoted Semicolons
 
 Semicolons inside double-quoted GTF attribute values (e.g., `gene_name "test;name"`) are correctly
 preserved. The parser recognizes that these are part of the value rather than field delimiters.
 GFF3 files are unaffected — GFF3 uses URL-encoding (`%3B`) for literal semicolons per spec.
 
-### GTF Validation
+#### GTF Validation
 
 GTF attribute validation is **opt-in** via the `validate_gtf` option (default: `false`). When
 enabled on GTF-format files, the reader enforces mandatory GTF2 attributes:
@@ -405,12 +411,12 @@ gio::gff_reader lenient_reader("annotations.gtf",
     gio::gff_reader_options{.skip_invalid_lines = true, .validate_gtf = true});
 ```
 
-### Convenience Methods
+#### Convenience Methods
 
 - `is_gtf()` — returns `true` if format is GTF
 - `is_gff3()` — returns `true` if format is GFF3
 
-## BAM/SAM Files
+### BAM/SAM Files
 
 BAM, SAM, and CRAM files store sequence alignments. The `bam_reader` auto-detects the format and handles
 decompression via htslib. SAM uses 1-based positions (POS); these are converted to 0-based half-open
@@ -458,7 +464,7 @@ int main() {
 }
 ```
 
-### Filtering Options
+#### Filtering Options
 
 Use factory methods on `bam_reader_options` to apply common filters, or build a custom options struct:
 
@@ -489,7 +495,7 @@ gio::bam_reader reader5("reads.bam", opts);
 - `skip_duplicates` (bool, default `false`): Skip duplicate reads
 - `min_mapq` (uint8_t, default `0`): Minimum mapping quality
 
-### SAM Entry Fields
+#### SAM Entry Fields
 
 - `qname` (std::string): Read name
 - `chrom` (std::string): Reference sequence name
@@ -503,7 +509,7 @@ gio::bam_reader reader5("reads.bam", opts);
 - `mate` (std::optional\<mate_info>): Mate information (`chrom`, `position`, `insert_size`)
 - `tags` (sam_tags): Auxiliary tags (`std::unordered_map<std::string, sam_tag_value>`)
 
-### CIGAR Operations
+#### CIGAR Operations
 
 Each `cigar_element` has an `op` (operation code) and a `length`. Reference-consuming operations
 (M, D, N, =, X) determine the aligned interval length.
@@ -516,7 +522,7 @@ for (const auto& elem : entry.cigar) {
 }
 ```
 
-### Tag Access
+#### Tag Access
 
 Auxiliary tags are stored in an `std::unordered_map<std::string, sam_tag_value>`. The value is a
 `std::variant` supporting `char`, `int64_t`, `float`, `std::string`, and typed vectors.
@@ -529,7 +535,7 @@ if (it != entry.tags.end()) {
 }
 ```
 
-### Header Access
+#### Header Access
 
 The `bam_reader` provides methods to inspect the SAM header and reference sequences before or after iteration:
 
@@ -553,7 +559,7 @@ const std::string& header = reader.get_header();
 std::cout << "Header:\n" << header << "\n";
 ```
 
-### Convenience Methods
+#### Convenience Methods
 
 - `get_strand()` — returns `'+'`, `'-'`, or `'.'`
 - `is_primary()` — not secondary and not supplementary
@@ -571,7 +577,7 @@ for (const auto& entry : reader) {
 }
 ```
 
-## FASTA / FASTQ Files
+### FASTA / FASTQ Files
 
 Genogrove provides two complementary APIs for FASTA/FASTQ data:
 
@@ -582,7 +588,7 @@ Genogrove provides two complementary APIs for FASTA/FASTQ data:
   regions or whole sequences in O(1) using a `.fai` index (auto-created on first use). Backed by
   htslib's `faidx` API.
 
-### Streaming: `fasta_reader`
+#### Streaming: `fasta_reader`
 
 ```cpp
 #include <genogrove/io/fasta_reader.hpp>
@@ -615,14 +621,14 @@ int main() {
 - `fasta_reader` has no lenient mode: `read_next()` throws `std::runtime_error` on truncated
   quality strings or I/O errors, so use the same try/catch pattern shown for `bam_reader` above.
 
-### FASTA Entry Fields
+#### FASTA Entry Fields
 
 - `name` (std::string): Sequence name (text after `>` or `@`, up to the first whitespace)
 - `comment` (std::string): Rest of the header line after the name (empty if none)
 - `sequence` (std::string): Nucleotide sequence
 - `quality` (std::optional\<std::string>): Per-base quality string (FASTQ only, `std::nullopt` for FASTA)
 
-### Indexed Access: `fasta_index`
+#### Indexed Access: `fasta_index`
 
 `fasta_index` is useful when you already have genomic coordinates (e.g., from a BED or GFF file)
 and want to pull out the underlying sequence without scanning the entire FASTA.
@@ -677,3 +683,213 @@ for (const auto& entry : gff_reader) {
   directory).
 - `fasta_index` is non-copyable and movable.
 
+::::
+
+::::{tab-item} Python
+
+`pygenogrove` ships single-pass iterators for the common genomic file formats,
+plus random-access FASTA and a format detector. Plain and gzip/BGZF-compressed
+(`.gz`) inputs are auto-detected.
+
+:::{note}
+The readers are **single-pass** — each owns an htslib file handle and cannot be
+restarted or iterated twice.
+:::
+
+### BedReader / GffReader
+
+`BedReader` and `GffReader` iterate BED and GFF3/GTF files, yielding `BedEntry` /
+`GffEntry` records (see the [loading data guide](./grove/loading_data)).
+
+```python
+import pygenogrove as pg
+
+for entry in pg.BedReader("peaks.bed"):
+    print(entry.chrom, entry.start, entry.end, entry.name)
+
+# The common workflow: load a file into a typed grove. The 2-argument insert
+# derives the grove's 0-based closed GenomicCoordinate key from each entry's
+# native coordinates, so you don't hand-convert.
+g = pg.BedGrove(256)
+for e in pg.BedReader("peaks.bed"):
+    g.insert(e.chrom, e)
+
+gff = pg.GffGrove(256)
+for e in pg.GffReader("genes.gff3"):
+    gff.insert(e.seqid, e)
+
+# bulk-load one chromosome at a time (insert_bulk is per-index):
+g2 = pg.BedGrove(256)
+g2.insert_bulk("chr1", [e for e in pg.BedReader("peaks.bed") if e.chrom == "chr1"])
+```
+
+```python
+BedReader(path: str, skip_invalid_lines: bool = False)
+GffReader(path: str, skip_invalid_lines: bool = False, validate_gtf: bool = False)
+```
+
+- A missing/unreadable `path` raises on construction.
+- With `skip_invalid_lines=False` (default) a malformed line raises `RuntimeError`
+  mid-iteration; with `True` such lines are skipped. The **first** data record is
+  validated when the reader is constructed, so a malformed first record raises
+  immediately regardless of this flag.
+- `GffReader(..., validate_gtf=True)` enforces the mandatory GTF2 attributes
+  (`gene_id`, `transcript_id`).
+- Both expose `get_error_message()` and `get_current_line()` for diagnostics.
+
+### BamReader (SAM/BAM alignments)
+
+`BamReader` iterates SAM/BAM files (htslib auto-detects the format) yielding
+`SamEntry` records, with filtering applied during iteration.
+
+```python
+import pygenogrove as pg
+
+for aln in pg.BamReader("reads.bam", min_mapq=30):
+    print(aln.qname, aln.chrom, aln.start, aln.end, aln.get_strand())
+
+# load alignments into the universal Grove (sam_entry isn't serializable, so
+# there is no typed BamGrove — route through to_coordinate() + to_dict())
+g = pg.Grove(256)
+for aln in pg.BamReader("reads.bam"):
+    if aln.is_mapped():
+        g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
+```
+
+```python
+BamReader(path, skip_unmapped=True, skip_secondary=False,
+          skip_supplementary=False, skip_qc_fail=False,
+          skip_duplicates=False, min_mapq=0)
+```
+
+- **`SamEntry`** fields: `qname`, `chrom`, `start`, `end` (0-based half-open),
+  `mapq`, `sequence`, `quality`, `cigar` (string form), `flags` (an
+  `AlignmentFlags`). Helpers: `get_strand()`, `is_primary()` / `is_mapped()` /
+  `is_reverse()` / `is_secondary()` / `is_supplementary()` / `is_duplicate()` /
+  `is_paired()` / …, `consumes_reference()`, `has_flag(flag)`.
+- **`SamEntry.to_coordinate()`** derives the strand-aware `GenomicCoordinate` key
+  (strand from FLAG; half-open `[start, end)` → closed `[start, end-1]`; raises for
+  unmapped reads).
+- **`SamEntry.to_dict()`** is a convenient JSON payload of the core fields.
+- **`SamFlags`** exposes the standard FLAG bit constants; **`AlignmentFlags`** (the
+  `.flags` object) has `value()` plus the same `is_*()` predicates.
+
+:::{note}
+CIGAR element detail (the op/length list), paired-end mate info, auxiliary tags,
+and CRAM are not yet exposed.
+:::
+
+### FastaReader (FASTA/FASTQ sequences)
+
+`FastaReader` iterates FASTA/FASTQ files yielding `FastaEntry` records. Sequences
+are **named records, not intervals**, so this reader is standalone (no grove
+integration).
+
+```python
+import pygenogrove as pg
+
+for rec in pg.FastaReader("genome.fa"):
+    print(rec.name, rec.comment, len(rec))
+
+for rec in pg.FastaReader("reads.fq"):
+    print(rec.name, rec.sequence, rec.quality)   # is_fastq() -> True
+```
+
+```python
+FastaReader(path, skip_empty_sequences=False)
+```
+
+- **`FastaEntry`** fields: `name`, `comment`, `sequence`, `quality`
+  (`Optional[str]` — set for FASTQ, `None` for FASTA); `is_fastq()`,
+  `len(entry)` = sequence length. Constructible as `FastaEntry(name, sequence)`.
+
+### FastaIndex (random-access FASTA)
+
+`FastaIndex` provides random-access region fetches over a FASTA file, backed by an
+`.fai` index (built on first open — the directory must be writable then). It pairs
+with `FastaReader`: one streams, the other is random-access.
+
+```python
+import pygenogrove as pg
+
+fa = pg.FastaIndex("genome.fa")
+fa.fetch("chr1", 1000, 2000)   # bases of the 0-based half-open region [1000, 2000)
+fa.fetch("chrM")               # the whole sequence
+fa.sequence_length("chr1")     # length in bases
+list(fa.names()), "chr1" in fa, len(fa)
+
+# fetch a feature's bases: GenomicCoordinate is closed, fetch is half-open
+gc = pg.GenomicCoordinate("+", 4, 7)
+fa.fetch("chr1", gc.start, gc.end + 1)
+```
+
+- Methods: `fetch(name, start, end)` / `fetch(name)`, `sequence_count()`,
+  `sequence_name(i)`, `sequence_length(name)`, `has_sequence(name)`, plus the
+  Pythonic `len()` / `in` / `names()`.
+- Unknown name / invalid region raise `IndexError`.
+
+:::{important}
+**Coordinate pairing:** `FastaIndex.fetch` is half-open `[start, end)` while a
+`GenomicCoordinate` is closed `[start, end]`. Fetch a feature's bases with
+`idx.fetch(name, gc.start, gc.end + 1)`, where `name` is the chromosome / grove
+index (a `GenomicCoordinate` carries strand + start + end, not the chromosome).
+:::
+
+### VcfReader (VCF/BCF variants)
+
+`VcfReader` is a single-pass iterator over VCF/BCF (plain, bgzip-ed, or binary BCF —
+htslib auto-detects), yielding `VcfEntry`. Not thread-safe (one reader per thread);
+the GIL is released around the htslib read.
+
+```python
+VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False)
+```
+
+Also: `get_header()`, `get_sample_names()`, `get_contigs()`, `get_error_message()`,
+`get_current_line()`.
+
+- **`VcfEntry`** fields: `chrom`, `start`/`end` (0-based half-open: `start = POS-1`,
+  `end = start + len(REF)`), `id`, `ref`, `alt` (list), `qual` + `qual_missing`,
+  `filter` (list), `info` (htslib-typed: bool for Flag, list[int]/list[float], str),
+  `format` (FORMAT key order), `samples`. Predicates: `passed_filter()`, `is_snp()`,
+  `is_indel()`, static `is_symbolic_allele(allele)`. Symbolic alleles (`<*>`,
+  `<NON_REF>`, `*`) are kept verbatim in `alt` but excluded from is_snp/is_indel;
+  monomorphic `ALT=.` yields an empty `alt`.
+- **`VcfEntry.to_coordinate()`** -> an unstranded `GenomicCoordinate`;
+  **`to_dict()`** -> a JSON payload. There is **no typed VcfGrove** (the record isn't
+  serializable) — load variants into the universal `Grove` via these two.
+- **`SampleGenotype`** (`.samples` items): `gt_alleles` (0=REF, 1..=ALT, -1=missing),
+  `phased`, `has_gt`, `fields` (other FORMAT keys), plus `gt_string()` ("0/1", "0|1",
+  "./.") and `is_hom_ref()`.
+
+```python
+import pygenogrove as pg
+g = pg.Grove()
+for v in pg.VcfReader("calls.vcf", skip_filtered=True):
+    g.insert(v.chrom, v.to_coordinate(), v.to_dict())
+    if v.is_snp():
+        print(v.chrom, v.start, v.ref, v.alt, [s.gt_string() for s in v.samples])
+```
+
+### FiletypeDetector (format detection)
+
+`FiletypeDetector` infers a file's format and compression from its extension
+(compression extension stripped first) and magic bytes.
+
+```python
+import pygenogrove as pg
+
+ftype, comp = pg.FiletypeDetector().detect_filetype("peaks.bed.gz")
+# (Filetype.BED, CompressionType.GZIP)
+```
+
+- `detect_filetype(path) -> (Filetype, CompressionType)`
+- `Filetype`: `BED` / `BEDGRAPH` / `GFF` / `GTF` / `VCF` / `SAM` / `BAM` /
+  `FASTA` / `FASTQ` / `GG` / `UNKNOWN`. (`Filetype.VCF` is recognized for VCF/BCF
+  inputs consumed by `VcfReader`.)
+- `CompressionType`: `NONE` / `GZIP` / `BZIP2` / `XZ` / `ZSTD` / `LZ4` /
+  `UNKNOWN`.
+
+::::
+
+:::::

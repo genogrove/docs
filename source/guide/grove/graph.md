@@ -4,6 +4,10 @@ The grove includes an (optional) embedded graph overlay that allows you to creat
 stored in the tree. This can be useful for representing relationships between genomic features, such as
 transcript structures, gene regulatory networks or any relationship between genomic regions.
 
+:::::{tab-set}
+
+::::{tab-item} C++
+
 The graph overlay is an integral part of the grove structure and shares its lifetime. When creating a grove, you
 specify whether edges will carry metadata through the grove's third template parameter. This design decision must
 be made upfront as it determines the grove's type.
@@ -26,7 +30,7 @@ gst::grove<gdt::interval, std::string, void> grove_no_metadata(100);
 gst::grove<gdt::interval, std::string, double> grove_with_metadata(100);
 ```
 
-## Adding an Edge (`add_edge`)
+### Adding an Edge (`add_edge`)
 
 The `add_edge` function creates a directed connection from one key to another in the grove's graph overlay.
 
@@ -76,7 +80,7 @@ my_grove.add_edge(key1, key2, 0.95);
 - Keys from different indices (chromosomes) can be linked
 - The graph overlay shares the grove's lifetime
 
-### Building Graphs with Bulk Insert
+#### Building Graphs with Bulk Insert
 
 When using bulk insert operations, you receive a vector of key pointers that can be directly used to create edges.
 This is particularly useful when building graphs from large datasets or when the relationships between features
@@ -99,7 +103,7 @@ for (size_t i = 0; i < exon_keys.size() - 1; ++i) {
 }
 ```
 
-### Building graphs from query results
+#### Building graphs from query results
 
 Query results also provide key handles, allowing you to build graphs based on spatial relationships or
 other query criteria. This is useful when you want to create edges between features that meet certain
@@ -195,7 +199,7 @@ for (auto* existing_gene : overlapping.get_keys()) {
    - `get_neighbors()` - Returns vector of neighbor key pointers
    - Can be used to extend the graph further
 
-## Adding Edges based on Condition (`link_if`)
+### Adding Edges based on Condition (`link_if`)
 
 The `link_if` function is a convenience method for creating edges between consecutive keys in a vector based
 on a predicate. Instead of manually looping through pairs and calling `add_edge`, you can use `link_if` to
@@ -320,7 +324,7 @@ grove.link_if(region_genes,
 - Works with both bulk insert results and query results
 - Supports conditional edge creation with optional metadata
 
-## External (Graph-only) Keys
+### External (Graph-only) Keys
 
 Sometimes you need keys that participate in graph relationships but don't require spatial indexing. For example, transcription factors, regulatory elements, or abstract concepts that connect genomic features but aren't themselves genomic intervals you need to query spatially.
 
@@ -464,7 +468,7 @@ std::cout << "External vertices: " << grove.external_vertex_count() << "\n";
 - Automatic serialization/deserialization with the grove
 - Works seamlessly with `link_if()` and all graph operations
 
-## Navigating the Graph
+### Navigating the Graph
 
 Query and navigate relationships between keys:
 
@@ -530,7 +534,7 @@ int main() {
 - `external_vertex_count()` - Number of graph-only keys
 - `clear_graph()` - Remove all edges (keeps keys in grove)
 
-## Graph Overlay Without Metadata
+### Graph Overlay Without Metadata
 
 If you don't need edge metadata, use `void` as the third template parameter:
 
@@ -548,7 +552,7 @@ my_grove.add_edge(key1, key2);
 auto neighbors = my_grove.get_neighbors(key1);
 ```
 
-## Using Different Key Types with Graph Overlay
+### Using Different Key Types with Graph Overlay
 
 The graph overlay works with any key type, including custom types:
 
@@ -576,7 +580,7 @@ gst::grove<CustomInterval, std::string> custom_grove(100);
 // Works the same way!
 ```
 
-## Combining Interval Queries with Graph Navigation
+### Combining Interval Queries with Graph Navigation
 
 A powerful pattern: query for intervals, then navigate their relationships:
 
@@ -604,3 +608,165 @@ for (auto* key : results.get_keys()) {
     }
 }
 ```
+
+::::
+
+::::{tab-item} Python
+
+Every grove carries an embedded **graph overlay** — directed edges between keys —
+on top of its spatial B+ tree index. This lets you represent feature
+relationships (exon→transcript, regulatory links, …) alongside interval queries.
+
+### Edges between keys
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))
+g.add_edge(a, b)
+g.has_edge(a, b)            # True
+g.get_neighbors(a)         # [b]
+g.out_degree(a)            # 1
+```
+
+- `add_edge(source: Key, target: Key)` — add a directed edge. Raises `ValueError`
+  if either key is `None`.
+- `remove_edge(source: Key, target: Key) -> bool` — remove an edge; `True` if one
+  was removed.
+- `has_edge(source: Key, target: Key) -> bool` — test whether an edge exists.
+- `get_neighbors(source: Key) -> list[Key]` — keys directly reachable from `source`.
+- `out_degree(source: Key) -> int` — number of outgoing edges from `source`.
+- `edge_count() -> int` — total edges in the overlay.
+- `vertex_count_with_edges() -> int` — keys with at least one outgoing edge.
+
+:::{note}
+`add_edge` does **not** deduplicate — calling it twice creates parallel edges.
+:::
+
+### External keys
+
+`add_external_key(key: GenomicCoordinate, data=None) -> Key` adds a graph-only key
+that lives **outside** the B+ tree index: it participates in the graph but is
+**not** returned by `intersect()`. Useful for anchoring graph nodes that are not
+themselves query targets.
+
+```python
+ext = g.add_external_key(pg.GenomicCoordinate(".", 0, 0), {"label": "promoter"})
+g.add_edge(ext, a)
+```
+
+External keys are **not** invalidated by `compact()` (unlike indexed keys — see
+{doc}`./grove`).
+
+### Labelled edges
+
+On the **universal `Grove`**, edges carry a JSON-serializable payload. (The typed
+`BedGrove` / `GffGrove` keep unlabelled edges for binary interop, so the
+labelled-edge methods below are absent there — see {doc}`./loading_data`.)
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))
+g.add_edge(a, b, {"type": "exon->transcript", "weight": 7})
+g.get_edges(a)                                    # [{"type": ..., "weight": 7}]
+g.get_neighbors_if(a, lambda m: m["weight"] > 5)  # [b]
+```
+
+- `add_edge(source, target, data)` — add an edge with a metadata payload. The
+  2-argument `add_edge` attaches `None`.
+- `get_edges(source: Key) -> list` — the edge payloads of `source`'s outgoing
+  edges, parallel to `get_neighbors(source)`.
+- `get_neighbors_if(source: Key, predicate) -> list[Key]` — target keys whose edge
+  metadata satisfies `predicate(metadata)`. The predicate receives the **decoded**
+  payload (edges added without a payload yield `None`, so guard for it when mixing
+  labelled and unlabelled edges).
+- `link_with(keys: list[Key], predicate)` — label adjacent pairs: `predicate(k1, k2)`
+  returns the edge payload to attach, or `None` to skip.
+
+A canonical example is labelling exon→transcript edges with their intron gaps via
+`link_with` over a chromosome's exon keys.
+
+### Edge cleanup and bulk linking
+
+Available on **every** grove (universal and typed):
+
+- `remove_edges_from(source: Key) -> int` — remove outgoing edges; returns the count.
+- `remove_edges_to(target: Key) -> int` — remove incoming edges; returns the count.
+- `remove_all_edges(key: Key) -> int` — remove all edges touching `key`; returns the count.
+- `remove_edges_if(predicate) -> int` — remove every edge whose predicate returns
+  `True`; returns the count. The predicate signature differs by grove type: on the
+  universal / point groves (`Grove`, `NumericGrove`, `KmerGrove`) it is
+  `predicate(target: Key, metadata) -> bool`; on the typed groves (`BedGrove`,
+  `GffGrove`) it is `predicate(target: Key) -> bool`.
+- `clear_graph()` — remove all edges (keys are left intact).
+- `graph_empty() -> bool` — whether the overlay has no edges.
+- `link_if(keys: list[Key], predicate)` — add an **unlabelled** edge between each
+  adjacent pair `(keys[i], keys[i+1])` for which `predicate(k1, k2)` returns
+  `True` (typically over the keys returned by a bulk insert).
+
+### SIF export
+
+`grove.to_sif(path)` is available on **every** grove (`Grove`, `BedGrove`,
+`GffGrove`, `NumericGrove`, `KmerGrove`). It writes the grove to a **SIF** (Simple
+Interaction Format) text file for visualization in tools like Cytoscape. The
+output is tab-separated interactions of three kinds:
+
+- `nodelink` — an internal B+ tree node → child,
+- `leaflink` — a leaf → its next leaf,
+- `keylink` — a key → a graph-overlay neighbour (i.e. the edges added via
+  `add_edge`).
+
+Each key is rendered by its value's string form. An empty grove writes an empty
+file. The GIL is released during the write.
+
+:::{warning}
+Line and index order are **not stable across runs** (index iteration follows a
+hash map) — treat the output as a *set* of interactions, not an ordered list.
+:::
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))
+g.add_edge(a, b)
+g.to_sif("graph.sif")   # load graph.sif in Cytoscape
+```
+
+### Predicate callbacks
+
+`remove_edges_if`, `link_if`, `link_with`, and `get_neighbors_if` all invoke a
+Python predicate from C++ mid-iteration. Two caveats apply:
+
+:::{warning}
+**Partial effect if the predicate raises.** These methods apply their effect *as
+they iterate*. If the Python predicate raises partway through, the exception
+propagates to Python, but edges already matched/processed before the throw have
+**already** been removed/added — there is no rollback. Validate inputs before
+calling, or catch and reconcile.
+
+**Do not mutate the graph from within the predicate.** The predicate runs while
+genogrove iterates the adjacency structure. Calling `add_edge` /
+`remove_edges_*` / `clear_graph` / `link_*` on the same grove from inside the
+predicate is **undefined behavior** (crash / corruption). The predicate must be a
+pure inspector of the `(target, metadata)` (or `(key, key)`) it is handed; do
+graph mutation after the call returns.
+:::
+
+### Persistence
+
+`serialize` / `deserialize` round-trip the graph overlay along with the
+coordinates and payloads. An edge-bearing universal-`Grove` `.gg` stores per-edge
+JSON metadata and is read in C++ as
+`grove<genomic_coordinate, std::string, std::string>` (edgeless files are
+unchanged). See {doc}`./grove` for the serialization API.
+
+::::
+
+:::::
