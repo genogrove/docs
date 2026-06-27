@@ -4,7 +4,8 @@ The `grove` is a specialized B+ tree optimized for genomic interval storage and 
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It organizes data by index (e.g., chromosome) and supports efficient overlap queries. An embedded graph overlay allows you to create directed edges between keys, representing relationships between genomic features.
 
@@ -578,7 +579,8 @@ neighbors.
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 The universal `Grove` is `grove<genomic_coordinate, json>`: a B+ tree keyed by
 {doc}`../data_types` coordinates that stores any JSON-serializable payload

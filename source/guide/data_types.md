@@ -4,7 +4,8 @@ The `genogrove::data_type` namespace (C++) / `pygenogrove` module (Python) provi
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The `genogrove::data_type` namespace provides core genomic data types.
 
@@ -224,7 +225,8 @@ int main() {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ### GenomicCoordinate
 

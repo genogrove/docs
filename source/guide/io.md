@@ -4,7 +4,8 @@ Genogrove provides efficient readers for common genomic file formats with automa
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The `genogrove::io` namespace provides efficient readers for common genomic file formats with automatic compression detection.
 
@@ -827,7 +828,8 @@ if (it != entry.info.end()) {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 `pygenogrove` ships single-pass iterators for the common genomic file formats,
 plus random-access FASTA and a format detector. Plain and gzip/BGZF-compressed

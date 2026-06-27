@@ -6,7 +6,8 @@ transcript structures, gene regulatory networks or any relationship between geno
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The graph overlay is an integral part of the grove structure and shares its lifetime. When creating a grove, you
 specify whether edges will carry metadata through the grove's third template parameter. This design decision must
@@ -640,7 +641,8 @@ for (auto* key : results.get_keys()) {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 Every grove carries an embedded **graph overlay** — directed edges between keys —
 on top of its spatial B+ tree index. This lets you represent feature

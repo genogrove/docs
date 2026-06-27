@@ -4,7 +4,8 @@ A key wraps a key value (e.g., interval, genomic_coordinate, kmer) together with
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The `key` class is a wrapper that combines a key value (e.g., interval, genomic_coordinate, kmer) with optional associated data. It serves as the fundamental storage unit in grove structures, enabling efficient indexing while maintaining arbitrary metadata.
 
@@ -262,7 +263,8 @@ static_assert(sizeof(gdt::key<gdt::interval, int>) ==
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 A `Key` wraps a coordinate stored in the grove. It is returned by inserts and
 yielded by query results, and it keeps its owning grove alive.

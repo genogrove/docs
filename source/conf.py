@@ -13,6 +13,10 @@ project = "genogrove"
 copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
 release = "0.24.7"
+# pygenogrove (Python bindings) versions independently of the C++ library and
+# currently lags it; the Python guide tabs reflect this surface. Bump alongside
+# the pin in source/requirements.txt.
+pygenogrove_release = "0.5.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -92,6 +96,16 @@ myst_enable_extensions = [
 
 myst_heading_anchors = 4  # Auto-generate anchors for headers up to level 4
 # (level 4 because guide pages nest content one level deeper inside C++/Python tabs)
+
+# Substitutions used in the guide's per-topic language tab labels, so the version
+# each tab reflects is shown where the reader picks the language. Defined centrally
+# here so a version bump updates every page at once.
+myst_substitutions = {
+    "cpp_tab": f"C++ · genogrove {release}",
+    "py_tab": f"Python · pygenogrove {pygenogrove_release}",
+    "cpp_version": release,
+    "py_version": pygenogrove_release,
+}
 
 # Copybutton configuration
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "

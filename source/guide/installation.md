@@ -4,7 +4,8 @@ This guide covers how to build and install genogrove for use in your projects.
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 This guide covers how to build and install genogrove for use in your projects.
 
@@ -191,7 +192,8 @@ Once installed, proceed to the next sections of the user guide to learn how to u
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ### Install
 

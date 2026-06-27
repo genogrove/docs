@@ -2,6 +2,12 @@
 
 This user guide provides comprehensive coverage of genogrove's functionality, from reading genomic files to building complex data structures and queries.
 
+Every topic below is documented with side-by-side **C++** and **Python** tabs — pick a language once and the choice follows you across all pages.
+
+:::{note}
+The **C++** tabs document **genogrove {{ cpp_version }}** (the core library). The **Python** tabs document **pygenogrove {{ py_version }}** (the bindings), which version independently and may not yet expose every C++ feature. Each tab label shows the version it reflects.
+:::
+
 ## Prerequisites
 
 Before starting, ensure you have:

@@ -2,7 +2,8 @@
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 ### Tips for Optimal Performance
 
@@ -275,7 +276,8 @@ void benchmark_insertion() {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ### Bulk and Fast-Path Inserts
 
