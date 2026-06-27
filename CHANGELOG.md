@@ -15,6 +15,7 @@ All notable changes to the genogrove documentation project will be documented in
 - Dropped the unused `pygenogrove` clone from `.readthedocs.yaml` `pre_build` — `Doxyfile` only scans `repos/genogrove/include` and the Python reference comes from the pinned PyPI wheel ([#171](https://github.com/genogrove/docs/pull/171))
 
 ### Fixed
+- Pinned the Read the Docs build to Python 3.12 in `.readthedocs.yaml` so `pygenogrove` installs from its prebuilt wheel — pygenogrove ships cp39–cp312 wheels only, so on Python 3.13 pip fell back to the sdist and failed compiling from source (no htslib in the RTD env), breaking the build at the pip step ([#173](https://github.com/genogrove/docs/pull/173))
 - Corrected the `Numeric` constructor signature in `guide/data_types.md` (stray `GenomicCoordinate ->` copy-paste artifact) ([#171](https://github.com/genogrove/docs/pull/171))
 
 ## 2026-06-13
