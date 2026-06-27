@@ -121,6 +121,62 @@ int main() {
   splits with `order == 2` would produce a sibling with zero keys, which classical B+ trees forbid.
   The default constructor (`grove()`) uses order 3.
 
+### Dataless Groves (`data_type = void`)
+
+The `data_type` template parameter is **optional**. A grove parameterised with the key type
+alone — e.g. `gst::grove<gdt::interval>` — is a fully supported, first-class configuration that
+stores keys only, with no associated payload.
+
+On a dataless grove you insert pre-built `gdt::key<key_type>` objects through the public
+`insert(index, key)` method, and add graph-only nodes through the single-argument
+`add_external_key(key_value)` overload:
+
+```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+#include <genogrove/data_type/key.hpp>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+int main() {
+    // No data_type argument — defaults to void (keys only)
+    gst::grove<gdt::interval> my_grove(100);
+
+    // Insert via insert(index, key) with a dataless key, constructed from a
+    // value only — there is no data argument.
+    gdt::key<gdt::interval> k{gdt::interval{100, 200}};
+    auto* inserted = my_grove.insert("chr1", k);   // returns key<interval>*
+
+    // Overlap queries work exactly as on a data-carrying grove
+    auto results = my_grove.intersect(gdt::interval{150, 175}, "chr1");
+
+    // Add a graph-only node with the single-argument add_external_key overload
+    auto* enhancer = my_grove.add_external_key(gdt::interval{5000, 5500});
+    my_grove.add_edge(inserted, enhancer);
+
+    return 0;
+}
+```
+
+The data-carrying public API is intentionally **unavailable** when `data_type = void` — these
+members are guarded by `requires (!std::is_void_v<data_type>)` and will not compile on a dataless
+grove:
+
+- the `insert_data(...)` family, including the variants that take the `gst::sorted` and `gst::bulk`
+  tags
+- the two-argument `add_external_key(key_value, data_value)` overload
+
+Conversely, the single-argument `add_external_key(key_value)` overload is available **only** when
+`data_type = void`. Match the insertion API to the grove's configuration: `insert_data` /
+two-argument `add_external_key` for data-carrying groves, `insert` / single-argument
+`add_external_key` for dataless ones.
+
+:::{note}
+This dataless `data_type = void` configuration is the one the Python bindings (`pygenogrove`)
+are built on.
+:::
+
 ### Ownership Semantics
 
 `grove` (and its internal `node` type) is **non-copyable and move-only**. Copy construction and

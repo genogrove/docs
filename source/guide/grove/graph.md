@@ -80,6 +80,35 @@ my_grove.add_edge(key1, key2, 0.95);
 - Keys from different indices (chromosomes) can be linked
 - The graph overlay shares the grove's lifetime
 
+#### Parallel Edges (No Deduplication)
+
+`add_edge(source, target)` appends to the source's adjacency list **unconditionally** — there is no
+deduplication. Calling it twice with the same `(source, target)` creates two **parallel** edges. This is
+intentional: parallel edges carrying distinct per-edge metadata are a legitimate use case.
+
+Observable effects of adding the same edge `a → b` twice:
+
+```cpp
+my_grove.add_edge(a, b);
+my_grove.add_edge(a, b);          // appends a second, parallel edge
+
+my_grove.out_degree(a);           // == 2 (counts every edge)
+my_grove.get_neighbors(a);        // == {b, b} (b appears twice)
+my_grove.has_edge(a, b);          // == true (existence only, unaffected by count)
+// get_edges(a) likewise reflects the duplicate (one metadata entry per edge)
+```
+
+Both edges are serialized into the `.gg` file.
+
+**Other edge rules:**
+
+- Self-edges are allowed: `add_edge(a, a)` is valid.
+- A null `source` or `target` throws `std::invalid_argument`.
+
+**Implication for callers:** if duplicate edges are undesirable, deduplicate **before** calling `add_edge`.
+For example, the CLI's `idx --links` applier tracks seen `(source, target)` pairs in a `std::set` and skips
+edges it has already added.
+
 #### Building Graphs with Bulk Insert
 
 When using bulk insert operations, you receive a vector of key pointers that can be directly used to create edges.
@@ -642,7 +671,10 @@ g.out_degree(a)            # 1
 - `vertex_count_with_edges() -> int` — keys with at least one outgoing edge.
 
 :::{note}
-`add_edge` does **not** deduplicate — calling it twice creates parallel edges.
+`add_edge` does **not** deduplicate — calling it twice with the same `(source, target)` appends a second,
+parallel edge. After a duplicate `a → b`: `out_degree(a) == 2`, `get_neighbors(a) == [b, b]`, but
+`has_edge(a, b)` stays `True` (existence only). Both edges are written to the `.gg`. Deduplicate before
+calling if duplicates are undesirable.
 :::
 
 ### External keys

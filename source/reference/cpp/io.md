@@ -52,6 +52,14 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### vcf_reader
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::vcf_reader
+   :members:
+   :undoc-members:
+```
+
 
 ## Entry Types
 
@@ -87,6 +95,22 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### vcf_entry
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::vcf_entry
+   :members:
+   :undoc-members:
+```
+
+### sample_genotype
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::sample_genotype
+   :members:
+   :undoc-members:
+```
+
 ## Reader Options
 
 ### bed_reader_options
@@ -117,6 +141,14 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
 
 ```{eval-rst}
 .. doxygenstruct:: genogrove::io::fasta_reader_options
+   :members:
+   :undoc-members:
+```
+
+### vcf_reader_options
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::vcf_reader_options
    :members:
    :undoc-members:
 ```
@@ -189,6 +221,30 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+## VCF Support Types
+
+### vcf_info_value
+
+```{eval-rst}
+.. doxygentypedef:: genogrove::io::vcf_info_value
+```
+
+### vcf_format_value
+
+```{eval-rst}
+.. doxygentypedef:: genogrove::io::vcf_format_value
+```
+
+## .gg Format Types
+
+### gg_header
+
+```{eval-rst}
+.. doxygenstruct:: genogrove::io::gg_header
+   :members:
+   :undoc-members:
+```
+
 ## Enums
 
 ### filetype
@@ -213,4 +269,10 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
 
 ```{eval-rst}
 .. doxygenenum:: genogrove::io::cigar_op
+```
+
+### gg_payload_type
+
+```{eval-rst}
+.. doxygenenum:: genogrove::io::gg_payload_type
 ```

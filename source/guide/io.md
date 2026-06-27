@@ -683,6 +683,148 @@ for (const auto& entry : gff_reader) {
   directory).
 - `fasta_index` is non-copyable and movable.
 
+### VCF/BCF Files
+
+VCF and BCF files store genomic variant calls. The `vcf_reader` is a
+`file_reader<vcf_entry>` that iterates VCF/BCF records — plain text, bgzipped, and binary BCF are
+all auto-detected by htslib. It follows the same single-pass iterator and error contract as the
+other readers: iterate with a range-for and check `get_error_message()` after the loop.
+
+Coordinates are stored in **0-based half-open** `[start, end)` form: `start = POS - 1` and
+`end = start + len(REF)`. Convert to a closed grove key with `gdt::interval(start, end - 1)` —
+this matches BED/BAM, **not** GFF.
+
+```cpp
+#include <genogrove/io/vcf_reader.hpp>
+#include <iostream>
+
+namespace gio = genogrove::io;
+
+int main() {
+    // Plain VCF, bgzipped VCF, and binary BCF are auto-detected.
+    gio::vcf_reader reader("calls.vcf");
+
+    for (const auto& entry : reader) {
+        std::cout << entry.chrom << ":" << entry.start << "-" << entry.end
+                  << "  REF=" << entry.ref << "\n";
+
+        if (!entry.qual_missing) {
+            std::cout << "  QUAL: " << entry.qual << "\n";
+        }
+
+        if (entry.is_snp()) {
+            std::cout << "  SNP\n";
+        } else if (entry.is_indel()) {
+            std::cout << "  indel\n";
+        }
+
+        // Per-sample genotypes (parallel to reader.get_sample_names()).
+        for (const auto& sample : entry.samples) {
+            std::cout << "  GT: " << sample.gt_string() << "\n";
+        }
+    }
+
+    // Lenient/skip-filtered records do not throw — check the error message after the loop.
+    if (!reader.get_error_message().empty()) {
+        std::cerr << "Last record error: " << reader.get_error_message() << "\n";
+    }
+
+    return 0;
+}
+```
+
+#### Reader Options
+
+`vcf_reader_options` uses C++20 designated initializers, like the other reader options:
+
+```cpp
+namespace gio = genogrove::io;
+
+// Factory presets
+gio::vcf_reader r1("calls.vcf", gio::vcf_reader_options::defaults());     // parse everything
+gio::vcf_reader r2("calls.vcf", gio::vcf_reader_options::sites_only());   // skip per-sample data
+
+// Custom options (designated initializers)
+gio::vcf_reader r3("calls.vcf",
+    gio::vcf_reader_options{.parse_samples = false, .skip_filtered = true});
+```
+
+- `parse_info` (bool, default `true`): Populate the typed `info` map.
+- `parse_samples` (bool, default `true`): Decode the per-sample `samples` vector.
+- `skip_filtered` (bool, default `false`): Skip records that did not pass FILTER.
+
+`vcf_reader` is **non-copyable** but **movable**, like the other readers.
+
+#### Reader Accessors
+
+Inspect the header and sample/contig metadata before or after iteration:
+
+- `get_header()` — returns the raw VCF header text (`const std::string&`)
+- `get_sample_names()` — returns the sample names (`const std::vector<std::string>&`); each
+  `vcf_entry::samples` element is parallel to this vector
+- `get_contigs()` — returns the contig names declared in the header (`const std::vector<std::string>&`)
+- `get_current_line()` — 1-based index of the most recently consumed record (`size_t`). Counts
+  records dropped by `skip_filtered`, and returns `0` before the first read.
+
+#### VCF Entry Fields
+
+- `chrom` (std::string): Contig/chromosome name
+- `start` (size_t): Start position (0-based, `POS - 1`)
+- `end` (size_t): End position (0-based half-open, `start + len(REF)`)
+- `id` (std::string): Variant ID (empty when `.`)
+- `ref` (std::string): Reference allele
+- `alt` (std::vector\<std::string>): Alternate alleles — empty for monomorphic `ALT=.`; symbolic
+  alleles (`<*>`, `<NON_REF>`, `*`) are kept verbatim
+- `qual` (float): Variant quality
+- `qual_missing` (bool): `true` when QUAL is `.` (then `qual` is unset)
+- `filter` (std::vector\<std::string>): FILTER values — `["PASS"]` when passed, empty when `.`
+- `info` (vcf_info): Typed INFO map (populated when `parse_info` is enabled)
+- `format` (std::vector\<std::string>): FORMAT keys, in column order
+- `samples` (std::vector\<sample_genotype>): Per-sample data, parallel to `get_sample_names()`
+
+#### Predicates
+
+- `passed_filter()` — `true` if the record passed FILTER
+- `is_snp()` — single-base REF/ALT substitution
+- `is_indel()` — insertion or deletion
+- `is_symbolic_allele(allele)` — static; `true` for symbolic alleles (`<*>`, `<NON_REF>`, `*`)
+
+Symbolic alleles are retained verbatim in `alt` but are **excluded** from the `is_snp()` /
+`is_indel()` predicates. Monomorphic records (`ALT=.`) yield an empty `alt`.
+
+#### Sample Genotypes
+
+Each `sample_genotype` in `entry.samples` decodes one sample's FORMAT data:
+
+- `gt_alleles` (std::vector\<int32_t>): Allele indices (`0` = REF, `1..` = ALT index, `-1` = missing)
+- `phased` (bool): `true` for phased genotypes (`|` separator)
+- `has_gt` (bool): `true` if a GT field was present
+- `fields` (std::unordered_map\<std::string, vcf_format_value>): Other FORMAT fields (everything
+  except GT)
+- `gt_string()` — renders the genotype, e.g. `"0/1"`, `"0|1"`, `"./."`
+- `is_hom_ref()` — `true` if homozygous reference
+
+Ragged numeric FORMAT fields are trimmed of htslib's `*_vector_end` padding.
+
+#### Value Types
+
+INFO and FORMAT values are stored as `std::variant`s:
+
+- `vcf_info_value` = `std::variant<...>` over the htslib INFO types: Flag (`bool`), Int, Float,
+  and String.
+- `vcf_format_value` = `std::variant<...>` over the FORMAT types: Int, Float, and String.
+- `vcf_info` = `std::unordered_map<std::string, vcf_info_value>` (the type of `vcf_entry::info`).
+
+```cpp
+// Read a typed INFO value
+auto it = entry.info.find("DP");
+if (it != entry.info.end()) {
+    if (auto* dp = std::get_if<int>(&it->second)) {
+        std::cout << "Depth: " << *dp << "\n";
+    }
+}
+```
+
 ::::
 
 ::::{tab-item} Python
