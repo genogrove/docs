@@ -234,6 +234,91 @@ auto g = gst::grove<...>::deserialize(buf);
 - **Breaking format change**: The serialized format now includes graph edges after external keys. Files serialized with older versions are incompatible and must be re-created.
 - All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result.
 
+### The `.gg` File Header
+
+Every `.gg` file produced by the `idx` CLI subcommand begins with a **12-byte plain (uncompressed)
+header** written before the zlib-compressed grove payload. Because it is uncompressed, a `.gg` file
+can be identified and validated without decompressing first (e.g. with `xxd` or `file`). The
+`intersect -i` (`isec`) subcommand validates this header before deserializing.
+
+The on-disk layout is:
+
+| Offset | Size | Field | Notes |
+|---|---|---|---|
+| 0 | 4 | `magic` = `"GROV"` | inspectable via `xxd` / `file` |
+| 4 | 1 | `format_major` = 0 | pre-1.0; any change may break compatibility |
+| 5 | 1 | `format_minor` = 1 | starts at 0.1 |
+| 6 | 1 | `lib_major` | informational |
+| 7 | 1 | `lib_minor` | informational |
+| 8 | 1 | `lib_patch` | informational |
+| 9 | 1 | `payload_type` | `0x01` = BED, `0x02` = GFF |
+| 10 | 2 | `reserved` | zero |
+
+The API lives in `genogrove::io`:
+
+```cpp
+#include <genogrove/io/gg_format.hpp>
+
+namespace gio = genogrove::io;
+
+enum class gg_payload_type : uint8_t { BED = 0x01, GFF = 0x02 };
+
+struct gg_header {
+    [[nodiscard]] static gg_header current(gg_payload_type payload_type);  // writer-side factory
+    void write(std::ostream& os) const;                                    // write the 12 bytes
+    [[nodiscard]] static gg_header read(std::istream& is);                 // read + validate
+};
+```
+
+- `gg_header::current(payload_type)` builds a header stamped with the current library version and
+  the given payload type — use it on the writer side.
+- `write(std::ostream&)` writes the 12-byte header.
+- `gg_header::read(std::istream&)` reads and validates the header. It throws `std::runtime_error`
+  on a bad magic value, an unsupported `(format_major, format_minor)` pair, or an unknown
+  `payload_type`. Library-version differences (`lib_major`/`lib_minor`/`lib_patch`) are
+  **informational only** and never cause rejection.
+
+:::{warning}
+**No backwards compatibility.** Pre-existing `.gg` files written before this header was added no
+longer parse and must be re-indexed. This is consistent with the project's
+no-backwards-compatibility-for-serialization policy.
+:::
+
+### SIF Export (visualization)
+
+The grove can be exported to **SIF** (Simple Interaction Format) text for visualization in tools
+such as Cytoscape. Two overloads are available:
+
+```cpp
+// Whole-grove export: walks the grove's own roots, no node pointer needed.
+void grove_to_sif(std::ostream& os) const;
+
+// Per-tree primitive: visualize a single tree given its root node.
+void grove_to_sif(std::ostream& os, const node<key_type, data_type>* root) const;
+```
+
+The node-less overload exports the **entire grove** (all indexed trees) in one call. An empty grove
+produces no output. Both overloads are stream-only by design (mirroring `serialize()` /
+`deserialize()`) — there is intentionally **no** `to_sif(path)` overload, so callers wrap their own
+`std::ofstream`:
+
+```cpp
+#include <fstream>
+
+std::ofstream out("grove.sif");
+my_grove.grove_to_sif(out);   // writes every indexed tree
+```
+
+The per-tree overload (`grove_to_sif(os, root)`) remains available for visualizing a single tree.
+
+The output is tab-separated and uses three interaction types: `nodelink` (internal node → child),
+`leaflink` (leaf → next leaf), and `keylink` (key → graph-overlay neighbour).
+
+:::{warning}
+Index iteration order is **not stable across runs** (hash-map iteration) — treat the output as a
+*set* of interactions rather than an ordered list.
+:::
+
 ::::
 
 ::::{tab-item} Python
