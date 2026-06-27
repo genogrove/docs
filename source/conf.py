@@ -16,7 +16,7 @@ release = "0.24.7"
 # pygenogrove (Python bindings) versions independently of the C++ library and
 # currently lags it; the Python guide tabs reflect this surface. Bump alongside
 # the pin in source/requirements.txt.
-pygenogrove_release = "0.6.0"
+pygenogrove_release = "0.6.2"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
