@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-06-27
+
+### Changed
+- Bumped the `pygenogrove` pin to 0.6.2 (`source/requirements.txt` + `conf.py` tab label) to pick up wheel 313 ([a3b89a4](https://github.com/genogrove/docs/commit/a3b89a4))
+
 ## 2026-06-26
 
 ### Added
