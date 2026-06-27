@@ -127,6 +127,10 @@ autodoc_default_options = {
 
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
+# Drop the default "<project> <release> documentation" title so the navbar
+# doesn't brand the whole site with the C++ `release` — genogrove and
+# pygenogrove version independently and each guide tab is stamped with its own.
+html_title = "genogrove"
 
 html_theme_options = {
     "github_url": "https://github.com/genogrove/genogrove",
