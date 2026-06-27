@@ -6,6 +6,7 @@ All notable changes to the genogrove documentation project will be documented in
 
 ### Changed
 - Bumped the `pygenogrove` pin to 0.6.2 (`source/requirements.txt` + `conf.py` tab label) to pick up wheel 313 ([a3b89a4](https://github.com/genogrove/docs/commit/a3b89a4))
+- Dropped the C++ `release` from the navbar title (`html_title = "genogrove"`) — genogrove and pygenogrove version independently and each guide tab is already version-stamped, so the global one was redundant and misleading ([#176](https://github.com/genogrove/docs/pull/176))
 
 ## 2026-06-26
 
