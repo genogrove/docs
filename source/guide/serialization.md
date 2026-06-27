@@ -5,7 +5,8 @@ re-parsing and re-inserting data from source files, which is significantly faste
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 ### Basic Usage
 
@@ -321,7 +322,8 @@ Index iteration order is **not stable across runs** (hash-map iteration) — tre
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ### Serialization
 

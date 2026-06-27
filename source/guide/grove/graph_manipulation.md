@@ -4,7 +4,8 @@ Once you've built a graph by linking keys, GenoGrove provides a comprehensive se
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 ### Edge Inspection
 
@@ -754,7 +755,8 @@ if (grove.graph_empty()) {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 Every grove carries an embedded **graph overlay** of directed edges between keys.
 The methods below inspect, navigate, prune, and manage that overlay. Keys are the

@@ -4,7 +4,8 @@ End-to-end workflows combining file I/O, data structures, queries, and graph ove
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 ### Processing BED Files
 
@@ -212,7 +213,8 @@ int main() {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ### Processing BED Files
 

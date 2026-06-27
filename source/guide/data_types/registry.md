@@ -8,7 +8,8 @@ keys.
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 The `registry<Key, Tag, Payload>` is a per-type singleton.
 
@@ -149,7 +150,8 @@ This pattern avoids overloading `gene_info::operator==` and `std::hash<gene_info
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 `Registry` exposes `registry<std::string, void, json_value>` — a process-wide
 singleton mapping a **string key** to any JSON-serializable payload (dict / list /

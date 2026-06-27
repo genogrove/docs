@@ -5,7 +5,8 @@ GFF/GTF, and BAM/SAM files.
 
 :::::{tab-set}
 
-::::{tab-item} C++
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
 
 Combine file readers from the `genogrove::io` namespace with grove insertion to load genomic data
 directly from BED, GFF/GTF, and BAM/SAM files.
@@ -175,7 +176,8 @@ int main() {
 
 ::::
 
-::::{tab-item} Python
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 The schemaless {doc}`./grove` is the everyday tool. The **typed** groves
 `BedGrove` (`grove<genomic_coordinate, bed_entry>`) and `GffGrove`
