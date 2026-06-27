@@ -7,8 +7,10 @@ version: 2
 # Set the OS, Python version, and other tools you might need
 build:
   os: ubuntu-24.04
+  # 3.12, not 3.13: pygenogrove ships cp39–cp312 wheels only. On 3.13 pip falls
+  # back to the sdist and compiles from source (needs htslib), which fails here.
   tools:
-    python: "3.13"
+    python: "3.12"
   apt_packages:
     - doxygen
   jobs:
