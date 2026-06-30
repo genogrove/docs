@@ -12,7 +12,7 @@ import os
 project = "genogrove"
 copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
-release = "0.24.7"
+release = "0.24.8"
 # pygenogrove (Python bindings) versions independently of the C++ library and
 # currently lags it; the Python guide tabs reflect this surface. Bump alongside
 # the pin in source/requirements.txt.
