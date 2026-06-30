@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-06-29
+
+### Changed
+- Bumped docs version to 0.24.8 in `conf.py` and the README badge ([8646978](https://github.com/genogrove/docs/commit/8646978), closes [#178](https://github.com/genogrove/docs/issues/178))
+
 ## 2026-06-27
 
 ### Changed
