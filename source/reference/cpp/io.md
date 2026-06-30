@@ -60,6 +60,17 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### tabix_reader
+
+RAII wrapper over an htslib tabix region iterator. Backs the `region` option on
+the BED/GFF readers; usable directly to stream the raw lines overlapping a locus.
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::tabix_reader
+   :members:
+   :undoc-members:
+```
+
 
 ## Entry Types
 

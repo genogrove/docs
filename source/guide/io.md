@@ -826,6 +826,72 @@ if (it != entry.info.end()) {
 }
 ```
 
+### Region-Based Random Access
+
+The `bed_reader`, `gff_reader`, and `vcf_reader` each accept a `region` option — a
+tabix region string (`"chr:start-end"`). When set, the reader seeks through the
+file's index and yields **only the records overlapping that locus** instead of
+streaming the whole file. Iteration, entry types, and the error contract are
+otherwise identical to the streaming readers.
+
+```cpp
+#include <genogrove/io/gff_reader.hpp>
+
+namespace gio = genogrove::io;
+
+// Only records overlapping chr7:55,000,000–55,300,000 (the EGFR locus).
+gio::gff_reader r("genes.gff3.gz", {.region = "chr7:55000000-55300000"});
+for (const auto& e : r) { /* ... */ }
+```
+
+The option has the same shape on all three readers:
+
+```cpp
+gio::bed_reader b("peaks.bed.gz", {.region = "chr1:1-1000000"});
+gio::vcf_reader v("calls.vcf.gz", {.region = "chr1:1-1000000"});
+```
+
+**Coordinate convention.** The `region` string is in **tabix query coordinates —
+1-based, inclusive** — regardless of the reader's native convention. This is *not*
+the readers' own coordinate space: BED/VCF entries are 0-based half-open and GFF is
+1-based inclusive, but the `region` query is always 1-based inclusive. To fetch a
+BED feature at 0-based `[1000, 2000)`, query `region = "chr1:1001-2000"`.
+
+**Index requirement.** Region access needs an indexed, block-compressed input:
+
+- **BED / GFF** — a **bgzip-compressed, tabix-indexed** file (`.tbi` or `.csi`).
+- **VCF / BCF** — a **CSI-indexed BCF**, or a **bgzip-compressed, tabix-indexed
+  VCF** (`.tbi`/`.csi`).
+
+A plain or unindexed file, an invalid region, or an unknown sequence name throws
+`std::runtime_error` from the constructor. Plain-gzip files (e.g. a downloaded
+GENCODE `.gff3.gz`) are **not** bgzip and must be recompressed and indexed first:
+
+```bash
+# BED / GFF
+bgzip annotations.gff3            # -> annotations.gff3.gz (bgzip, not plain gzip)
+tabix -p gff annotations.gff3.gz  # -> annotations.gff3.gz.tbi
+
+# VCF
+bgzip calls.vcf && tabix -p vcf calls.vcf.gz   # .tbi (or -C for .csi)
+bcftools index calls.bcf                        # .csi for a BCF
+```
+
+An **empty** `region` (the default) selects the existing whole-file streaming
+behavior, unchanged.
+
+**Performance.** Region access is **O(region)**, not O(file): the index lets the
+reader jump straight to the overlapping records, so per-locus lookups over a large
+annotation or call set stay fast instead of scanning the entire file.
+
+#### `tabix_reader`
+
+The region option is backed by `gio::tabix_reader` (in `bgzf_utils.hpp`), a public
+RAII wrapper over htslib's tabix iterator. It's mostly an internal detail, but it's
+usable directly to stream the raw, newline-stripped lines overlapping a locus from
+any tabix-indexed file — same index requirements and `std::runtime_error` behavior
+as above. See the {doc}`I/O reference <../reference/cpp/io>` for its members.
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
