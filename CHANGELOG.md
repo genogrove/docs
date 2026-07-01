@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-06-30
+
+### Added
+- Documented region-based random access for the BED/GFF/VCF readers (the `region` tabix-string option) in `guide/io.md` — coordinate convention (1-based inclusive), bgzip+tabix/CSI index requirements with `bgzip`/`tabix`/`bcftools index` recipes, `std::runtime_error` cases, empty-region streaming fallback, and O(region) performance — plus a `tabix_reader` autodoc stub in `reference/cpp/io.md` ([#179](https://github.com/genogrove/docs/pull/179), closes [#177](https://github.com/genogrove/docs/issues/177))
+
 ## 2026-06-29
 
 ### Changed
