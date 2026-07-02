@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-07-01
+
+### Added
+- Documented the pygenogrove `region=` keyword on `BedReader`/`GffReader`/`VcfReader` in the Python I/O tab of `guide/io.md` — a new Region-Based Random Access section mirroring the C++ side (#179): 1-based-inclusive tabix coordinate convention vs each reader's native system, bgzip+tabix/CSI index requirement with `bgzip`/`tabix`/`bcftools` recipes, `RuntimeError`-at-construction contract, empty-region streaming fallback, and O(region) framing; plus `region=""` added to the three reader signatures ([#181](https://github.com/genogrove/docs/pull/181), closes [#180](https://github.com/genogrove/docs/issues/180))
+
 ## 2026-06-30
 
 ### Added
