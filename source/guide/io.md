@@ -934,8 +934,9 @@ g2.insert_bulk("chr1", [e for e in pg.BedReader("peaks.bed") if e.chrom == "chr1
 ```
 
 ```python
-BedReader(path: str, skip_invalid_lines: bool = False)
-GffReader(path: str, skip_invalid_lines: bool = False, validate_gtf: bool = False)
+BedReader(path: str, skip_invalid_lines: bool = False, region: str = "")
+GffReader(path: str, skip_invalid_lines: bool = False, validate_gtf: bool = False,
+          region: str = "")
 ```
 
 - A missing/unreadable `path` raises on construction.
@@ -1052,7 +1053,7 @@ htslib auto-detects), yielding `VcfEntry`. Not thread-safe (one reader per threa
 the GIL is released around the htslib read.
 
 ```python
-VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False)
+VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False, region="")
 ```
 
 Also: `get_header()`, `get_sample_names()`, `get_contigs()`, `get_error_message()`,
@@ -1080,6 +1081,62 @@ for v in pg.VcfReader("calls.vcf", skip_filtered=True):
     if v.is_snp():
         print(v.chrom, v.start, v.ref, v.alt, [s.gt_string() for s in v.samples])
 ```
+
+### Region-Based Random Access
+
+`BedReader`, `GffReader`, and `VcfReader` each accept an optional `region` keyword —
+a tabix region string (`"chrom:start-end"`). When set, the reader seeks through the
+file's index and yields **only the records overlapping that locus** instead of
+streaming the whole file. Iteration, entry types, and the error contract are
+otherwise identical to whole-file streaming.
+
+```python
+import pygenogrove as pg
+
+# Only records overlapping the locus.
+for e in pg.BedReader("peaks.bed.gz", region="chr1:1000-2000"):
+    ...   # only overlapping records
+
+for e in pg.GffReader("genes.gff3.gz", region="chr7:55000000-55300000"):
+    ...   # the EGFR locus
+
+for v in pg.VcfReader("calls.vcf.gz", region="chr1:1-1000000"):
+    ...
+```
+
+**Coordinate convention.** The `region` string is in **tabix query coordinates —
+1-based, inclusive** — regardless of the reader's native convention. This is *not*
+the readers' own coordinate space: `BedEntry` is 0-based half-open, `GffEntry` is
+1-based inclusive, and `VcfEntry.start` is 0-based, but the `region` query is always
+1-based inclusive. To fetch a BED feature at 0-based `[1000, 2000)`, query
+`region="chr1:1001-2000"`.
+
+**Index requirement.** Region access needs an indexed, block-compressed input:
+
+- **BED / GFF** — a **bgzip-compressed, tabix-indexed** file (`.tbi` or `.csi`).
+- **VCF / BCF** — a **CSI-indexed BCF**, or a **bgzip-compressed, tabix-indexed
+  VCF** (`.tbi`/`.csi`).
+
+A plain or unindexed file, an invalid region, or an unknown sequence name raises
+`RuntimeError` at construction. Plain-gzip files (e.g. a downloaded GENCODE
+`.gff3.gz`) are **not** bgzip and must be recompressed and indexed first:
+
+```bash
+# BED / GFF
+bgzip annotations.gff3            # -> annotations.gff3.gz (bgzip, not plain gzip)
+tabix -p gff annotations.gff3.gz  # -> annotations.gff3.gz.tbi
+
+# VCF
+bgzip calls.vcf && tabix -p vcf calls.vcf.gz   # .tbi (or -C for .csi)
+bcftools index calls.bcf                        # .csi for a BCF
+```
+
+An **empty** `region=""` (the default) selects the existing whole-file streaming
+behavior, unchanged.
+
+**Performance.** Region access is **O(region)**, not O(file): the index lets the
+reader jump straight to the overlapping records, so per-locus lookups over a large
+annotation or call set stay fast instead of scanning the entire file.
 
 ### FiletypeDetector (format detection)
 
