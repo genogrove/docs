@@ -58,7 +58,28 @@ void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) 
 
 The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
 compressed binary stream (not raw bytes), so files are compact but not directly inspectable with
-hex editors. Internally the data is written in a depth-first traversal:
+hex editors. The stream opens with a small plain directory (order, index count, per-index name +
+root block id, block counts), then the payload.
+
+**Block-structured payload (format 0.2).** As of genogrove v0.25.0 the payload is
+**block-structured**: each B+ tree node is an independently zlib-compressed, length-prefixed block,
+and external keys are distributed into fixed-size blocks. (Previously the whole file was a single
+zlib stream — format 0.1.) The block structure is what makes random-access partial reading possible
+— see [Partial reading with `grove_view`](#partial-reading-with-grove-view) below. Because each
+block is inflated from an isolated buffer of exactly its length, the source is read sequentially,
+so `grove::deserialize` now works on **non-seekable input streams** (pipes, sockets) and leaves any
+trailing bytes after the grove intact.
+
+The public signatures (`serialize(std::ostream&)` / `deserialize(std::istream&)`) are unchanged.
+
+```{warning}
+**No serialization back-compat.** Format 0.1 `.gg` files are **not readable** by a v0.25.0+ build
+and must be regenerated (re-run `genogrove idx` or re-`serialize()`). The header reports
+`format_major = 0`, `format_minor = 2`; while `format_major == 0` the format is still evolving and
+may break again. See [The `.gg` File Header](#the-gg-file-header).
+```
+
+Within a block the data is still written in depth-first order:
 
 1. Tree order and number of indices (chromosomes)
 2. For each index: the index name followed by the full tree (nodes, keys, and associated data)
@@ -199,31 +220,76 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
   files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and `gio::thick_info`
   are trivially copyable and serialize automatically.
 
-### Source Stream Must Be Seekable for Concatenated Payloads
+### Non-Seekable Sources and Concatenated Payloads
 
-`grove::deserialize()` uses zlib's streaming decoder, which may finish consuming the compressed
-payload before exhausting the input buffer. To preserve any bytes that follow the grove (e.g.,
-concatenated payloads, sentinel markers, file tails), the internal `inflate_streambuf` rewinds
-the unconsumed bytes via `source.seekg(...)`.
+As of format 0.2, `grove::deserialize()` reads each block from an isolated buffer of exactly its
+length, consuming the source **sequentially**. It no longer needs to rewind, so it works on
+**non-seekable sources** (pipes, sockets, custom streambufs) and leaves any bytes that follow the
+grove intact — the concatenated-payload pattern (registry then grove from the same stream, multiple
+grove payloads back-to-back, sentinel trailers) works without a seekable source.
 
-**The source stream must therefore be seekable when anything follows the grove in the stream.**
-On non-seekable sources (pipes, sockets, custom non-seekable streambufs) the seek fails and
-`deserialize()` throws:
+```{note}
+Random-access *partial* reading via [`grove_view`](#partial-reading-with-grove-view) still needs a
+seekable source — it seeks to individual block offsets — which is why `grove_view::open` takes a
+file path rather than an arbitrary stream. Eager `grove::deserialize` has no such requirement.
+```
 
-> `inflate_streambuf: source stream is not seekable; concatenated payloads require a seekable source`
+(partial-reading-with-grove-view)=
+### Partial reading with `grove_view`
 
-For a single-payload `.gg` file loaded via `std::ifstream`, this requirement is automatically
-satisfied — file streams are seekable. The requirement matters only for the concatenated-payload
-pattern (registry then grove from the same stream, multiple grove payloads back-to-back, sentinel
-trailers).
-
-If you must deserialize from a non-seekable source, copy it into a `std::stringstream` first:
+`genogrove::structure::grove_view` is a **read-only, partial reader** over a serialized format 0.2
+`.gg`. Where `grove::deserialize` eagerly loads the whole file, `grove_view` loads only the blocks a
+query walks and caches them for its lifetime. It complements — does not replace — the eager `grove`,
+which remains the builder and the load-it-all reader.
 
 ```cpp
-std::stringstream buf;
-buf << non_seekable_source.rdbuf();        // drain into a seekable buffer
-auto g = gst::grove<...>::deserialize(buf);
+#include <genogrove/structure/grove/grove_view.hpp>
+
+namespace gst = genogrove::structure;
+
+// Open a .gg for partial reading (seekable source required — takes a path).
+auto view = gst::grove_view<gdt::interval, gio::bed_entry, std::string>::open("index.gg");
+
+// Same intersect() signatures/semantics as grove — loads only the O(log n)
+// descent path plus overlapping leaves.
+auto hits = view.intersect(gdt::interval{100, 200}, "chr1");
+
+// Outgoing graph neighbours; loads only the edge-target block, across chromosomes.
+for (auto* k : hits.get_keys()) {
+    for (auto* nbr : view.get_neighbors(k)) { /* ... */ }
+}
 ```
+
+**Public surface** (`grove_view<key_type, data_type = void, edge_data_type = void>`):
+
+- `static grove_view open(const std::string& path, std::streamoff data_offset = 0)` — opens a `.gg`,
+  reads the directory, and scans the block chain to build a `block_id → file offset` index. Pass
+  `data_offset` to start past a leading wrapper (the CLI passes `gg_header::SIZE` to skip the 12-byte
+  header). Throws `std::runtime_error` on a missing file, bad magic, a non-seekable/truncated stream,
+  or a malformed directory.
+- `intersect(const key_type& query, std::string_view index)` and `intersect(const key_type& query)`
+  — same signatures and semantics as `grove::intersect` (they share the query engine).
+- `get_neighbors(const key* source)` — outgoing graph neighbours, loading only the target block
+  (including across chromosomes). `source` must be a key pointer this `grove_view` produced.
+- `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
+
+**Semantics worth calling out:**
+
+- **Non-copyable and non-movable** — it owns the file and a zlib state. Hold it by value from
+  `open()`; the return is guaranteed copy elision, so no move is needed.
+- **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
+  query footprint.
+- **Not thread-safe**, and no `flanking()` yet (eager `grove` only).
+- Requires a plain format-0.2 `.gg` written by `grove::serialize`.
+
+The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](#in-place-querying).
+
+### CLI indexes carry edge metadata
+
+The `.gg` indexes written by the `idx` / `isec` CLI use `grove<interval, {bed,gff}_entry, std::string>`
+— a `std::string` graph-edge type — so that `idx --links` can attach [per-edge metadata](#cli-links).
+This changed the on-disk format from the earlier `void` edge type: **CLI-built indexes from before
+v0.25.0 must be regenerated.** (Consistent with the format-0.2 no-back-compat policy above.)
 
 ### Important Notes
 
@@ -248,7 +314,7 @@ The on-disk layout is:
 |---|---|---|---|
 | 0 | 4 | `magic` = `"GROV"` | inspectable via `xxd` / `file` |
 | 4 | 1 | `format_major` = 0 | pre-1.0; any change may break compatibility |
-| 5 | 1 | `format_minor` = 1 | starts at 0.1 |
+| 5 | 1 | `format_minor` = 2 | 0.2 = block-structured payload (was 0.1, single zlib stream) |
 | 6 | 1 | `lib_major` | informational |
 | 7 | 1 | `lib_minor` | informational |
 | 8 | 1 | `lib_patch` | informational |
