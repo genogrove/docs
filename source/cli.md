@@ -65,7 +65,6 @@ mid-insert (or a malformed links file) aborts before any existing `.gg` at the o
 is touched — it can never leave a truncated index behind.
 ```
 
-(cli-links)=
 #### Links: attaching graph edges
 
 `idx -l/--links FILE` attaches directed edges to the grove's `graph_overlay` from a name-keyed
@@ -189,11 +188,10 @@ changed for GFF payloads. **GFF indexes built before v0.25.0 must be regenerated
 See the {doc}`serialization guide </guide/serialization>` — there is no serialization back-compat.
 ```
 
-(in-place-querying)=
 #### In-place querying
 
 By default `isec -i` deserializes the whole `.gg` into memory. `--in-place` instead queries the
-index on disk via a partial reader ([`grove_view`](#partial-reading-with-grove-view)),
+index on disk via a partial reader ([`grove_view`](guide/serialization.md#partial-random-access-reading)),
 loading only the blocks each query walks. Output is identical to the eager path — it is a
 memory/latency trade-off:
 

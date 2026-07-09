@@ -65,7 +65,7 @@ root block id, block counts), then the payload.
 **block-structured**: each B+ tree node is an independently zlib-compressed, length-prefixed block,
 and external keys are distributed into fixed-size blocks. (Previously the whole file was a single
 zlib stream — format 0.1.) The block structure is what makes random-access partial reading possible
-— see [Partial reading with `grove_view`](#partial-reading-with-grove-view) below. Because each
+— see [Partial random-access reading](#partial-random-access-reading) below. Because each
 block is inflated from an isolated buffer of exactly its length, the source is read sequentially,
 so `grove::deserialize` now works on **non-seekable input streams** (pipes, sockets) and leaves any
 trailing bytes after the grove intact.
@@ -229,13 +229,12 @@ grove intact — the concatenated-payload pattern (registry then grove from the 
 grove payloads back-to-back, sentinel trailers) works without a seekable source.
 
 ```{note}
-Random-access *partial* reading via [`grove_view`](#partial-reading-with-grove-view) still needs a
+Random-access *partial* reading via [`grove_view`](#partial-random-access-reading) still needs a
 seekable source — it seeks to individual block offsets — which is why `grove_view::open` takes a
 file path rather than an arbitrary stream. Eager `grove::deserialize` has no such requirement.
 ```
 
-(partial-reading-with-grove-view)=
-### Partial reading with `grove_view`
+### Partial random-access reading
 
 `genogrove::structure::grove_view` is a **read-only, partial reader** over a serialized format 0.2
 `.gg`. Where `grove::deserialize` eagerly loads the whole file, `grove_view` loads only the blocks a
@@ -282,12 +281,12 @@ for (auto* k : hits.get_keys()) {
 - **Not thread-safe**, and no `flanking()` yet (eager `grove` only).
 - Requires a plain format-0.2 `.gg` written by `grove::serialize`.
 
-The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](#in-place-querying).
+The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](../cli.md#in-place-querying).
 
 ### CLI indexes carry edge metadata
 
 The `.gg` indexes written by the `idx` / `isec` CLI use `grove<interval, {bed,gff}_entry, std::string>`
-— a `std::string` graph-edge type — so that `idx --links` can attach [per-edge metadata](#cli-links).
+— a `std::string` graph-edge type — so that `idx --links` can attach [per-edge metadata](../cli.md#links-attaching-graph-edges).
 This changed the on-disk format from the earlier `void` edge type: **CLI-built indexes from before
 v0.25.0 must be regenerated.** (Consistent with the format-0.2 no-back-compat policy above.)
 
