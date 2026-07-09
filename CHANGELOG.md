@@ -4,7 +4,15 @@ All notable changes to the genogrove documentation project will be documented in
 
 ## 2026-07-09
 
+### Added
+- Documented `idx --gff-name-tag` — GFF/GTF support for `--links` — in `cli.md`: the required identifying-attribute rule, the uniqueness/missing-attribute errors, and the BED-ignores-it behavior ([#190](https://github.com/genogrove/docs/pull/190), closes [#185](https://github.com/genogrove/docs/issues/185))
+- Documented the optional 3rd `idx --links` TSV column (per-edge metadata) in `cli.md`: raw-string storage, the 1/4+/empty-column rejection rules, and metadata-in-dedup-key → parallel edges ([#190](https://github.com/genogrove/docs/pull/190), closes [#186](https://github.com/genogrove/docs/issues/186))
+- Documented `isec --in-place` in `cli.md`: the partial-read flag, its `-i` requirement, and the eager-vs-in-place trade-off ([#190](https://github.com/genogrove/docs/pull/190), closes [#184](https://github.com/genogrove/docs/issues/184))
+- Documented the `grove_view` partial/random-access reader in `guide/serialization.md`: `open(path, data_offset)`, `intersect`/`get_neighbors`, introspection, and the non-copyable/non-movable + non-evicting-cache semantics ([#190](https://github.com/genogrove/docs/pull/190), closes [#183](https://github.com/genogrove/docs/issues/183))
+
 ### Changed
+- Documented cross-type `intersect` (BED↔GFF) in `cli.md`: the four-combination table, the output-follows-target-payload rule, the BED/GFF → common 0-based-inclusive coordinate normalization, and the regenerate-GFF-indexes consequence ([#190](https://github.com/genogrove/docs/pull/190), closes [#187](https://github.com/genogrove/docs/issues/187))
+- Documented the block-structured `.gg` serialization (format 0.2) in `guide/serialization.md`: `format_minor` 1 → 2, the no-back-compat/regenerate-index requirement, non-seekable-source deserialization, and the CLI `std::string` edge-metadata format change (replacing the stale "source must be seekable" section) ([#190](https://github.com/genogrove/docs/pull/190), closes [#182](https://github.com/genogrove/docs/issues/182))
 - Bumped docs version to 0.25.1 in `conf.py` and the README badge ([776f721](https://github.com/genogrove/docs/commit/776f721), closes [#188](https://github.com/genogrove/docs/issues/188), closes [#189](https://github.com/genogrove/docs/issues/189))
 
 ## 2026-07-01
