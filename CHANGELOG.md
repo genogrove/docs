@@ -5,6 +5,7 @@ All notable changes to the genogrove documentation project will be documented in
 ## 2026-07-09
 
 ### Added
+- Added a `grove_view` autodoc stub to the C++ structure reference (`reference/cpp/structure.md`), now that the `repos/genogrove` build clone is at v0.25.1 — completes the reader documentation from [#183](https://github.com/genogrove/docs/issues/183) ([#191](https://github.com/genogrove/docs/pull/191))
 - Documented `idx --gff-name-tag` — GFF/GTF support for `--links` — in `cli.md`: the required identifying-attribute rule, the uniqueness/missing-attribute errors, and the BED-ignores-it behavior ([#190](https://github.com/genogrove/docs/pull/190), closes [#185](https://github.com/genogrove/docs/issues/185))
 - Documented the optional 3rd `idx --links` TSV column (per-edge metadata) in `cli.md`: raw-string storage, the 1/4+/empty-column rejection rules, and metadata-in-dedup-key → parallel edges ([#190](https://github.com/genogrove/docs/pull/190), closes [#186](https://github.com/genogrove/docs/issues/186))
 - Documented `isec --in-place` in `cli.md`: the partial-read flag, its `-i` requirement, and the eager-vs-in-place trade-off ([#190](https://github.com/genogrove/docs/pull/190), closes [#184](https://github.com/genogrove/docs/issues/184))
