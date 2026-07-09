@@ -41,6 +41,20 @@ returned from functions (e.g., `grove::deserialize()`) and stored in containers.
    :undoc-members:
 ```
 
+## grove_view
+
+`grove_view` is a **read-only, partial reader** over a serialized format 0.2 `.gg`: it loads only
+the blocks a query walks instead of deserializing the whole file, complementing the eager `grove`
+(see {doc}`the serialization guide </guide/serialization>`). It is **non-copyable and non-movable**
+(it owns the file handle and a zlib state) — obtain one by value from the static `open()` factory,
+which relies on guaranteed copy elision.
+
+```{eval-rst}
+.. doxygenclass:: genogrove::structure::grove_view
+   :members:
+   :undoc-members:
+```
+
 ## node
 
 `node` is **non-copyable, move-only** (same rationale as `grove`). The move constructor and move
