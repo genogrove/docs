@@ -192,26 +192,28 @@ changed for GFF payloads. **GFF indexes built before v0.25.0 must be regenerated
 See the {doc}`serialization guide </guide/serialization>` — there is no serialization back-compat.
 ```
 
+(vcf-bcf-queries)=
 #### VCF/BCF queries
 
 VCF and BCF files are accepted as `-q` query input, alongside BED and GFF/GTF. Both `.vcf` and
-`.bcf` (binary) are recognized by extension, so BCF queries work without renaming. A VCF query can
-run against any target/index — a BED or GFF `-t` file, or a `-i` index (eager or `--in-place`) — and
-the output format follows the **target/index** payload type, exactly as for the other query types.
+`.bcf` (binary) are recognized by extension, so BCF queries work without renaming. A VCF/BCF query
+can run against any target/index — a BED or GFF `-t` file, or a `-i` index (eager or `--in-place`) —
+and the output format follows the **target/index** payload type, exactly as for the other query
+types.
 
-VCF is **query-only**: it is never a target or an index payload, so there is no `.gg` format change.
-Passing a VCF file to `-t` fails with `unsupported target format (only BED, GFF, and GTF are
-supported)`.
+VCF/BCF is **query-only**: it is never a target or an index payload, so there is no `.gg` format
+change. Passing a VCF/BCF file to `-t` fails with `unsupported target format (only BED, GFF, and GTF
+are supported)`.
 
-Each VCF record maps into the same canonical **0-based-inclusive** interval space as BED:
+Each VCF/BCF record maps into the same canonical **0-based-inclusive** interval space as BED:
 `interval(POS-1, POS-1 + len(REF) - 1)` — i.e. `end = POS-1 + len(REF)`, then `interval(start,
 end-1)`. A SNP (`len(REF) == 1`) becomes a single-base interval; a multi-base REF spans `len(REF)`
 bases.
 
 ```{warning}
 Structural / symbolic variants (`<DEL>`, `<INS>`, breakends) carry their span in `INFO/END`, which
-is **not** currently honored. Such records map to a single-base interval from `len(REF)`, so overlap
-for them is positional-only.
+is **not** currently honored. Such records map positionally by `len(REF)` (single-base only when
+`len(REF) == 1`), so overlap for them is positional-only.
 ```
 
 ```bash
