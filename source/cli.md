@@ -153,7 +153,7 @@ genogrove isec -q <queryfile> (-t <targetfile> | -i <indexfile>) [OPTIONS]
 
 **Options:**
 
-- `-q, --queryfile <file>`: Query BED or GFF/GTF file (required)
+- `-q, --queryfile <file>`: Query BED, GFF/GTF, or VCF/BCF file (required). VCF/BCF is query-only — see [VCF/BCF queries](#vcf-bcf-queries)
 - `-t, --targetfile <file>`: Target BED or GFF/GTF file to build the grove from (one of `-t` / `-i` required)
 - `-i, --indexfile <file>`: Prebuilt `.gg` index to search against (one of `-t` / `-i` required)
 - `--in-place`: Query the prebuilt index (`-i`) on disk, reading only the blocks each query touches instead of loading the whole file into memory (requires `-i`)
@@ -176,6 +176,10 @@ work. The query type only selects how query records are iterated; the output for
 | BED | GFF | GFF rows |
 | GFF | BED | BED rows |
 | GFF | GFF | GFF rows |
+| VCF/BCF | BED | BED rows |
+| VCF/BCF | GFF | GFF rows |
+
+(VCF/BCF is query-only — see [VCF/BCF queries](#vcf-bcf-queries) below.)
 
 To make cross-type overlaps correct, both readers map to a common **0-based-inclusive** interval
 space internally: BED `[start, end)` → `interval(start, end-1)`; GFF/GTF `[start, end]` (1-based) →
@@ -186,6 +190,38 @@ the raw entry coordinates of the target payload.
 The internal GFF interval numbering shifted by −1 to share this space, so the `.gg` on-disk format
 changed for GFF payloads. **GFF indexes built before v0.25.0 must be regenerated** (`genogrove idx`).
 See the {doc}`serialization guide </guide/serialization>` — there is no serialization back-compat.
+```
+
+(vcf-bcf-queries)=
+#### VCF/BCF queries
+
+VCF and BCF files are accepted as `-q` query input, alongside BED and GFF/GTF. Both `.vcf` and
+`.bcf` (binary) are recognized by extension, so BCF queries work without renaming. A VCF/BCF query
+can run against any target/index — a BED or GFF `-t` file, or a `-i` index (eager or `--in-place`) —
+and the output format follows the **target/index** payload type, exactly as for the other query
+types.
+
+VCF/BCF is **query-only**: it is never a target or an index payload, so there is no `.gg` format
+change. Passing a VCF/BCF file to `-t` fails with `unsupported target format (only BED, GFF, and GTF
+are supported)`.
+
+Each VCF/BCF record maps into the same canonical **0-based-inclusive** interval space as BED:
+`interval(POS-1, POS-1 + len(REF) - 1)` — i.e. `end = POS-1 + len(REF)`, then `interval(start,
+end-1)`. A SNP (`len(REF) == 1`) becomes a single-base interval; a multi-base REF spans `len(REF)`
+bases.
+
+```{warning}
+Structural / symbolic variants (`<DEL>`, `<INS>`, breakends) carry their span in `INFO/END`, which
+is **not** currently honored. Such records map positionally by `len(REF)` (single-base only when
+`len(REF) == 1`), so overlap for them is positional-only.
+```
+
+```bash
+# VCF query against a BED target — output is BED rows
+genogrove isec -q variants.vcf -t genes.bed
+
+# Binary BCF query against a prebuilt GFF index, read in place
+genogrove isec -q variants.bcf -i genes.gg --in-place
 ```
 
 #### In-place querying
@@ -246,6 +282,8 @@ Currently supported:
 - BED format (`.bed`, `.bed.gz`) — for query and target input, and for `idx` links (`-l`)
 - GFF/GTF format (`.gff3`, `.gtf`, gzip-compressed variants) — for query and target input, and for
   `idx` links (`-l` with `--gff-name-tag`)
+- VCF/BCF format (`.vcf`, `.bcf`) — for `isec` query input only (`-q`); see
+  [VCF/BCF queries](#vcf-bcf-queries)
 - `.gg` index files (produced by `idx`) — for the `isec -i` search target
 
 ```{note}
@@ -256,4 +294,5 @@ and vice versa (see [Cross-type queries](#cross-type-queries)). The `.gg` `paylo
 
 Planned support:
 
-- VCF format
+- VCF/BCF as a target/index payload type (currently query-only)
+- Honoring `INFO/END` for structural / symbolic variants (currently mapped positionally by `len(REF)`)
