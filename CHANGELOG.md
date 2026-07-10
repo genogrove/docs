@@ -2,6 +2,11 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-07-10
+
+### Added
+- Documented VCF/BCF as an `isec` query format in `cli.md`: query-only support (`-q`), `.bcf` recognized by extension, the BED-equivalent `interval(POS-1, POS-1 + len(REF) - 1)` coordinate mapping, the cross-type query/target-payload rows, and the `INFO/END`-not-honored structural-variant limitation ([#193](https://github.com/genogrove/docs/pull/193), closes [#192](https://github.com/genogrove/docs/issues/192))
+
 ## 2026-07-09
 
 ### Added
