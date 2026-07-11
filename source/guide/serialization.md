@@ -458,8 +458,7 @@ threads serialize on view I/O — use **one view per thread**. The Keys a view r
 own storage and are valid only while the `GroveView` is alive.
 :::
 
-Requires a format 0.2 `.gg` (genogrove v0.25.x). See the C++ tab for the underlying `grove_view`,
-and the {doc}`Python API reference </reference/python/grove>`.
+Requires a format 0.2 `.gg` (genogrove v0.25.x). See the C++ tab for the underlying `grove_view`.
 
 ### SIF export (visualization)
 
