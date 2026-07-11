@@ -407,7 +407,7 @@ by a C++ `grove<genomic_coordinate, std::string>`; with labelled edges the inter
 `grove<genomic_coordinate, std::string, std::string>`. Typed `BedGrove` / `GffGrove` `.gg` files
 round-trip the structured `BedEntry` / `GffEntry` payloads.
 
-### Partial random-access reading
+### Partial random-access reading with `GroveView`
 
 `GroveView` is a **read-only, partial reader** over a serialized format 0.2 `.gg`. Where
 `Grove.deserialize()` loads the whole grove into memory, a `GroveView` reads only the block
