@@ -14,9 +14,9 @@ copyright = "2026, Richard. A. Schaefer"
 author = "Richard. A. Schaefer"
 release = "0.25.1"
 # pygenogrove (Python bindings) versions independently of the C++ library and
-# currently lags it; the Python guide tabs reflect this surface. Bump alongside
+# currently lags it; the Python guide tabs reflect this surface. Bump alongsid    e
 # the pin in source/requirements.txt.
-pygenogrove_release = "0.6.3"
+pygenogrove_release = "0.7.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

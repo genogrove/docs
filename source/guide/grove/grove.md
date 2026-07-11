@@ -7,8 +7,6 @@ The `grove` is a specialized B+ tree optimized for genomic interval storage and 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The `grove` is a specialized B+ tree optimized for genomic interval storage and querying. It organizes data by index (e.g., chromosome) and supports efficient overlap queries. An embedded graph overlay allows you to create directed edges between keys, representing relationships between genomic features.
-
 Beyond the core data structure covered on this page, the grove also supports:
 
 - **{doc}`graph`** — Create directed edges between keys to represent relationships such as transcript structures or gene regulatory networks

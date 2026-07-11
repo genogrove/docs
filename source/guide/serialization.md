@@ -407,6 +407,60 @@ by a C++ `grove<genomic_coordinate, std::string>`; with labelled edges the inter
 `grove<genomic_coordinate, std::string, std::string>`. Typed `BedGrove` / `GffGrove` `.gg` files
 round-trip the structured `BedEntry` / `GffEntry` payloads.
 
+### Partial random-access reading with `GroveView`
+
+`GroveView` is a **read-only, partial reader** over a serialized format 0.2 `.gg`. Where
+`Grove.deserialize()` loads the whole grove into memory, a `GroveView` reads only the block
+directory up front and pages in individual blocks on demand as a query descends the tree, caching
+them for the view's lifetime (no eviction). Use it to query a large on-disk index without
+materializing it. It complements — does not replace — the eager `Grove`, which stays the builder
+and the load-it-all reader.
+
+There is one view class per grove flavour — `GroveView`, `NumericGroveView`, `KmerGroveView`,
+`BedGroveView`, `GffGroveView` — each reusing the `Key` / `QueryResult` types of the matching grove.
+
+```python
+import pygenogrove as pg
+
+# Open a .gg written by Grove.serialize() (a bare grove stream — data_offset=0).
+view = pg.GroveView.open("index.gg")
+
+# Same intersect() signatures/semantics as Grove — loads only the descent path
+# plus overlapping leaves. Pass an index name, or omit it to search all indices.
+hits = view.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1")
+
+# Outgoing graph neighbours; pages in each target's block on demand, across chromosomes.
+for key in hits:
+    for nbr in view.get_neighbors(key):
+        ...
+
+# Proof the query was partial: only a subset of blocks was paged in.
+assert view.blocks_loaded() < view.block_count()
+```
+
+**Surface** (query-only — a view has no `insert()` or `serialize()`):
+
+- `GroveView.open(path, data_offset=0)` *(static)* — open a `.gg` for partial reading. `path` is a
+  file written by `Grove.serialize()` (use `data_offset=0`); pass a non-zero `data_offset` only for
+  a `.gg` embedded behind a leading header, e.g. a genogrove CLI index. Raises `RuntimeError` on a
+  missing file, bad magic, a non-seekable source, or a malformed directory.
+- `intersect(query)` / `intersect(query, index)` — same results as the eager `Grove`, loading only
+  the blocks the search touches.
+- `get_neighbors(key)` — the target keys directly reachable from `key` via graph edges, paging in
+  each target's block on demand. `key` must be one this view produced (from `intersect()` or a prior
+  `get_neighbors()`). Raises `TypeError` if `key` is `None`.
+- `blocks_loaded()` / `block_count()` — partial-load counters (`block_count()` is `0` for an empty
+  grove).
+
+:::{warning}
+**Not thread-safe.** A query mutates the view's block cache and holds the GIL, so concurrent Python
+threads serialize on view I/O — use **one view per thread**. The Keys a view returns point into its
+own storage and are valid only while the `GroveView` is alive.
+:::
+
+Requires a format 0.2 `.gg` (genogrove v0.25.x). See the C++ tab for the underlying `grove_view`,
+and the {doc}`Python API reference </reference/python/grove>` for the full class listing.
+
 ### SIF export (visualization)
 
 `grove.to_sif(path)` writes the grove to a **SIF** (Simple Interaction Format) text file for
