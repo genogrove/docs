@@ -2,6 +2,16 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-07-11
+
+### Added
+- Documented the pygenogrove `GroveView` partial/random-access reader in the Python tab of `guide/serialization.md`: the per-flavour view classes (`GroveView` / `NumericGroveView` / `KmerGroveView` / `BedGroveView` / `GffGroveView`), a worked `open` → `intersect` → `get_neighbors` → block-counter example, the query-only surface with error behaviour, and the not-thread-safe (one-view-per-thread) + Key-lifetime caveats ([#195](https://github.com/genogrove/docs/pull/195), closes [#194](https://github.com/genogrove/docs/issues/194))
+- Added autodoc entries for the five `*GroveView` classes to the Python API reference (`reference/python/grove.md`, `reference/python/typed_groves.md`) ([#195](https://github.com/genogrove/docs/pull/195))
+
+### Changed
+- Bumped the `pygenogrove` pin to 0.7.0 (`source/requirements.txt` + `conf.py` `pygenogrove_release`) — the release that ships `GroveView` (pygenogrove [#57](https://github.com/genogrove/pygenogrove/pull/57)) with a cp312 wheel for the Read the Docs Python 3.12 build ([#195](https://github.com/genogrove/docs/pull/195))
+- Removed the grove definition duplicated inside the C++ tab of `guide/grove/grove.md` — the shared intro above the tab-set already states it ([#195](https://github.com/genogrove/docs/pull/195))
+
 ## 2026-07-10
 
 ### Added
