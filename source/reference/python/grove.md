@@ -13,6 +13,17 @@ model, insertion modes, and the graph overlay.
 .. autoclass:: pygenogrove.KmerGrove
 ```
 
+## Grove views (partial random-access readers)
+
+Read-only, partial readers over a serialized `.gg` — page in only the blocks a
+query touches. See the {doc}`Serialization guide </guide/serialization>`.
+
+```{eval-rst}
+.. autoclass:: pygenogrove.GroveView
+.. autoclass:: pygenogrove.NumericGroveView
+.. autoclass:: pygenogrove.KmerGroveView
+```
+
 ## Keys
 
 ```{eval-rst}
