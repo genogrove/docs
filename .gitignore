@@ -209,3 +209,6 @@ doxygen
 repos
 
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
+
+# Local Claude Code project instructions — kept local, not shared
+CLAUDE.md
