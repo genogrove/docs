@@ -433,6 +433,8 @@ hits = view.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1")
 for key in hits:
     for nbr in view.get_neighbors(key):
         ...
+    view.get_edges(key)                              # edge payloads, parallel to get_neighbors
+    view.get_neighbors_if(key, lambda m: m["weight"] > 5)  # filtered targets (universal view only)
 
 # Proof the query was partial: only a subset of blocks was paged in.
 assert view.blocks_loaded() < view.block_count()
@@ -449,8 +451,23 @@ assert view.blocks_loaded() < view.block_count()
 - `get_neighbors(key)` — the target keys directly reachable from `key` via graph edges, paging in
   each target's block on demand. `key` must be one this view produced (from `intersect()` or a prior
   `get_neighbors()`). Raises `TypeError` if `key` is `None`.
+- `get_edges(source) -> list` — the metadata payloads of `source`'s outgoing edges, in edge order
+  (parallel to `get_neighbors(source)`), read from the block already paged in for `source` — no full
+  deserialize. Edges added without a payload yield `None`; returns an empty list if `source` has no
+  recorded edges. **Edge-carrying views only** (see below).
+- `get_neighbors_if(source, predicate) -> list[Key]` — the target keys whose edge metadata satisfies
+  `predicate(metadata)`, paging in each surviving target's block on demand exactly like
+  `get_neighbors`. The predicate receives the **decoded** payload. Raises `TypeError` if `source` is
+  `None`. **Edge-carrying views only** (see below).
 - `blocks_loaded()` / `block_count()` — partial-load counters (`block_count()` is `0` for an empty
   grove).
+
+`get_edges` / `get_neighbors_if` exist only on the **universal `GroveView`** (and its point-key
+siblings `NumericGroveView` / `KmerGroveView`), whose edges carry a payload. The typed
+`BedGroveView` / `GffGroveView` keep unlabelled (void) edges for binary interop, so — mirroring the
+mutable `BedGrove` / `GffGrove` — the two labelled-edge reads are absent there; use `get_neighbors`
+to traverse. These accessors match the mutable `Grove`'s adjacency surface (see the
+{doc}`graph guide </guide/grove/graph>`), but query-only.
 
 :::{warning}
 **Not thread-safe.** A query mutates the view's block cache and holds the GIL, so concurrent Python
