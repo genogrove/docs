@@ -4,6 +4,9 @@ All notable changes to the genogrove documentation project will be documented in
 
 ## 2026-07-14
 
+### Changed
+- Bumped the documented genogrove version to 0.25.2 (`source/conf.py` `release` + `README.md` badge), following the upstream v0.25.2 release (`4d631e7`, closes [#198](https://github.com/genogrove/docs/issues/198))
+
 ### Added
 - Documented the pygenogrove `GroveView` edge-payload accessors `get_edges(source)` and `get_neighbors_if(source, predicate)` in the Python tab of `guide/serialization.md`: their query-only read-from-paged-in-block semantics, the `None` payload for unlabelled edges (with a guarded predicate example), and the gating to edge-carrying views (`GroveView` / `NumericGroveView` / `KmerGroveView`, not the void-edge `BedGroveView` / `GffGroveView`) ([#200](https://github.com/genogrove/docs/pull/200), closes [#199](https://github.com/genogrove/docs/issues/199))
 
