@@ -434,7 +434,7 @@ for key in hits:
     for nbr in view.get_neighbors(key):
         ...
     view.get_edges(key)                              # edge payloads, parallel to get_neighbors
-    view.get_neighbors_if(key, lambda m: m["weight"] > 5)  # filtered targets (universal view only)
+    view.get_neighbors_if(key, lambda m: m is not None and m["weight"] > 5)  # filtered (universal view only)
 
 # Proof the query was partial: only a subset of blocks was paged in.
 assert view.blocks_loaded() < view.block_count()
@@ -457,8 +457,9 @@ assert view.blocks_loaded() < view.block_count()
   recorded edges. **Edge-carrying views only** (see below).
 - `get_neighbors_if(source, predicate) -> list[Key]` — the target keys whose edge metadata satisfies
   `predicate(metadata)`, paging in each surviving target's block on demand exactly like
-  `get_neighbors`. The predicate receives the **decoded** payload. Raises `TypeError` if `source` is
-  `None`. **Edge-carrying views only** (see below).
+  `get_neighbors`. The predicate receives the **decoded** payload — which is `None` for an edge added
+  without one, so guard for it when mixing labelled and unlabelled edges. Raises `TypeError` if
+  `source` is `None`. **Edge-carrying views only** (see below).
 - `blocks_loaded()` / `block_count()` — partial-load counters (`block_count()` is `0` for an empty
   grove).
 
