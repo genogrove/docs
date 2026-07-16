@@ -44,7 +44,7 @@ int main() {
             features.insert_data(
                 entry.chrom,
                 gdt::interval(entry.start, entry.end - 1),
-                entry.name,
+                entry.name.value_or("unnamed"),
                 gst::sorted  // Optimized for pre-sorted data
             );
         }

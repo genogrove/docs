@@ -292,11 +292,11 @@ import pygenogrove as pg
 g = pg.Grove()
 
 # Bulk load: per-index (one chromosome at a time), built bottom-up
-items = [(pg.Interval(i * 100, i * 100 + 50), f"feature{i}") for i in range(1_000_000)]
+items = [(pg.GenomicCoordinate('+', i * 100, i * 100 + 50), f"feature{i}") for i in range(1_000_000)]
 g.insert_bulk("chr1", items, presorted=True)   # presorted skips the internal sort
 
 # Rightmost-append fast path for incremental sorted inserts
-g.insert_sorted("chr2", pg.Interval(100, 200), "feat")
+g.insert_sorted("chr2", pg.GenomicCoordinate('+', 100, 200), "feat")
 ```
 
 - `insert_bulk` is **per-index** — call it once per chromosome / contig.
