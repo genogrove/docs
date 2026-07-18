@@ -4,6 +4,9 @@ All notable changes to the genogrove documentation project will be documented in
 
 ## 2026-07-16
 
+### Changed
+- Bumped the documented genogrove version to 0.25.3 (`source/conf.py` `release` + `README.md` badge), following the upstream v0.25.3 release (closes [#203](https://github.com/genogrove/docs/issues/203))
+
 ### Fixed
 - Fixed two broken code examples: `source/index.md` passed `entry.name` (a `std::optional<std::string>`) directly into `grove<interval, std::string>` — now `entry.name.value_or("unnamed")`; `guide/performance.md` used the removed `pg.Interval` type — now `pg.GenomicCoordinate('+', ...)`, matching the universal `Grove`'s key type ([#206](https://github.com/genogrove/docs/pull/206), closes [#205](https://github.com/genogrove/docs/issues/205))
 
