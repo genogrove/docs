@@ -268,6 +268,12 @@ for (auto* k : hits.get_keys()) {
   or a malformed directory.
 - `intersect(const key_type& query, std::string_view index)` and `intersect(const key_type& query)`
   — same signatures and semantics as `grove::intersect` (they share the query engine).
+- `flanking(const key_type& query, std::string_view index)` and the predicate overload
+  `flanking(const key_type& query, std::string_view index, Pred is_compatible)` — nearest
+  non-overlapping predecessor/successor, same semantics as `grove::flanking` (the interval-nesting
+  predecessor rule and smallest-start successor rule are preserved; either field may be null, both
+  null if the index is absent). Because flanking can branch into both sides of the query, it may
+  page in more blocks than a single-path `intersect`.
 - `get_neighbors(const key* source)` — outgoing graph neighbours, loading only the target block
   (including across chromosomes). `source` must be a key pointer this `grove_view` produced.
 - `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
@@ -278,7 +284,7 @@ for (auto* k : hits.get_keys()) {
   `open()`; the return is guaranteed copy elision, so no move is needed.
 - **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
   query footprint.
-- **Not thread-safe**, and no `flanking()` yet (eager `grove` only).
+- **Not thread-safe** — a query pages in blocks on demand, so use one view per thread.
 - Requires a plain format-0.2 `.gg` written by `grove::serialize`.
 
 The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](../cli.md#in-place-querying).

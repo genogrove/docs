@@ -2,6 +2,24 @@
 
 The genogrove command-line interface provides tools for indexing and querying genomic interval files.
 
+## Global options
+
+- `-v, --version`: Print the genogrove version (`genogrove <major>.<minor>.<patch>`) and exit 0.
+
+```bash
+genogrove --version
+# genogrove 0.25.3
+```
+
+**Invalid arguments** — an unrecognized flag, a non-integer value for an integer option (e.g. `-k foo`),
+or a missing option argument reports the error on stderr and exits with status 1:
+
+```bash
+genogrove idx -k foo input.bed
+# error: invalid value 'foo' for --order
+# exit status: 1
+```
+
 ## Commands
 
 ### idx (Index)
