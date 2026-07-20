@@ -2,6 +2,16 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-07-19
+
+### Added
+- Documented `grove_view::flanking` (plain and predicate overloads, with the predicate applied at leaf candidates only) in the partial-reader section of `guide/serialization.md` ([#207](https://github.com/genogrove/docs/pull/207), closes [#201](https://github.com/genogrove/docs/issues/201))
+- Added a **Global options** section to `cli.md` documenting `-v, --version` and the clean invalid-argument exit (error on stderr, exit 1) ([#207](https://github.com/genogrove/docs/pull/207), closes [#204](https://github.com/genogrove/docs/issues/204))
+- Added a thread-safety guide page (`guide/thread_safety.md`) documenting the actual concurrency contract: `grove`/`graph_overlay` carry no locks (not thread-safe for concurrent mutation, no per-chromosome locking; concurrent reads of a frozen grove are safe), the `registry`'s single global mutex, one `grove_view` per thread, and the pygenogrove GIL release/hold behavior plus the `FastaIndex` `fai_load` lock ([#208](https://github.com/genogrove/docs/pull/208), closes [#15](https://github.com/genogrove/docs/issues/15))
+
+### Changed
+- Clarified BED/GFF reader error semantics in `guide/io.md`: `skip_invalid_lines` now covers a malformed first record, and `get_error_message()` is populated on a mid-stream BGZF/tabix I/O error ([#207](https://github.com/genogrove/docs/pull/207), closes [#202](https://github.com/genogrove/docs/issues/202))
+
 ## 2026-07-16
 
 ### Changed
