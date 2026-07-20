@@ -122,6 +122,19 @@ try {
 
 This pattern applies to all readers (`bed_reader`, `gff_reader`, `bam_reader`).
 
+For `bed_reader` and `gff_reader`, a mid-stream BGZF/tabix I/O error thrown from `read_next()` also
+records its message in the reader before propagating, so a caller that catches the exception can
+retrieve it via `get_error_message()` — matching the `bam_reader`/`vcf_reader` behavior:
+
+```cpp
+try {
+    for (const auto& entry : reader) { /* ... */ }
+} catch (const std::runtime_error& e) {
+    std::cerr << "Error: " << e.what()
+              << " (" << reader.get_error_message() << ")\n";
+}
+```
+
 #### Lenient Mode
 
 To skip malformed records instead of throwing, enable lenient mode via the reader's options struct.
@@ -142,6 +155,10 @@ for (const auto& entry : reader) {
     // process entries — malformed lines are silently skipped
 }
 ```
+
+With `skip_invalid_lines = true`, the **first** data record is no longer special: a malformed first
+record is skipped during iteration like any other invalid line. (Construction only throws on a bad
+first record when `skip_invalid_lines = false`.)
 
 #### Error Message Lifecycle
 
@@ -203,7 +220,7 @@ if (reader.begin() == reader.end()) {
 The following error conditions still throw `std::runtime_error` (or skip the line, in lenient mode):
 
 - File-open failures (missing file, permission denied, unreadable BGZF header)
-- Malformed first record that fails to parse
+- A malformed first record — only when `skip_invalid_lines = false`; in lenient mode it is skipped
 - Per-line parse errors discovered mid-iteration
 
 In other words, "valid file with zero records" is now a quiet success; only structurally broken
