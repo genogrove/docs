@@ -26,6 +26,7 @@ guide/io
 guide/data_types
 guide/grove/grove
 guide/serialization
+guide/thread_safety
 guide/examples
 guide/performance
 ```
