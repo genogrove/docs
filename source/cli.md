@@ -8,7 +8,7 @@ The genogrove command-line interface provides tools for indexing and querying ge
 
 ```bash
 genogrove --version
-# genogrove 0.25.3
+# genogrove 0.25.5
 ```
 
 **Invalid arguments** — an unrecognized flag, a non-integer value for an integer option (e.g. `-k foo`),

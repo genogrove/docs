@@ -277,7 +277,23 @@ for (auto* k : hits.get_keys()) {
   consults the predicate, matching `grove::flanking`. Because flanking can branch into both sides of
   the query, it may page in more blocks than a single-path `intersect`.
 - `get_neighbors(const key* source)` — outgoing graph neighbours, loading only the target block
-  (including across chromosomes). `source` must be a key pointer this `grove_view` produced.
+  (including across chromosomes). `source` must be a key pointer this `grove_view` produced. Throws
+  `std::invalid_argument` on a null source.
+- `get_edges(const key* source)` — the edge-metadata payloads for `source`'s outgoing edges, in
+  adjacency order (edge-carrying views only, i.e. `edge_data_type != void`). Returns an empty vector
+  for a null source — it does **not** throw, unlike the target-resolving accessors.
+- `get_neighbors_if(const key* source, Pred pred)` — neighbours whose edge metadata satisfies
+  `pred(const edge_data_type&)` (edge-carrying views only). Throws `std::invalid_argument` on a null
+  source.
+- `get_edge_list(const key* source)` — each outgoing target paired with its edge metadata
+  (`std::vector<std::pair<key* , edge_data_type>>`) in one call, in adjacency order (edge-carrying
+  views only). Resolves targets on demand like `get_neighbors`. Throws `std::invalid_argument` on a
+  null source — note this differs from `graph_overlay::get_edge_list`, which returns an empty vector.
+- `get_order()` — the B+ tree order the `.gg` was built with (same value the eager `grove` reports).
+- `get_index_names()` — the names of every index (e.g. chromosome) in the file, in **unspecified
+  order**; use it to discover what `intersect` / `flanking` can run against. Reads nothing beyond the
+  directory already loaded at `open()`. (Unlike `grove::get_root_nodes()`, which hands back live node
+  pointers, the view returns a copied name list — a lazy reader has no persistent root nodes.)
 - `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
 
 **Semantics worth calling out:**
@@ -456,6 +472,10 @@ assert view.blocks_loaded() < view.block_count()
   missing file, bad magic, a non-seekable source, or a malformed directory.
 - `intersect(query)` / `intersect(query, index)` — same results as the eager `Grove`, loading only
   the blocks the search touches.
+- `flanking(query, index)` / `flanking(query, index, is_compatible)` — nearest non-overlapping
+  predecessor/successor, the same `FlankingResult` the eager `Grove.flanking()` returns, paging in
+  only the descent-path blocks. The optional `is_compatible` predicate is applied at leaf candidates
+  only (e.g. same-strand neighbours).
 - `get_neighbors(key)` — the target keys directly reachable from `key` via graph edges, paging in
   each target's block on demand. `key` must be one this view produced (from `intersect()` or a prior
   `get_neighbors()`). Raises `TypeError` if `key` is `None`.
@@ -468,13 +488,21 @@ assert view.blocks_loaded() < view.block_count()
   `get_neighbors`. The predicate receives the **decoded** payload — which is `None` for an edge added
   without one, so guard for it when mixing labelled and unlabelled edges. Raises `TypeError` if
   `source` is `None`. **Edge-carrying views only** (see below).
+- `get_edge_list(source) -> list` — `source`'s outgoing edges as `(target Key, metadata)` pairs — the
+  zip of `get_neighbors(source)` and `get_edges(source)` — paging in each target's block on demand.
+  Mirrors the mutable `Grove.get_edge_list`; edges added without a payload yield `None` metadata,
+  raises `TypeError` if `source` is `None`. **Edge-carrying views only** (see below).
+- `get_order()` — the B+ tree order the `.gg` was built with (mirrors `Grove.get_order()`), read from
+  the directory loaded at `open()` — no extra blocks paged in.
+- `get_index_names()` — the names of every index (chromosome) in the file, so a caller can discover
+  what `intersect` / `flanking` can run against. Read straight from the loaded directory.
 - `blocks_loaded()` / `block_count()` — partial-load counters (`block_count()` is `0` for an empty
   grove).
 
-`get_edges` / `get_neighbors_if` exist only on the **universal `GroveView`** (and its point-key
-siblings `NumericGroveView` / `KmerGroveView`), whose edges carry a payload. The typed
+`get_edges` / `get_neighbors_if` / `get_edge_list` exist only on the **universal `GroveView`** (and
+its point-key siblings `NumericGroveView` / `KmerGroveView`), whose edges carry a payload. The typed
 `BedGroveView` / `GffGroveView` keep unlabelled (void) edges for binary interop, so — mirroring the
-mutable `BedGrove` / `GffGrove` — the two labelled-edge reads are absent there; use `get_neighbors`
+mutable `BedGrove` / `GffGrove` — the labelled-edge reads are absent there; use `get_neighbors`
 to traverse. These accessors match the mutable `Grove`'s adjacency surface (see the
 {doc}`graph guide </guide/grove/graph>`), but query-only.
 
