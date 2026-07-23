@@ -130,7 +130,7 @@ This pattern avoids overloading `gene_info::operator==` and `std::hash<gene_info
 
 The mutex-protected methods are safe to call concurrently with one another; the unlocked fast paths are **not** safe alongside a concurrent writer:
 
-- **Lock-protected:** `intern()`, `find()`, `clear()`, `serialize()`, `deserialize()` acquire an internal `std::mutex`.
+- **Lock-protected:** `intern()`, `find()`, `clear()`, `serialize()` acquire an internal `std::mutex`. `deserialize()` does its I/O and parsing **outside** the lock, taking it only for the final commit (move-assign), so it does not serialize concurrent registry access during the read.
 - **Unlocked fast paths:** `get(id)`, `contains(id)`, `size()`, `empty()`.
 
 The unlocked reads are safe **only when no writer** (`intern()`, `clear()`, `reset()`, `deserialize()`) runs concurrently. An unsynchronized read that overlaps a writer's `push_back` / move-assign is a **data race — undefined behavior**, not a stale-but-defined snapshot. `get(id)` is safe once the `id` was obtained from an `intern()` call that **happens-before** the `get()` and no further mutation is in flight. (The library is single-threaded today; see the [thread-safety guide](../thread_safety.md).)
