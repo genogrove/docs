@@ -2,6 +2,17 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-07-23
+
+### Added
+- Documented the new C++ `grove_view` accessors in the partial-reader section of `guide/serialization.md`: `get_edge_list` (targets paired with edge metadata; throws on a null source, unlike `graph_overlay::get_edge_list`), `get_order` / `get_index_names` (read-side introspection), and the previously-C++-undocumented `get_edges` / `get_neighbors_if` ([#214](https://github.com/genogrove/docs/pull/214), closes [#209](https://github.com/genogrove/docs/issues/209), closes [#211](https://github.com/genogrove/docs/issues/211))
+- Documented the new Python `GroveView` methods in `guide/serialization.md`: `flanking` (pygenogrove 0.7.2) and `get_edge_list` / `get_order` / `get_index_names` (pygenogrove 0.7.3) ([#214](https://github.com/genogrove/docs/pull/214))
+
+### Changed
+- Corrected the `registry` thread-safety contract in `guide/data_types/registry.md` and `guide/thread_safety.md`: the unlocked fast paths (`get`/`contains`/`size`/`empty`) are a data race (undefined behavior) when overlapping a concurrent writer, not "best-effort snapshots"; also clarified that `deserialize()` does its I/O outside the lock and locks only for the final commit ([#214](https://github.com/genogrove/docs/pull/214), closes [#212](https://github.com/genogrove/docs/issues/212))
+- Bumped the documented genogrove version to 0.25.5 (`source/conf.py` `release` + `README.md` badge + `cli.md` `--version` example), following the upstream v0.25.5 release (closes [#213](https://github.com/genogrove/docs/issues/213), closes [#210](https://github.com/genogrove/docs/issues/210))
+- Bumped the documented pygenogrove version to 0.7.3 (`source/conf.py` `pygenogrove_release` + `source/requirements.txt` pin) ([#214](https://github.com/genogrove/docs/pull/214))
+
 ## 2026-07-19
 
 ### Added
