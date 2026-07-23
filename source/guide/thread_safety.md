@@ -70,8 +70,11 @@ internal `std::mutex` (one global lock — not sharded, not per-index):
 - **Locked:** `intern()`, `find()`, `clear()`, `serialize()`, and the commit step of `deserialize()`.
   `deserialize()` builds into local temporaries and only takes the lock for a brief move-assign, so it
   does not block concurrent `intern`/`find` during I/O.
-- **Unlocked fast paths:** `get(id)`, `contains(id)`, `size()`, `empty()`. `get(id)` is safe alongside
-  concurrent `intern()` **only if** the `id` came from an `intern()` that happens-before the `get()`.
+- **Unlocked fast paths:** `get(id)`, `contains(id)`, `size()`, `empty()`. These are safe **only when
+  no writer** (`intern`/`clear`/`reset`/`deserialize`) runs concurrently — an unlocked read overlapping
+  a writer's `push_back`/move-assign is a **data race (undefined behavior)**, not a best-effort
+  snapshot. `get(id)` is safe once the `id` came from an `intern()` that happens-before the `get()` and
+  no further mutation is in flight.
 
 Because it is a single global mutex, heavy concurrent interning serializes on it.
 

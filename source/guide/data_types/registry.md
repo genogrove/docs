@@ -128,12 +128,12 @@ This pattern avoids overloading `gene_info::operator==` and `std::hash<gene_info
 
 ### Thread Safety
 
-`registry<T>` is safe to use concurrently:
+The mutex-protected methods are safe to call concurrently with one another; the unlocked fast paths are **not** safe alongside a concurrent writer:
 
 - **Lock-protected:** `intern()`, `find()`, `clear()`, `serialize()`, `deserialize()` acquire an internal `std::mutex`.
 - **Unlocked fast paths:** `get(id)`, `contains(id)`, `size()`, `empty()`.
 
-`get(id)` is safe to call concurrently with `intern()` as long as `id` was obtained from an `intern()` call that **happens-before** the `get()`. `size()`, `empty()`, and `contains()` return best-effort snapshots under concurrent writes.
+The unlocked reads are safe **only when no writer** (`intern()`, `clear()`, `reset()`, `deserialize()`) runs concurrently. An unsynchronized read that overlaps a writer's `push_back` / move-assign is a **data race — undefined behavior**, not a stale-but-defined snapshot. `get(id)` is safe once the `id` was obtained from an `intern()` call that **happens-before** the `get()` and no further mutation is in flight. (The library is single-threaded today; see the [thread-safety guide](../thread_safety.md).)
 
 ### Serialization and Deserialization
 

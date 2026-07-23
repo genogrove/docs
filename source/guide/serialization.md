@@ -277,7 +277,23 @@ for (auto* k : hits.get_keys()) {
   consults the predicate, matching `grove::flanking`. Because flanking can branch into both sides of
   the query, it may page in more blocks than a single-path `intersect`.
 - `get_neighbors(const key* source)` — outgoing graph neighbours, loading only the target block
-  (including across chromosomes). `source` must be a key pointer this `grove_view` produced.
+  (including across chromosomes). `source` must be a key pointer this `grove_view` produced. Throws
+  `std::invalid_argument` on a null source.
+- `get_edges(const key* source)` — the edge-metadata payloads for `source`'s outgoing edges, in
+  adjacency order (edge-carrying views only, i.e. `edge_data_type != void`). Returns an empty vector
+  for a null source — it does **not** throw, unlike the target-resolving accessors.
+- `get_neighbors_if(const key* source, Pred pred)` — neighbours whose edge metadata satisfies
+  `pred(const edge_data_type&)` (edge-carrying views only). Throws `std::invalid_argument` on a null
+  source.
+- `get_edge_list(const key* source)` — each outgoing target paired with its edge metadata
+  (`std::vector<std::pair<key* , edge_data_type>>`) in one call, in adjacency order (edge-carrying
+  views only). Resolves targets on demand like `get_neighbors`. Throws `std::invalid_argument` on a
+  null source — note this differs from `graph_overlay::get_edge_list`, which returns an empty vector.
+- `get_order()` — the B+ tree order the `.gg` was built with (same value the eager `grove` reports).
+- `get_index_names()` — the names of every index (e.g. chromosome) in the file, in **unspecified
+  order**; use it to discover what `intersect` / `flanking` can run against. Reads nothing beyond the
+  directory already loaded at `open()`. (Unlike `grove::get_root_nodes()`, which hands back live node
+  pointers, the view returns a copied name list — a lazy reader has no persistent root nodes.)
 - `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
 
 **Semantics worth calling out:**
