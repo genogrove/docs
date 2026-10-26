@@ -708,7 +708,7 @@ g.add_edge(ext, a)
 ```
 
 External keys are **not** invalidated by `compact()` (unlike indexed keys — see
-{doc}`./grove`).
+{doc}`./removing`).
 
 ### Labelled edges
 
@@ -823,7 +823,7 @@ graph mutation after the call returns.
 coordinates and payloads. An edge-bearing universal-`Grove` `.gg` stores per-edge
 JSON metadata and is read in C++ as
 `grove<genomic_coordinate, std::string, std::string>` (edgeless files are
-unchanged). See {doc}`./grove` for the serialization API.
+unchanged). See {doc}`/guide/serialization` for the serialization API.
 
 ::::
 

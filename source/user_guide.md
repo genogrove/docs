@@ -18,7 +18,7 @@ Before starting, ensure you have:
 
 ## Guide Contents
 
-Start with {doc}`guide/installation` and {doc}`guide/grove/grove` (create a grove, insert, query),
+Start with {doc}`guide/installation` and {doc}`guide/grove/index` (create a grove, insert, query),
 then {doc}`guide/grove/loading_data` to fill it from a file. {doc}`guide/examples` has complete
 programs. The remaining pages are reference-style and can be read as needed.
 
@@ -26,7 +26,7 @@ programs. The remaining pages are reference-style and can be read as needed.
 :maxdepth: 3
 
 guide/installation
-guide/grove/grove
+guide/grove/index
 guide/examples
 guide/io
 guide/data_types

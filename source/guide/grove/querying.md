@@ -1,0 +1,246 @@
+# Querying
+
+A grove answers two questions: *which stored keys overlap this region?* (`intersect`) and *which
+stored keys are nearest on either side of this region without overlapping it?* (`flanking`). Both
+take a query coordinate of the grove's key type and, optionally, an index to restrict the search to
+one chromosome.
+
+## Overlap queries
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+#include <iostream>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+int main() {
+    gst::grove<gdt::interval, std::string> my_grove(100);
+    my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1");
+    my_grove.insert_data("chr1", gdt::interval{150, 250}, "gene2");
+    my_grove.insert_data("chr1", gdt::interval{300, 400}, "gene3");
+    my_grove.insert_data("chr2", gdt::interval{100, 200}, "gene4");
+
+    // One index (chromosome) — the usual, faster form
+    auto results = my_grove.intersect(gdt::interval{175, 225}, "chr1");
+    for (auto* key : results.get_keys()) {
+        std::cout << key->get_data() << " at " << key->get_value().to_string() << "\n";
+    }
+    // gene1, gene2 (gene3 does not overlap; gene4 is on chr2)
+
+    // Every index
+    auto all = my_grove.intersect(gdt::interval{175, 225});
+    std::cout << all.get_keys().size() << " matches across all chromosomes\n";   // 3
+
+    return 0;
+}
+```
+
+`intersect(const key_type& query, std::string_view index)` and `intersect(const key_type& query)`
+accept temporaries and named values alike. For `genomic_coordinate` keys the overlap test is
+strand-aware: a `'*'` query strand matches any strand, `'.'` matches only `'.'`.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove(100)
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "gene1")
+g.insert("chr1", pg.GenomicCoordinate("+", 150, 250), "gene2")
+g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "gene3")
+g.insert("chr2", pg.GenomicCoordinate("+", 100, 200), "gene4")
+
+# One index (chromosome) — the usual, faster form
+for key in g.intersect(pg.GenomicCoordinate("*", 175, 225), "chr1"):
+    print(key.data, key.value)
+# gene1, gene2 (gene3 does not overlap; gene4 is on chr2)
+
+# Every index
+len(g.intersect(pg.GenomicCoordinate("*", 175, 225)))     # 3
+```
+
+`intersect(query, index)` and `intersect(query)` both return a `QueryResult`. Overlap is
+strand-aware: a `'*'` query strand matches any stored strand, `'.'` matches only `'.'`, and `'+'`
+matches only `'+'` — so query with `'*'` unless you mean a specific strand.
+
+::::
+
+:::::
+
+## Working with results
+
+A query returns the matching **key handles** — the same handles inserts return — so a result can be
+fed straight into graph operations, removal, or payload edits.
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+`intersect` returns a `gdt::query_result<key_type, data_type>`. Its `get_keys()` returns
+`const std::vector<gdt::key<key_type, data_type>*>&`: pointers to keys owned by the grove, in tree
+order. Because the pointers are non-const, the keys can go directly into `add_edge`, `link_if` or
+`remove_key` without a cast.
+
+```cpp
+auto results = my_grove.intersect(gdt::interval{175, 225}, "chr1");
+const auto& keys = results.get_keys();     // keep the result alive while using the reference
+
+if (!keys.empty()) {
+    my_grove.add_edge(keys.front(), keys.back());
+}
+```
+
+Bind the result to a variable before calling `get_keys()`; iterating
+`my_grove.intersect(...).get_keys()` directly would dangle once the temporary dies. Pointers stay
+valid until the key is removed and the grove compacted ({doc}`removing`). Never modify a key's
+coordinate through them (see {doc}`inserting`).
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+`intersect` returns a `QueryResult`:
+
+- `len(result)` — number of hits
+- iterating it yields the matching `Key`s in tree order
+- `result.keys` — the same keys as a list
+- `result.query` — the query coordinate you passed
+
+```python
+result = g.intersect(pg.GenomicCoordinate("*", 175, 225), "chr1")
+len(result)                       # 2
+hits = list(result)               # [Key(+:100-200), Key(+:150-250)]
+g.add_edge(hits[0], hits[1])      # handles go straight into graph operations
+```
+
+Each `Key` keeps the grove alive and stays valid until `compact()` is called ({doc}`removing`).
+`key.value` is a copy, so reading it back is always safe.
+
+::::
+
+:::::
+
+## Nearest neighbours (`flanking`)
+
+Where `intersect` finds what covers a region, `flanking` finds the closest keys on **either side**
+of it that do **not** overlap it: the *predecessor* (nearest before) and the *successor* (nearest
+after). Typical use: the upstream and downstream genes of an enhancer.
+
+Keys that overlap the query are excluded. Among the rest, the predecessor is the key whose end is
+closest below the query's start and the successor the key whose start is closest above the query's
+end. For nested intervals this can differ from plain sort order: between `[50, 100]` and `[80, 90]`,
+`[50, 100]` is the closer predecessor of `[150, 200]` even though `[80, 90]` sorts later. For scalar
+keys (`numeric`, `kmer`) nearest-by-value and sort order coincide. The distance itself is left to you,
+because it depends on the key type: for closed intervals it is `query.start - predecessor.end - 1`.
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+```cpp
+gst::grove<gdt::interval, std::string> g(100);
+g.insert_data("chr1", gdt::interval{100, 200}, "A", gst::sorted);
+g.insert_data("chr1", gdt::interval{500, 600}, "B", gst::sorted);
+g.insert_data("chr1", gdt::interval{900, 1000}, "C", gst::sorted);
+
+auto r = g.flanking(gdt::interval{650, 700}, "chr1");
+
+if (auto* pred = r.get_predecessor()) {
+    // "B" — largest non-overlapping key below the query
+}
+if (auto* succ = r.get_successor()) {
+    // "C" — smallest non-overlapping key above the query
+}
+```
+
+`flanking(const key_type& query, std::string_view index)` returns a
+`gdt::flanking_query_result<key_type, data_type>`. Either pointer is `nullptr` when no such key
+exists (query past the last key, or an unknown index). The pointers are ordinary key handles and
+stay valid as long as the key is not removed.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+```python
+g = pg.Grove(100)
+g.insert_sorted("chr1", pg.GenomicCoordinate("+", 100, 200), "A")
+g.insert_sorted("chr1", pg.GenomicCoordinate("+", 500, 600), "B")
+g.insert_sorted("chr1", pg.GenomicCoordinate("+", 900, 1000), "C")
+
+r = g.flanking(pg.GenomicCoordinate("*", 650, 700), "chr1")
+r.predecessor.data      # 'B' — nearest non-overlapping key before the query
+r.successor.data        # 'C' — nearest non-overlapping key after the query
+```
+
+`flanking(query, index)` returns a `FlankingResult` with `predecessor` and `successor`, each a `Key`
+or `None` when no such key exists.
+
+::::
+
+:::::
+
+## Filtering flanking candidates
+
+A second form of `flanking` takes a predicate `is_compatible(candidate, query)` that is applied to
+each candidate before the overlap and ordering checks. Use it for constraints the key type does not
+encode — most commonly, "nearest neighbour on the same strand". The predicate runs on leaf
+candidates only; internal-node pruning is structural and never consults it, so subtrees full of
+incompatible keys are still visited and then filtered out.
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+```cpp
+// grove keyed by genomic_coordinate, which carries the strand
+gst::grove<gdt::genomic_coordinate, std::string> grove(100);
+// ... inserts ...
+gdt::genomic_coordinate q{'+', 500, 510};
+
+auto r = grove.flanking(q, "chr1",
+    [](const auto& candidate, const auto& query) {
+        return query.get_strand() == '*' || candidate.get_strand() == '*'
+            || candidate.get_strand() == query.get_strand();
+    });
+```
+
+The predicate receives the two **key values** (here `genomic_coordinate`s). For plain `interval`
+keys there is no strand to inspect; filter on whatever your key type exposes.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+```python
+g = pg.Grove()
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
+g.insert("chr1", pg.GenomicCoordinate("-", 300, 400))   # opposite strand, but nearer
+
+q = pg.GenomicCoordinate("+", 500, 510)
+r = g.flanking(q, "chr1", lambda cand, query: cand.strand == query.strand)
+r.predecessor.value     # GenomicCoordinate('+', 100, 200) — the '-' key was skipped
+```
+
+The predicate receives the two **key values** (`GenomicCoordinate`s). Exceptions raised inside it
+propagate to the caller; this form holds the GIL because it calls back into Python.
+
+::::
+
+:::::
