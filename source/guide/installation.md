@@ -96,20 +96,25 @@ add_executable(my_program main.cpp)
 target_link_libraries(my_program genogrove::genogrove)
 ```
 
+genogrove is a **compiled library**, not header-only: the headers under `include/` are backed by
+`libgenogrove` (built from `src/`), which itself links htslib and zlib. The `genogrove::genogrove`
+CMake target carries all of that, so with any of the three options above you only link that one
+target.
+
 #### Manual Integration
 
-If not using CMake:
+If not using CMake, point the compiler at the headers and link the built library plus its
+dependencies:
 
-1. Add the include directory to your include path:
+```bash
+# Example with g++ — adjust the two paths to your checkout / build directory
+g++ -std=c++20 -I/path/to/genogrove/include main.cpp \
+    -L/path/to/genogrove/build -lgenogrove -lhts -lz -lpthread -o my_program
+```
 
-   ```bash
-   # Example with g++
-   g++ -std=c++20 -I/path/to/genogrove/include main.cpp -lhts -o my_program
-   ```
-
-2. Link against required libraries:
-   \- htslib (`-lhts`)
-   \- pthread (`-lpthread`) on Linux
+- `-lgenogrove` — the library built in step 2 above (`build/libgenogrove.a` or `.so`)
+- `-lhts`, `-lz` — htslib and zlib, which genogrove links publicly
+- `-lpthread` — on Linux
 
 ### Verify Installation
 
@@ -129,13 +134,20 @@ int main() {
 }
 ```
 
-Compile and run:
+Compile and run, using the same include path and libraries as in
+[Manual Integration](#manual-integration) (or a two-line CMake project linking
+`genogrove::genogrove`):
 
 ```bash
-g++ -std=c++20 test.cpp -o test
+g++ -std=c++20 -I/path/to/genogrove/include test.cpp \
+    -L/path/to/genogrove/build -lgenogrove -lhts -lz -lpthread -o test   # drop -lpthread on macOS
 ./test
 # Output: Genogrove is working! Interval: [100, 200]
 ```
+
+If the compiler reports `genogrove/data_type/interval.hpp: No such file or directory`, the `-I`
+path is wrong; if the linker reports undefined references to `genogrove::` symbols, `-L` /
+`-lgenogrove` is missing.
 
 ### Development Build
 
@@ -201,8 +213,10 @@ Once installed, proceed to the next sections of the user guide to learn how to u
 pip install pygenogrove
 ```
 
-Wheels are published for Python 3.10–3.14 (3.9 is end-of-life and no longer built). Building from
-source requires a C++20 compiler, CMake 3.15+, and Python 3.10+:
+Wheels are published for Python 3.10–3.14 (3.9 is end-of-life and no longer built). The wheel
+bundles the genogrove C++ library and htslib, so nothing else needs to be installed. Building from
+source instead requires a C++20 compiler, CMake 3.15+ (the pygenogrove build; the C++ library alone
+needs 3.14), htslib, and Python 3.10+:
 
 ```bash
 git clone --recursive https://github.com/genogrove/pygenogrove.git
@@ -211,14 +225,26 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
+### Verify Installation
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove()
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
+
+hits = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))
+print(len(hits), hits[0].data)      # 1 {'gene': 'FOO'}
+```
+
 ### Checking your version
 
 `pygenogrove` exposes two module-level version attributes that move on independent cadences — the binding package versions its own surface, while `__genogrove_version__` advertises the bound C++ library. When filing a bug, report **both**:
 
 ```python
 import pygenogrove as pg
-print(pg.__version__)             # the pygenogrove package version, e.g. "0.5.0"
-print(pg.__genogrove_version__)   # the genogrove C++ library it was built against, e.g. "0.24.7"
+print(pg.__version__)             # the pygenogrove package version, e.g. "0.9.2"
+print(pg.__genogrove_version__)   # the genogrove C++ library it was built against, e.g. "0.26.4"
 ```
 
 ::::

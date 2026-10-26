@@ -12,28 +12,31 @@ The **C++** tabs document **genogrove {{ cpp_version }}** (the core library). Th
 
 Before starting, ensure you have:
 
-- Installed genogrove (see {doc}`index` for installation instructions)
-- A C++20 compatible compiler (GCC 13+, Clang 16+, Apple Clang 15+)
+- Installed genogrove or pygenogrove (see {doc}`guide/installation`)
+- For C++: a C++20 compatible compiler (GCC 13+, Clang 16+, Apple Clang 15+). For Python: Python 3.10–3.14 and `pip install pygenogrove`; the published wheels need no compiler or htslib (a source build does — see the installation page).
 - Basic familiarity with genomic file formats (BED, GFF/GTF)
 
 ## Guide Contents
+
+Start with {doc}`guide/installation` and {doc}`guide/grove/grove` (create a grove, insert, query),
+then {doc}`guide/grove/loading_data` to fill it from a file. {doc}`guide/examples` has complete
+programs. The remaining pages are reference-style and can be read as needed.
 
 ```{toctree}
 :maxdepth: 3
 
 guide/installation
+guide/grove/grove
+guide/examples
 guide/io
 guide/data_types
-guide/grove/grove
 guide/serialization
-guide/thread_safety
-guide/examples
 guide/performance
+guide/thread_safety
 ```
 
 ## Next Steps
 
 - Explore the full {doc}`reference/index` for detailed API documentation
 - Check the [examples directory](https://github.com/genogrove/genogrove/tree/main/examples) in the repository
-- Learn about advanced features in the project wiki
-- Join the community discussions on GitHub
+- Ask questions on [GitHub Discussions](https://github.com/genogrove/genogrove/discussions)

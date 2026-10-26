@@ -103,37 +103,17 @@ Benefits:
 
 ### Compression Support
 
-#### Choosing the Right Compression Format
+#### Use BGZF
 
-Different compression formats have different trade-offs:
-
-**BGZF/GZIP (.gz)**
-
-- Standard for genomic files
-- Supports random access (BGZF)
-- Good compression ratio
-- Use for: BED, GFF, VCF files
-
-**ZSTD (.zst)**
-
-- Best compression ratio
-- Fast decompression
-- Use for: Long-term storage, archives
-
-**LZ4 (.lz4)**
-
-- Fastest decompression
-- Lower compression ratio
-- Use for: Temporary files, fast processing
-
-**Example:**
+The readers read plain and gzip/BGZF files only (ZSTD, LZ4, BZIP2 and XZ are recognized by
+`filetype_detector` but not decompressed — see {doc}`io`). Between the two gzip flavours, prefer
+**BGZF** (`bgzip`): it is the genomics standard, the readers handle it transparently, and only
+BGZF supports the random-access seeks that tabix `region` queries need. Plain gzip is read
+sequentially.
 
 ```cpp
-// All these are automatically handled
-gio::bed_reader reader1("data.bed.gz");    // BGZF
-gio::bed_reader reader2("data.bed.zst");   // ZSTD
-gio::bed_reader reader3("data.bed.lz4");   // LZ4
-gio::bed_reader reader4("data.bed");       // Uncompressed
+gio::bed_reader reader1("data.bed.gz");    // BGZF or plain gzip — both handled
+gio::bed_reader reader2("data.bed");       // Uncompressed
 ```
 
 ### Memory Management

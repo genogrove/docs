@@ -105,8 +105,8 @@ namespace gst = genogrove::structure;
 
 int main() {
     // grove<key_type, data_type, edge_data_type>(order)
-    // Order determines max keys per node (higher = more cache-friendly)
-    // Order must be >= 3 (throws std::invalid_argument otherwise)
+    // Order = max children per node. Must be >= 3 (throws std::invalid_argument otherwise).
+    // 100 is a good default; see the performance guide before tuning it.
 
     // Using built-in interval type
     gst::grove<gdt::interval, std::string> grove1(100);
@@ -275,6 +275,14 @@ int main() {
 - `unsorted` (default): Full tree traversal for random data
 - `sorted`: Optimized O(1) insertion for pre-sorted data
 - `bulk`: Bulk insertion using hybrid bottom-up/append approach
+
+:::{warning}
+`gst::sorted` is a **promise, not a hint**: every key passed with it must be greater than all keys
+already in that index. The sorted path appends without checking and **does not throw** — if the
+promise is broken the tree's order is silently corrupted and later `intersect()` calls return wrong
+results. When unsure, use the default `insert_data` without the tag; it is slower but always
+correct. The same precondition applies to `bulk` when appending to a non-empty index.
+:::
 
 **Multi-Index Organization:**
 
@@ -598,6 +606,11 @@ The universal `Grove` is `grove<genomic_coordinate, json>`: a B+ tree keyed by
 {doc}`../data_types` coordinates that stores any JSON-serializable payload
 (dict / list / scalar / `None`) per key. Each key may carry a **different** shape —
 no schema is enforced.
+
+**Which grove should I use?** Start with `Grove`. Reach for the typed `BedGrove` / `GffGrove`
+(see {doc}`./loading_data`) only when you want a guaranteed BED/GFF record per key or need to read a
+`.gg` written by C++ with a `bed_entry` / `gff_entry` payload; use `NumericGrove` / `KmerGrove` when
+your keys are integers or k-mers rather than genomic coordinates.
 
 :::{note}
 Payloads must be **finite** JSON. A payload containing `float('nan')`, `float('inf')` or

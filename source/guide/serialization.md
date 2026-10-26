@@ -44,6 +44,9 @@ int main() {
 
 Always open streams with `std::ios::binary` to avoid platform-specific newline translation.
 
+The file extension does not matter to the library — `grove.bin` above and the CLI's `.gg` are the
+same stream format. `.gg` is the project convention and is what the CLI's `isec -i` expects.
+
 `grove::serialize()` (and the supporting `grove_to_sif()` and `node::serialize()`) are
 **`const`-qualified**, so consumers holding a `const grove&` — for example a read-only post-build
 query layer — can serialize without a `const_cast`:

@@ -40,7 +40,11 @@ seen.insert(gdt::genomic_coordinate{'+', 100, 200});
 
 ### Intervals
 
-The `interval` class represents genomic regions using closed `[start, end]` coordinates (both endpoints inclusive):
+The `interval` class represents genomic regions using closed `[start, end]` coordinates: **0-based,
+both endpoints inclusive**. This differs from BED's 0-based half-open `[start, end)` and from
+GFF's 1-based inclusive convention, so convert when loading files (BED: `end - 1`; GFF: `start - 1`
+and `end - 1`; see {doc}`io`). `interval` carries no strand — use
+[`genomic_coordinate`](#genomic-coordinates) when strand matters.
 
 ```cpp
 #include <genogrove/data_type/interval.hpp>
@@ -84,7 +88,9 @@ int main() {
 
 ### Genomic Coordinates
 
-The `genomic_coordinate` class extends intervals with strand information:
+The `genomic_coordinate` class extends intervals with strand information. Choose it over `interval`
+whenever features on opposite strands must not overlap each other (genes, reads, stranded peaks);
+choose `interval` when strand is irrelevant. Same 0-based closed coordinates as `interval`:
 
 ```cpp
 #include <genogrove/data_type/genomic_coordinate.hpp>
