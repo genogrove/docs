@@ -105,13 +105,11 @@ across these versions.
 ```
 
 ```{warning}
-**Rebuild indexes built with unsorted `insert()` before v0.25.6.** Releases up to v0.25.5 misrouted
-out-of-order `insert()` / `insert_data()` calls in trees deeper than two levels, leaving keys in a
-leaf too far right: `size()` and the graph overlay saw them, `intersect()` did not. v0.25.6 fixed the
-routing but the fix is **not retroactive** — an affected `.gg` deserializes exactly as before (only
-the routing cache is rebuilt, keys are not moved), so queries keep missing those keys until the
-index is rebuilt from the source data. Indexes built with `gst::sorted`, bulk insertion, or the CLI
-`idx` path were never affected.
+**Indexes built with unsorted `insert()` on v0.25.5 or earlier must be regenerated.** Those
+releases misrouted out-of-order inserts in trees deeper than two levels, so `intersect()` never
+returned some keys. v0.25.6 fixed the routing, but the fix is **not retroactive**: an affected
+`.gg` deserializes exactly as before. Rebuild such indexes from the source data, or keep using the
+genogrove version that wrote them.
 ```
 
 ### Combined Persistence with Registry
@@ -329,14 +327,16 @@ for (auto* k : hits.get_keys()) {
   pointers, the view returns a copied name list — a lazy reader has no persistent root nodes.)
 - `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
 
-**Semantics worth calling out:**
+**Semantics:**
 
 - **Non-copyable and non-movable** — it owns the file and a zlib state. Hold it by value from
   `open()`; the return is guaranteed copy elision, so no move is needed.
 - **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
   query footprint.
 - **Not thread-safe** — a query pages in blocks on demand, so use one view per thread.
-- Requires a plain format-0.3 `.gg` written by `grove::serialize`.
+- Requires a format-0.3 `.gg`. A plain file written by `grove::serialize` uses the default
+  `data_offset = 0`; for a CLI-written index, pass `data_offset = gio::gg_header::SIZE` to skip the
+  12-byte [header](#the-gg-file-header).
 
 The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](../cli.md#in-place-querying).
 
@@ -526,10 +526,13 @@ assert view.blocks_loaded() < view.block_count()
   raises `TypeError` if `source` is `None`. **Edge-carrying views only** (see below).
 - `get_in_neighbors(target)` / `in_degree(target)` — the reverse of `get_neighbors` / `out_degree`:
   the keys with an edge pointing **at** `target`, and how many there are. Available on every view.
+  Raise `TypeError` if `target` is `None`.
 - `get_in_edges(target)` / `get_in_edge_list(target)` / `get_in_neighbors_if(target, predicate)` —
   the reverse of `get_edges` / `get_edge_list` / `get_neighbors_if` over `target`'s incoming edges,
-  paging in each source's block on demand. **Edge-carrying views only** (see below).
+  paging in each source's block on demand. Raise `TypeError` if `target` is `None`.
+  **Edge-carrying views only** (see below).
 - `out_degree(source)` — number of outgoing edges, read from the block already paged in for `source`.
+  Raises `TypeError` if `source` is `None`.
 - `get_order()` — the B+ tree order the `.gg` was built with (mirrors `Grove.get_order()`), read from
   the directory loaded at `open()` — no extra blocks paged in.
 - `get_index_names()` — the names of every index (chromosome) in the file, so a caller can discover

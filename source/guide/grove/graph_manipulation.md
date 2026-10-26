@@ -23,8 +23,10 @@ bool has_edge(const gdt::key<key_type, data_type>* source,
 The read-only graph accessors (`has_edge`, `get_edges`, `get_edge_list`,
 `get_neighbors`, `get_neighbors_if`, `out_degree`, and their `get_in_*` /
 `in_degree` counterparts) take **`const` source/target pointers**. The mutating
-accessors (`add_edge`, `remove_edge`, `remove_edges_*`) still take non-const
-pointers. Existing call sites that pass non-const `key*` keep working via the
+accessors that take a key (`add_edge`, `remove_edge`, `remove_edges_from`,
+`remove_edges_to`, `remove_all_edges`) still take non-const pointers;
+`remove_edges_if` takes a predicate, not a key. Existing call sites that pass
+non-const `key*` keep working via the
 implicit `key* -> const key*` conversion — no migration required.
 
 **Null pointers.** The accessors that must dereference a key to follow an edge —

@@ -99,9 +99,10 @@ ThreadSanitizer to catch races in how you share groves.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-In pygenogrove, concurrency is governed by CPython's **GIL** plus a couple of native locks. The GIL
-means pure-Python threads won't *corrupt* a `Grove`, but it also serializes any method that holds it,
-so multithreading buys parallelism only where the binding releases the GIL.
+In pygenogrove, concurrency is governed by CPython's **GIL** plus a couple of native locks. A
+method that holds the GIL runs one at a time across threads, so multithreading buys parallelism only
+where the binding releases it — and wherever it is released, the GIL provides **no** protection for
+a shared object. Which methods do what is listed below.
 
 ### GIL released — overlaps other threads' work
 

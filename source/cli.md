@@ -280,14 +280,16 @@ intervals it reaches:
 
 - `--hops 0` (default) — plain overlap output, unchanged.
 - `--hops N` — follow up to `N` edges from each seed.
-- `--hops all` — report the seed's whole connected component.
+- `--hops all` — no hop limit: report every interval reachable under the selected direction
+  (with `--direction both`, the seed's whole connected component).
 - `--direction out|in|both` — follow outgoing edges, incoming edges, or both (default `both`).
 
-The walk is a breadth-first search from all seeds of one query at once, so every reached interval
-is printed **once**, with its **minimum** hop count, under the seed that reached it first (ties go
-to the earlier seed). Seeds are hop 0 and are never listed as reached.
+The walk is a breadth-first search from all seeds of one query at once. Deduplication is **per
+query**: an interval reached from several seeds is printed **once**, with its **minimum** hop
+count, under the seed that reached it first (ties go to the earlier seed), and is omitted under the
+other seeds. Seeds are hop 0 and are never listed as reached.
 
-**Output.** Each overlap row is followed by one row per interval reached from that seed:
+**Output.** Each overlap row is followed by one row per interval that was attributed to that seed:
 
 ```text
 <query chrom> <query start> <query end> <TAB> <seed row> <TAB> <reached row> <TAB> <hops>

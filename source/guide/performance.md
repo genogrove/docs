@@ -330,10 +330,13 @@ Python threads can run during that native work.
   re-enters Python, so the GIL is required.
 
 :::{warning}
-**Thread-safety contract:** a genogrove object (reader / grove / index) is **not**
+**Thread-safety contract:** a genogrove object (reader / grove / view) is **not**
 internally synchronized. The safe pattern is **one object per thread** — e.g. a
 pool where each worker has its own reader / grove, overlapping only the native
-work. Sharing a single object across threads is a data race.
+work. Sharing a `Grove` or `GroveView` across threads is a data race; sharing a
+reader raises `RuntimeError` on the concurrent call. The one exception is
+`FastaIndex`: a shared handle is safe because `fetch` is serialized by a
+per-handle lock, at the cost of running one fetch at a time.
 :::
 
 Example (parallel I/O with a thread pool):

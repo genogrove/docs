@@ -61,7 +61,7 @@ void add_edge(gdt::key<key_type, data_type>* source, gdt::key<key_type, data_typ
 
 - Both source and target pointers must be valid keys in the grove
 - The pointers should come from `insert_data` calls on the same grove instance
-- If an edge already exists between the same source and target, the behavior depends on the implementation
+- If an edge already exists between the same source and target, a second, parallel edge is added — see [Parallel Edges](#parallel-edges-no-deduplication) below
 
 **Example:**
 

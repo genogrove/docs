@@ -301,9 +301,10 @@ different payloads, which makes deduplicating query results by coordinate a one-
 
 ```python
 hits = list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"))
-unique_coords = {k for k in hits}        # one entry per distinct coordinate
-k == hit                                 # True: same coordinate, payload ignored
-repr(k)                                  # "Key(+:100-200)"
+unique_coords = set(hits)                # one entry per distinct coordinate
+first = hits[0]
+first == k                               # True: same coordinate, payload ignored
+repr(first)                              # "Key(+:100-200)"
 ```
 
 ### Typed and point variants
