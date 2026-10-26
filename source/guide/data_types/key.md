@@ -292,6 +292,21 @@ hit = list(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))[0]
 hit.value, hit.data
 ```
 
+### Comparison and hashing
+
+`Key` binds `==`, `<`, `>` and `hash()`, all delegating to `value` and **ignoring `.data`** — the
+same value-only contract as the C++ `key<>` and the B+ tree's notion of identity. Two `Key`s with
+equal coordinates therefore compare and hash equal even if they come from different groves or carry
+different payloads, which makes deduplicating query results by coordinate a one-liner:
+
+```python
+hits = list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"))
+unique_coords = set(hits)                # one entry per distinct coordinate
+first = hits[0]
+first == k                               # True: same coordinate, payload ignored
+repr(first)                              # "Key(+:100-200)"
+```
+
 ### Typed and point variants
 
 `BedKey`, `GffKey`, `NumericKey`, and `KmerKey` present the same surface

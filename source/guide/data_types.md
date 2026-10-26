@@ -28,6 +28,16 @@ static_assert(region.get_start() == 100);
 static_assert(gdt::interval::overlaps(region, gdt::interval{150, 250}));
 ```
 
+`genomic_coordinate`, `numeric` and `kmer` also specialize `std::hash` (in their own headers, mixing
+exactly the fields `operator==` compares), so they work directly as `std::unordered_set` /
+`std::unordered_map` keys and as `registry` keys. `interval` has no `std::hash` specialization.
+Hashing is not part of the `key_type_base` concept — the grove itself never hashes keys.
+
+```cpp
+std::unordered_set<gdt::genomic_coordinate> seen;
+seen.insert(gdt::genomic_coordinate{'+', 100, 200});
+```
+
 ### Intervals
 
 The `interval` class represents genomic regions using closed `[start, end]` coordinates (both endpoints inclusive):
@@ -315,8 +325,11 @@ pg.Numeric.overlaps(pg.Numeric(100), pg.Numeric(101))   # False
 ```
 
 ```python
-Numeric(value: int)
+Numeric(value: int)   # -2**31 <= value <= 2**31 - 1
 ```
+
+`Numeric` wraps a C++ 32-bit `int`. A value outside `-2**31 .. 2**31-1` is rejected by the binding
+layer with `TypeError` (not `ValueError`), from both the constructor and `set_value`.
 
 **Attributes** (read-only): `value`
 
@@ -324,7 +337,7 @@ Numeric(value: int)
 
 - `set_value(value)` — **pre-insertion only**, for reusing a query object.
 - `Numeric.overlaps(a, b)` — static, equality-based overlap check.
-- Comparison operators (`<`, `>`, `==`) use standard integer ordering.
+- Comparison operators (`<`, `<=`, `>`, `>=`, `==`) use standard integer ordering.
 - Value-based `__hash__`, plus `str` / `repr`.
 
 :::{warning}
@@ -375,8 +388,10 @@ Kmer(encoding: int, k: int)       # encoding is masked to k bases
 `ValueError` (both from the constructor and reflected by `is_valid`).
 
 :::{note}
-`GenomicCoordinate`, `Numeric`, and `Kmer` all implement a value-based
-`__hash__`, so any of them can be used directly as a `set` member or `dict` key.
+`GenomicCoordinate`, `Numeric`, and `Kmer` all implement a value-based `__hash__` (delegating to
+the C++ `std::hash` specializations, so Python and C++ hash values agree) and the full set of
+ordering operators (`<`, `<=`, `>`, `>=`, `==`), so any of them can be used directly as a `set`
+member, `dict` key, or sort key.
 :::
 
 ::::

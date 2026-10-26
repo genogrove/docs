@@ -20,7 +20,7 @@ root-node map, so concurrent writes race regardless of which index they target.
 
 `grove<key_type, data_type, edge_data_type>` and its embedded `graph_overlay` contain no mutexes.
 Their state — the per-index B+ trees reachable from the root-node map, the shared key storage, and
-the graph adjacency map — is plain unsynchronized memory.
+the graph's edge list and per-key edge index — is plain unsynchronized memory.
 
 Consequently, **any mutation concurrent with any other access to the same grove is a data race**
 (undefined behavior). Mutating operations include `insert_data`, `insert`, `remove_key`, `compact`,
@@ -99,44 +99,67 @@ ThreadSanitizer to catch races in how you share groves.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-In pygenogrove, concurrency is governed by CPython's **GIL** plus a couple of native locks. The GIL
-means pure-Python threads won't *corrupt* a `Grove`, but it also serializes any method that holds it,
-so multithreading buys parallelism only where the binding releases the GIL.
+In pygenogrove, concurrency is governed by CPython's **GIL** plus a couple of native locks. A
+method that holds the GIL runs one at a time across threads, so multithreading buys parallelism only
+where the binding releases it — and wherever it is released, the GIL provides **no** protection for
+a shared object. Which methods do what is listed below.
 
 ### GIL released — overlaps other threads' work
 
 These methods drop the GIL around their native work, so a long-running call on one thread does not
 freeze others:
 
-- `Grove.serialize(path)`
-- `Grove.deserialize(path)` (static)
-- `Grove.to_sif(path)`
+- `Grove.serialize(path)`, `Grove.deserialize(path)` (static), `Grove.to_sif(path)`
+- `GroveView.open(path)` (static)
 - `insert_bulk(...)` — released around the native build loop
+- `intersect(...)` and the **non-predicate** `flanking(query, index)` — pure C++ tree traversal
+- `remove_key(...)` and `compact()` — pure C++, no Python callbacks
+- `Registry.serialize(path)` / `Registry.deserialize(path)` — mutex-protected in C++; `deserialize`
+  does its I/O unlocked and replaces the singleton's contents under a short lock
+- The streaming readers' `__next__` and `FastaIndex.fetch` (see below)
 
 ### GIL held — serialized
 
 These keep the GIL for the duration, so concurrent calls run one at a time:
 
-- `intersect`, `get_neighbors`, `flanking`
-- every predicate-callback method — `link_if` / `link_with`, `get_neighbors_if`, `remove_edges_if` —
-  because the native code re-enters Python to call your predicate
+- `get_neighbors` and the other graph accessors
+- every predicate-callback method — `link_if` / `link_with`, `get_neighbors_if` /
+  `get_in_neighbors_if`, `remove_edges_if`, and the predicate overload
+  `flanking(query, index, is_compatible)` — because the native code re-enters Python to call your
+  predicate
 
-### A `Grove` is still not internally synchronized
+### A `Grove` is not internally synchronized
 
-Sharing a single `Grove` across threads gives you no parallelism for the GIL-holding methods above,
-and the underlying C++ grove has no locks. For real parallel throughput, use one `Grove` per worker
-(or per process) rather than contending on a shared instance.
+The underlying C++ grove has no locks, and the GIL is **not** a substitute: now that `intersect`,
+`flanking`, `remove_key` and `compact` release it, nothing serializes two threads that mutate or
+query the same `Grove` concurrently. (Earlier releases *incidentally* serialized those calls by
+holding the GIL; that protection is gone.) The documented contract is **one `Grove` per thread**, or
+external synchronization around a shared one. For real parallel throughput, use one `Grove` per
+worker (or per process) rather than contending on a shared instance.
 
 ### `GroveView` — one per thread
 
 `GroveView` (and `NumericGroveView` / `KmerGroveView` / `BedGroveView` / `GffGroveView`) is **not
-thread-safe** — a query mutates the view's block cache and holds the GIL. Use one view per thread.
+thread-safe** — a query mutates the view's block cache. Use one view per thread.
 
-### `FastaIndex` construction is serialized
+### Streaming readers — one per thread
+
+`BedReader`, `GffReader`, `BamReader`, `FastaReader` and `VcfReader` are single-pass and **not
+thread-safe**: `__next__` releases the GIL for the htslib read but mutates reader-owned buffers and
+counters. Each reader carries a native in-flight flag, so a call to `__next__`, `get_current_line`,
+`get_error_message` or `repr()` from one thread while `__next__` is running on another raises a
+clear `RuntimeError` instead of racing. Drive one reader per thread.
+
+### `FastaIndex` — a shared handle serializes `fetch`
 
 htslib's `fai_load()` is not thread-safe, so `FastaIndex` construction takes a process-wide lock
-(with the GIL released around the build, so unrelated threads aren't frozen). Reads through separate
-`FastaIndex` handles remain concurrent.
+(with the GIL released around the build, so unrelated threads aren't frozen).
+
+One `FastaIndex` handle **may** be shared between threads: `fetch()` calls on it are serialized by a
+per-handle lock (taken after the GIL is released), so they are safe but run one at a time. The
+metadata getters (`sequence_count`, `sequence_name`, `sequence_length`, `has_sequence`, `names`,
+`len`, `in`) are lock-free read-only lookups. For parallel fetch throughput, open one handle per
+thread.
 
 ::::
 

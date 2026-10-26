@@ -13,6 +13,12 @@ The `key_type_base` concept defines the requirements for custom key types used w
 
 All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) satisfy this concept.
 
+`std::hash` is **not** part of `key_type_base`. It is required only by the `registry_value` concept
+(see [registry](#registry)) and by `std::unordered_set` / `std::unordered_map`. `genomic_coordinate`,
+`numeric` and `kmer` ship `std::hash` specializations in their own headers, each mixing exactly the
+fields `operator==` compares, so they can be used as unordered-container keys and as `registry` keys
+without a user-side hash. `interval` has no `std::hash` specialization.
+
 ## interval
 
 ```{eval-rst}

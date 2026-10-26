@@ -313,22 +313,30 @@ Python threads can run during that native work.
 
 - File readers `__next__`: `BedReader` / `GffReader` / `BamReader` / `VcfReader` /
   `FastaReader` (disk read + htslib/parse).
-- `FastaIndex` — construction (builds a missing `.fai`) and both `fetch` overloads.
-- `Grove.serialize` / `Grove.deserialize` / `Grove.to_sif` (file + zlib).
+- `FastaIndex` — construction (builds a missing `.fai`) and both `fetch` overloads
+  (`fetch` on a shared handle is additionally serialized by a per-handle lock).
+- `Grove.serialize` / `Grove.deserialize` / `Grove.to_sif` and `GroveView.open` (file + zlib).
+- `Registry.serialize` / `Registry.deserialize` (mutex-protected file I/O).
 - `insert_bulk` — around the C++ build loop.
+- `intersect` and the non-predicate `flanking(query, index)` — pure C++ traversal.
+- `remove_key` / `compact` — pure C++ rebalance / rebuild.
 
 **Calls that KEEP the GIL** (and why):
 
-- Single `insert` / `insert_sorted` / `intersect` — short, hot operations.
+- Single `insert` / `insert_sorted` — short, hot operations.
+- The graph accessors (`get_neighbors`, `get_edges`, …) — they build Python lists.
 - The predicate-callback methods `flanking(..., predicate)` / `get_neighbors_if` /
-  `link_if` / `link_with` / `remove_edges_if` — their C++ re-enters Python, so the
-  GIL is required.
+  `get_in_neighbors_if` / `link_if` / `link_with` / `remove_edges_if` — their C++
+  re-enters Python, so the GIL is required.
 
 :::{warning}
-**Thread-safety contract:** a genogrove object (reader / grove / index) is **not**
+**Thread-safety contract:** a genogrove object (reader / grove / view) is **not**
 internally synchronized. The safe pattern is **one object per thread** — e.g. a
 pool where each worker has its own reader / grove, overlapping only the native
-work. Sharing a single object across threads is a data race.
+work. Sharing a `Grove` or `GroveView` across threads is a data race; sharing a
+reader raises `RuntimeError` on the concurrent call. The one exception is
+`FastaIndex`: a shared handle is safe because `fetch` is serialized by a
+per-handle lock, at the cost of running one fetch at a time.
 :::
 
 Example (parallel I/O with a thread pool):

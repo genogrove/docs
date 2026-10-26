@@ -58,36 +58,59 @@ void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) 
 
 The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
 compressed binary stream (not raw bytes), so files are compact but not directly inspectable with
-hex editors. The stream opens with a small plain directory (order, index count, per-index name +
-root block id, block counts), then the payload.
+hex editors.
 
-**Block-structured payload (format 0.2).** As of genogrove v0.25.0 the payload is
-**block-structured**: each B+ tree node is an independently zlib-compressed, length-prefixed block,
-and external keys are distributed into fixed-size blocks. (Previously the whole file was a single
-zlib stream — format 0.1.) The block structure is what makes random-access partial reading possible
-— see [Partial random-access reading](#partial-random-access-reading) below. Because each
-block is inflated from an isolated buffer of exactly its length, the source is read sequentially,
-so `grove::deserialize` now works on **non-seekable input streams** (pipes, sockets) and leaves any
+The payload is **block-structured**: each B+ tree node is an independently zlib-compressed,
+length-prefixed block, and external keys are distributed into fixed-size blocks. The block
+structure is what makes random-access partial reading possible — see
+[Partial random-access reading](#partial-random-access-reading) below. Because each block is
+inflated from an isolated buffer of exactly its length, the source is read sequentially, so
+`grove::deserialize` works on **non-seekable input streams** (pipes, sockets) and leaves any
 trailing bytes after the grove intact.
 
-The public signatures (`serialize(std::ostream&)` / `deserialize(std::istream&)`) are unchanged.
+The stream is laid out as:
 
-```{warning}
-**No serialization back-compat.** Format 0.1 `.gg` files are **not readable** by a v0.25.0+ build
-and must be regenerated (re-run `genogrove idx` or re-`serialize()`). The header reports
-`format_major = 0`, `format_minor = 2`; while `format_major == 0` the format is still evolving and
-may break again. See [The `.gg` File Header](#the-gg-file-header).
-```
+1. A plain (uncompressed) header: magic, tree order, the index directory (one name + root block id
+   per chromosome) and the block/key counts
+2. One zlib-compressed block per B+ tree node, in depth-first order per index; each key in a leaf
+   is followed by its **outgoing** edge list and then its **incoming** edge list (other endpoint as
+   `(block_id, slot)`, plus metadata when `edge_data_type != void`)
+3. External keys, distributed into fixed-size blocks, each key again followed by its outgoing and
+   incoming edge lists
 
-Within a block the data is still written in depth-first order:
-
-1. Tree order and number of indices (chromosomes)
-2. For each index: the index name followed by the full tree (nodes, keys, and associated data)
-3. External key storage
-4. Graph overlay edges
+Every edge therefore appears twice on disk — under its source and under its target — which is what
+lets `grove_view` surface either side of an edge after paging in only one endpoint's block.
 
 All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and common data types
 (`std::string`, trivially copyable types like `int`, `double`, `uint32_t`) are serialized automatically.
+
+### Format Versions and Compatibility
+
+The `.gg` stream format is versioned as `format_major.format_minor` (see
+[The `.gg` File Header](#the-gg-file-header)). The current format is **0.3**.
+
+| Format | genogrove | Payload |
+|---|---|---|
+| 0.1 | < 0.25.0 | Whole file a single zlib stream |
+| 0.2 | 0.25.x | Block-structured (per-node blocks, external-key chunks); edges recorded under their source only |
+| 0.3 | 0.26.0+ | Block-structured; each key records its outgoing **and** incoming edge lists, enabling reverse traversal in `grove_view` |
+
+The public signatures (`serialize(std::ostream&)` / `deserialize(std::istream&)`) have not changed
+across these versions.
+
+```{warning}
+**No serialization back-compat.** A build reads exactly one format: v0.26.0+ rejects 0.1 and 0.2
+`.gg` files, which must be regenerated (re-run `genogrove idx` or re-`serialize()`). While
+`format_major == 0` the format is still evolving and may break again.
+```
+
+```{warning}
+**Indexes built with unsorted `insert()` on v0.25.5 or earlier must be regenerated.** Those
+releases misrouted out-of-order inserts in trees deeper than two levels, so `intersect()` never
+returned some keys. v0.25.6 fixed the routing, but the fix is **not retroactive**: an affected
+`.gg` deserializes exactly as before. Rebuild such indexes from the source data, or keep using the
+genogrove version that wrote them.
+```
 
 ### Combined Persistence with Registry
 
@@ -222,7 +245,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 
 ### Non-Seekable Sources and Concatenated Payloads
 
-As of format 0.2, `grove::deserialize()` reads each block from an isolated buffer of exactly its
+Since the block-structured format (0.2+), `grove::deserialize()` reads each block from an isolated buffer of exactly its
 length, consuming the source **sequentially**. It no longer needs to rewind, so it works on
 **non-seekable sources** (pipes, sockets, custom streambufs) and leaves any bytes that follow the
 grove intact — the concatenated-payload pattern (registry then grove from the same stream, multiple
@@ -236,7 +259,7 @@ file path rather than an arbitrary stream. Eager `grove::deserialize` has no suc
 
 ### Partial random-access reading
 
-`genogrove::structure::grove_view` is a **read-only, partial reader** over a serialized format 0.2
+`genogrove::structure::grove_view` is a **read-only, partial reader** over a serialized format 0.3
 `.gg`. Where `grove::deserialize` eagerly loads the whole file, `grove_view` loads only the blocks a
 query walks and caches them for its lifetime. It complements — does not replace — the eager `grove`,
 which remains the builder and the load-it-all reader.
@@ -279,16 +302,24 @@ for (auto* k : hits.get_keys()) {
 - `get_neighbors(const key* source)` — outgoing graph neighbours, loading only the target block
   (including across chromosomes). `source` must be a key pointer this `grove_view` produced. Throws
   `std::invalid_argument` on a null source.
-- `get_edges(const key* source)` — the edge-metadata payloads for `source`'s outgoing edges, in
-  adjacency order (edge-carrying views only, i.e. `edge_data_type != void`). Returns an empty vector
-  for a null source — it does **not** throw, unlike the target-resolving accessors.
-- `get_neighbors_if(const key* source, Pred pred)` — neighbours whose edge metadata satisfies
-  `pred(const edge_data_type&)` (edge-carrying views only). Throws `std::invalid_argument` on a null
-  source.
-- `get_edge_list(const key* source)` — each outgoing target paired with its edge metadata
-  (`std::vector<std::pair<key* , edge_data_type>>`) in one call, in adjacency order (edge-carrying
-  views only). Resolves targets on demand like `get_neighbors`. Throws `std::invalid_argument` on a
-  null source — note this differs from `graph_overlay::get_edge_list`, which returns an empty vector.
+- `get_in_neighbors(const key* target)` — the reverse: sources of `target`'s incoming edges, loading
+  each source's block on demand. The incoming list is stored co-located with `target`'s own block
+  (format 0.3), so no scan of other blocks is needed. Throws `std::invalid_argument` on null.
+- `get_edges(const key* source)` / `get_in_edges(const key* target)` — the edge-metadata payloads
+  for the outgoing / incoming edges, in edge order (edge-carrying views only, i.e.
+  `edge_data_type != void`). Return an empty vector for a null key — they do **not** throw, unlike
+  the key-resolving accessors (same split as `graph_overlay`).
+- `get_neighbors_if(const key* source, Pred pred)` / `get_in_neighbors_if(const key* target, Pred pred)`
+  — neighbours in either direction whose edge metadata satisfies `pred(const edge_data_type&)`
+  (edge-carrying views only). Throw `std::invalid_argument` on null.
+- `get_edge_list(const key* source)` / `get_in_edge_list(const key* target)` — each outgoing target
+  (resp. incoming source) paired with its edge metadata (`std::vector<std::pair<key*, edge_data_type>>`)
+  in one call, in edge order (edge-carrying views only). Resolve keys on demand like `get_neighbors`.
+  Throw `std::invalid_argument` on null, matching `graph_overlay::get_edge_list` /
+  `get_in_edge_list`.
+- `out_degree(const key* source)` / `in_degree(const key* target)` — edge counts per key. A bucket
+  lookup on data already paged in with the key's block: no target resolution, so no additional block
+  loads. Return `0` for a null key. Mirror `graph_overlay::out_degree` / `in_degree`.
 - `get_order()` — the B+ tree order the `.gg` was built with (same value the eager `grove` reports).
 - `get_index_names()` — the names of every index (e.g. chromosome) in the file, in **unspecified
   order**; use it to discover what `intersect` / `flanking` can run against. Reads nothing beyond the
@@ -296,14 +327,16 @@ for (auto* k : hits.get_keys()) {
   pointers, the view returns a copied name list — a lazy reader has no persistent root nodes.)
 - `blocks_loaded()` / `block_count()` — introspection (e.g. to assert a query really was partial).
 
-**Semantics worth calling out:**
+**Semantics:**
 
 - **Non-copyable and non-movable** — it owns the file and a zlib state. Hold it by value from
   `open()`; the return is guaranteed copy elision, so no move is needed.
 - **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
   query footprint.
 - **Not thread-safe** — a query pages in blocks on demand, so use one view per thread.
-- Requires a plain format-0.2 `.gg` written by `grove::serialize`.
+- Requires a format-0.3 `.gg`. A plain file written by `grove::serialize` uses the default
+  `data_offset = 0`; for a CLI-written index, pass `data_offset = gio::gg_header::SIZE` to skip the
+  12-byte [header](#the-gg-file-header).
 
 The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference](../cli.md#in-place-querying).
 
@@ -312,7 +345,7 @@ The CLI's `isec --in-place` is built on `grove_view` — see the [CLI reference]
 The `.gg` indexes written by the `idx` / `isec` CLI use `grove<interval, {bed,gff}_entry, std::string>`
 — a `std::string` graph-edge type — so that `idx --links` can attach [per-edge metadata](../cli.md#links-attaching-graph-edges).
 This changed the on-disk format from the earlier `void` edge type: **CLI-built indexes from before
-v0.25.0 must be regenerated.** (Consistent with the format-0.2 no-back-compat policy above.)
+v0.25.0 must be regenerated.** (Consistent with the no-back-compat policy above.)
 
 ### Important Notes
 
@@ -320,8 +353,7 @@ v0.25.0 must be regenerated.** (Consistent with the format-0.2 no-back-compat po
 - All `deserialize` methods (`node::deserialize`, `grove::deserialize`, `registry::deserialize`, `serialization_traits<std::string>::deserialize`) throw `std::runtime_error` on corrupt or truncated streams.
 - `node::deserialize` additionally validates B+ tree invariants (num_keys < order, num_children <= order).
 - `registry::deserialize` provides a **strong exception guarantee**: if the stream throws or is truncated, the singleton is left exactly as it was before the call. The new state is built into local containers and committed via noexcept move-assign only after the read loop completes. It also rejects header counts that exceed the `id_type` capacity (`"Failed to deserialize registry: entry count exceeds id_type capacity"`) and streams containing duplicate keys (`"Failed to deserialize registry: duplicate key"`). See {doc}`data_types/registry` for details.
-- Graph edges added via `add_edge()` or `link_if()` are now persisted during serialization and restored on deserialize.
-- **Breaking format change**: The serialized format now includes graph edges after external keys. Files serialized with older versions are incompatible and must be re-created.
+- Graph edges added via `add_edge()` or `link_if()` are persisted during serialization and restored on deserialize, including the relative order of each key's incoming edges.
 - All `deserialize` methods are marked `[[nodiscard]]` to prevent accidentally discarding the result.
 
 ### The `.gg` File Header
@@ -337,7 +369,7 @@ The on-disk layout is:
 |---|---|---|---|
 | 0 | 4 | `magic` = `"GROV"` | inspectable via `xxd` / `file` |
 | 4 | 1 | `format_major` = 0 | pre-1.0; any change may break compatibility |
-| 5 | 1 | `format_minor` = 2 | 0.2 = block-structured payload (was 0.1, single zlib stream) |
+| 5 | 1 | `format_minor` = 3 | 0.3 = block-structured payload with per-key outgoing **and** incoming edge lists (0.2 was forward-only edges, 0.1 a single zlib stream; neither is readable) |
 | 6 | 1 | `lib_major` | informational |
 | 7 | 1 | `lib_minor` | informational |
 | 8 | 1 | `lib_patch` | informational |
@@ -433,7 +465,7 @@ round-trip the structured `BedEntry` / `GffEntry` payloads.
 
 ### Partial random-access reading with `GroveView`
 
-`GroveView` is a **read-only, partial reader** over a serialized format 0.2 `.gg`. Where
+`GroveView` is a **read-only, partial reader** over a serialized format 0.3 `.gg`. Where
 `Grove.deserialize()` loads the whole grove into memory, a `GroveView` reads only the block
 directory up front and pages in individual blocks on demand as a query descends the tree, caching
 them for the view's lifetime (no eviction). Use it to query a large on-disk index without
@@ -469,7 +501,7 @@ assert view.blocks_loaded() < view.block_count()
 - `GroveView.open(path, data_offset=0)` *(static)* — open a `.gg` for partial reading. `path` is a
   file written by `Grove.serialize()` (use `data_offset=0`); pass a non-zero `data_offset` only for
   a `.gg` embedded behind a leading header, e.g. a genogrove CLI index. Raises `RuntimeError` on a
-  missing file, bad magic, a non-seekable source, or a malformed directory.
+  missing file, bad magic, a non-seekable source, or a malformed directory. Releases the GIL.
 - `intersect(query)` / `intersect(query, index)` — same results as the eager `Grove`, loading only
   the blocks the search touches.
 - `flanking(query, index)` / `flanking(query, index, is_compatible)` — nearest non-overlapping
@@ -492,6 +524,15 @@ assert view.blocks_loaded() < view.block_count()
   zip of `get_neighbors(source)` and `get_edges(source)` — paging in each target's block on demand.
   Mirrors the mutable `Grove.get_edge_list`; edges added without a payload yield `None` metadata,
   raises `TypeError` if `source` is `None`. **Edge-carrying views only** (see below).
+- `get_in_neighbors(target)` / `in_degree(target)` — the reverse of `get_neighbors` / `out_degree`:
+  the keys with an edge pointing **at** `target`, and how many there are. Available on every view.
+  Raise `TypeError` if `target` is `None`.
+- `get_in_edges(target)` / `get_in_edge_list(target)` / `get_in_neighbors_if(target, predicate)` —
+  the reverse of `get_edges` / `get_edge_list` / `get_neighbors_if` over `target`'s incoming edges,
+  paging in each source's block on demand. Raise `TypeError` if `target` is `None`.
+  **Edge-carrying views only** (see below).
+- `out_degree(source)` — number of outgoing edges, read from the block already paged in for `source`.
+  Raises `TypeError` if `source` is `None`.
 - `get_order()` — the B+ tree order the `.gg` was built with (mirrors `Grove.get_order()`), read from
   the directory loaded at `open()` — no extra blocks paged in.
 - `get_index_names()` — the names of every index (chromosome) in the file, so a caller can discover
@@ -512,7 +553,7 @@ threads serialize on view I/O — use **one view per thread**. The Keys a view r
 own storage and are valid only while the `GroveView` is alive.
 :::
 
-Requires a format 0.2 `.gg` (genogrove v0.25.x). See the C++ tab for the underlying `grove_view`,
+Requires a format 0.3 `.gg` (genogrove v0.26.x, pygenogrove 0.8.0+). See the C++ tab for the underlying `grove_view`,
 and the {doc}`Python API reference </reference/python/grove>` for the full class listing.
 
 ### SIF export (visualization)
