@@ -313,16 +313,21 @@ Python threads can run during that native work.
 
 - File readers `__next__`: `BedReader` / `GffReader` / `BamReader` / `VcfReader` /
   `FastaReader` (disk read + htslib/parse).
-- `FastaIndex` — construction (builds a missing `.fai`) and both `fetch` overloads.
-- `Grove.serialize` / `Grove.deserialize` / `Grove.to_sif` (file + zlib).
+- `FastaIndex` — construction (builds a missing `.fai`) and both `fetch` overloads
+  (`fetch` on a shared handle is additionally serialized by a per-handle lock).
+- `Grove.serialize` / `Grove.deserialize` / `Grove.to_sif` and `GroveView.open` (file + zlib).
+- `Registry.serialize` / `Registry.deserialize` (mutex-protected file I/O).
 - `insert_bulk` — around the C++ build loop.
+- `intersect` and the non-predicate `flanking(query, index)` — pure C++ traversal.
+- `remove_key` / `compact` — pure C++ rebalance / rebuild.
 
 **Calls that KEEP the GIL** (and why):
 
-- Single `insert` / `insert_sorted` / `intersect` — short, hot operations.
+- Single `insert` / `insert_sorted` — short, hot operations.
+- The graph accessors (`get_neighbors`, `get_edges`, …) — they build Python lists.
 - The predicate-callback methods `flanking(..., predicate)` / `get_neighbors_if` /
-  `link_if` / `link_with` / `remove_edges_if` — their C++ re-enters Python, so the
-  GIL is required.
+  `get_in_neighbors_if` / `link_if` / `link_with` / `remove_edges_if` — their C++
+  re-enters Python, so the GIL is required.
 
 :::{warning}
 **Thread-safety contract:** a genogrove object (reader / grove / index) is **not**

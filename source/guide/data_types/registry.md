@@ -124,7 +124,7 @@ This pattern avoids overloading `gene_info::operator==` and `std::hash<gene_info
 
 ### The `registry_value` Concept
 
-`registry<Key, ...>` constrains `Key` with the `registry_value` concept, which requires `Key` to be **equality-comparable** (`std::equality_comparable`) and **hashable** via `std::hash<Key>`. Built-in types like `std::string` and `int` satisfy this out of the box; custom types need both `operator==` and a `std::hash` specialization.
+`registry<Key, ...>` constrains `Key` with the `registry_value` concept, which requires `Key` to be **equality-comparable** (`std::equality_comparable`) and **hashable** via `std::hash<Key>`. Built-in types like `std::string` and `int` satisfy this out of the box, as do the genogrove key types `genomic_coordinate`, `numeric` and `kmer`, which ship their own `std::hash` specializations — so `registry<gdt::genomic_coordinate>` compiles as-is. `interval` has no `std::hash` and cannot be a registry key without one. Custom types need both `operator==` and a `std::hash` specialization.
 
 ### Thread Safety
 
@@ -155,7 +155,9 @@ The unlocked reads are safe **only when no writer** (`intern()`, `clear()`, `res
 
 `Registry` exposes `registry<std::string, void, json_value>` — a process-wide
 singleton mapping a **string key** to any JSON-serializable payload (dict / list /
-scalar / `None`), deduplicated on the key.
+scalar / `None`), deduplicated on the key. Payloads must be finite: `float('nan')` /
+`float('inf')` / `float('-inf')` at any nesting depth raise `ValueError` at intern time (the
+registry shares the JSON encoder with `Grove`).
 
 ```python
 import pygenogrove as pg

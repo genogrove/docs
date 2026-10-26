@@ -21,11 +21,25 @@ bool has_edge(const gdt::key<key_type, data_type>* source,
 ```
 
 The read-only graph accessors (`has_edge`, `get_edges`, `get_edge_list`,
-`get_neighbors`, `get_neighbors_if`, `out_degree`) take **`const` source/target
-pointers**. The mutating accessors (`add_edge`, `remove_edge`, `remove_edges_*`)
-still take non-const pointers. Existing call sites that pass non-const `key*`
-keep working via the implicit `key* -> const key*` conversion — no migration
-required.
+`get_neighbors`, `get_neighbors_if`, `out_degree`, and their `get_in_*` /
+`in_degree` counterparts) take **`const` source/target pointers**. The mutating
+accessors (`add_edge`, `remove_edge`, `remove_edges_*`) still take non-const
+pointers. Existing call sites that pass non-const `key*` keep working via the
+implicit `key* -> const key*` conversion — no migration required.
+
+**Null pointers.** The accessors that must dereference a key to follow an edge —
+`get_neighbors`, `get_in_neighbors`, `get_neighbors_if`, `get_in_neighbors_if`,
+`get_edge_list`, `get_in_edge_list` (and `add_edge`) — throw `std::invalid_argument`
+on a null argument. The metadata-only accessors `get_edges` / `get_in_edges` have
+nothing to dereference and return an empty vector for a null key; `has_edge`,
+`out_degree` and `in_degree` return `false` / `0`. `grove_view` follows the same
+split.
+
+Every forward accessor on this page has a reverse twin that reads the same edges
+from the **target** side — `get_in_neighbors`, `get_in_edges`, `get_in_edge_list`,
+`get_in_neighbors_if`, `in_degree` — so a directed edge `enhancer → gene` can be
+read from the gene without hand-adding a mirrored edge. Each is introduced next to
+its forward counterpart below.
 
 **Parameters:**
 
@@ -106,13 +120,23 @@ for (double confidence : scores) {
 To iterate over both targets and metadata together, use `get_edge_list()`:
 
 ```cpp
-auto& edges = grove.get_edge_list(enhancer);
+auto edges = grove.get_edge_list(enhancer);
 
 for (const auto& edge : edges) {
     std::cout << edge.target->get_data()
               << " (confidence: " << edge.metadata << ")\n";
 }
 ```
+
+The reverse, `get_in_edges(target)`, returns the metadata of every **incoming** edge:
+
+```cpp
+// Confidence of every edge pointing at gene1, in edge order
+auto incoming_scores = grove.get_in_edges(gene1);   // {0.95}
+```
+
+Both are metadata-only accessors: a null `source` / `target` yields an empty vector rather than
+throwing (see the null-pointer note above).
 
 **Use Cases:**
 
@@ -122,22 +146,27 @@ for (const auto& edge : edges) {
 
 #### Getting the edge list for a source (`get_edge_list`)
 
-The `get_edge_list` function retrieves all outgoing edges from a source key as `edge` structs, each containing the target pointer and metadata (if any). Unlike `get_edges()` (metadata only) or `get_neighbors()` (targets only), this returns the full edge objects.
+The `get_edge_list` function retrieves all outgoing edges from a source key as `edge` structs, each containing the source pointer, the target pointer and metadata (if any). Unlike `get_edges()` (metadata only) or `get_neighbors()` (targets only), this returns the full edge objects.
 
 **Function Signature:**
 
 ```cpp
-const std::vector<edge>& get_edge_list(const gdt::key<key_type, data_type>* source) const
+std::vector<edge> get_edge_list(const gdt::key<key_type, data_type>* source) const
+std::vector<edge> get_in_edge_list(const gdt::key<key_type, data_type>* target) const
 ```
 
 **Parameters:**
 
-- `source` - Pointer to the source key
+- `source` - Pointer to the source key (`target` for `get_in_edge_list`)
 
 **Return Value:**
 
-- Const reference to vector of `edge` structs (each with `target` and `metadata` fields)
-- Returns an empty vector if the source has no outgoing edges
+- Vector of `edge` structs **by value** (each with `source`, `target` and `metadata` fields)
+- Returns an empty vector if the key has no outgoing (resp. incoming) edges
+- Throws `std::invalid_argument` on a null pointer
+
+`get_in_edge_list(target)` is the reverse: every edge whose `target` is the given key, so
+`edge.source` is the interesting field there.
 
 **Example:**
 
@@ -152,40 +181,47 @@ grove.add_edge(tf1, gene1, 0.9);
 grove.add_edge(tf1, gene2, 0.7);
 
 // Get all edges from tf1
-const auto& edges = grove.get_edge_list(tf1);
+const auto edges = grove.get_edge_list(tf1);
 
 std::cout << "TF1 targets (" << edges.size() << " edges):\n";
 for (const auto& edge : edges) {
     std::cout << "  -> " << edge.target->get_data()
               << " (weight: " << edge.metadata << ")\n";
 }
+
+// Read the same edges from a target's side
+for (const auto& edge : grove.get_in_edge_list(gene1)) {
+    std::cout << edge.source->get_data() << " -> gene1"
+              << " (weight: " << edge.metadata << ")\n";
+}
 ```
 
 **Use Cases:**
 
-- Accessing both target keys and metadata in a single iteration
-- Efficient read-only access (returns a const reference, no copy)
+- Accessing both endpoint keys and metadata in a single iteration
 - Building adjacency representations for graph algorithms
 
 ### Neighbor Queries
 
 #### Getting all neighbors (`get_neighbors`)
 
-The `get_neighbors` function returns all target keys that are connected from a source key via outgoing edges.
+The `get_neighbors` function returns all target keys that are connected from a source key via outgoing edges. `get_in_neighbors` is the reverse: all source keys that have an edge pointing **at** the given key.
 
 **Function Signature:**
 
 ```cpp
 std::vector<gdt::key<key_type, data_type>*> get_neighbors(const gdt::key<key_type, data_type>* source) const
+std::vector<gdt::key<key_type, data_type>*> get_in_neighbors(const gdt::key<key_type, data_type>* target) const
 ```
 
 **Parameters:**
 
-- `source` - Pointer to the source key
+- `source` - Pointer to the source key (`target` for `get_in_neighbors`)
 
 **Return Value:**
 
-- Vector of pointers to neighbor keys (targets of outgoing edges)
+- Vector of pointers to neighbor keys (targets of outgoing edges, or sources of incoming edges)
+- Throws `std::invalid_argument` on a null pointer
 
 **Example:**
 
@@ -210,6 +246,25 @@ std::cout << "Exon1 can splice to " << next_exons.size() << " exons:\n";
 for (auto* exon : next_exons) {
     std::cout << "  -> " << exon->get_data() << "\n";
 }
+```
+
+**Example: Reading edges from the target side**
+
+```cpp
+gst::grove<gdt::interval, std::string, double> grove(100);
+
+auto* enh1 = grove.insert_data("chr1", gdt::interval{1000, 1500}, "Enh1");
+auto* enh2 = grove.insert_data("chr1", gdt::interval{2000, 2500}, "Enh2");
+auto* gene = grove.insert_data("chr1", gdt::interval{5000, 10000}, "Gene1");
+
+grove.add_edge(enh1, gene, 0.9);   // Enh1 regulates Gene1
+grove.add_edge(enh2, gene, 0.6);   // Enh2 regulates Gene1
+
+// Which enhancers regulate Gene1? No mirrored edges needed.
+for (auto* enhancer : grove.get_in_neighbors(gene)) {
+    std::cout << enhancer->get_data() << " -> Gene1\n";
+}
+std::cout << "Gene1 has " << grove.in_degree(gene) << " regulators\n";   // 2
 ```
 
 **Example: Path exploration**
@@ -247,23 +302,29 @@ std::cout << "\n";
 
 #### Filtered neighbor queries (`get_neighbors_if`)
 
-The `get_neighbors_if` function returns only neighbors whose edges satisfy a given predicate, allowing you to filter by edge metadata.
+The `get_neighbors_if` function returns only neighbors whose edges satisfy a given predicate, allowing you to filter by edge metadata. `get_in_neighbors_if` applies the same filter to **incoming** edges and returns their sources.
 
 **Function Signature:**
 
 ```cpp
 template<typename Predicate>
 std::vector<gdt::key<key_type, data_type>*> get_neighbors_if(const gdt::key<key_type, data_type>* source, Predicate pred) const
+    requires (!std::is_void_v<edge_data_type> && std::predicate<Predicate, const edge_data_type&>)
+
+template<typename Predicate>
+std::vector<gdt::key<key_type, data_type>*> get_in_neighbors_if(const gdt::key<key_type, data_type>* target, Predicate pred) const
+    requires (!std::is_void_v<edge_data_type> && std::predicate<Predicate, const edge_data_type&>)
 ```
 
 **Parameters:**
 
-- `source` - Pointer to the source key
-- `pred` - Predicate function that takes edge metadata and returns `bool`
+- `source` - Pointer to the source key (`target` for `get_in_neighbors_if`)
+- `pred` - Predicate function that takes `const edge_data_type&` and returns `bool`
 
 **Return Value:**
 
 - Vector of pointers to neighbor keys that pass the predicate filter
+- Throws `std::invalid_argument` on a null pointer
 
 **Example: Confidence threshold**
 
@@ -291,22 +352,37 @@ for (auto* target : high_conf) {
 
 **Example: Distance-based filtering**
 
+The predicate only ever sees the **metadata stored on the edge**. The grove does not derive
+anything from the interval coordinates, so to filter on distance, compute it yourself and
+store it as the edge metadata when adding the edge:
+
 ```cpp
+// edge_data_type = size_t: each edge carries a caller-supplied distance in bp
 gst::grove<gdt::interval, std::string, size_t> grove(100);
 
-// Edges store genomic distance
 auto* gene1 = grove.insert_data("chr1", gdt::interval{1000, 2000}, "GeneA");
 auto* gene2 = grove.insert_data("chr1", gdt::interval{10000, 11000}, "GeneB");
 auto* gene3 = grove.insert_data("chr1", gdt::interval{50000, 51000}, "GeneC");
 
-grove.add_edge(gene1, gene2, 8000);   // 8kb apart
-grove.add_edge(gene1, gene3, 48000);  // 48kb apart
+// Caller computes the gap and stores it as the edge's metadata
+auto gap = [](const auto* a, const auto* b) {
+    return b->get_value().get_start() - a->get_value().get_end();
+};
+grove.add_edge(gene1, gene2, gap(gene1, gene2));   // edge gene1 -> gene2 stores 8000
+grove.add_edge(gene1, gene3, gap(gene1, gene3));   // edge gene1 -> gene3 stores 48000
 
-// Find genes within 10kb
+// get_neighbors_if calls the predicate once per outgoing edge of gene1,
+// passing that edge's metadata (8000, then 48000). Targets of edges
+// for which it returns true are collected.
 auto nearby = grove.get_neighbors_if(gene1,
     [](size_t distance) { return distance <= 10000; });
 
-std::cout << "Nearby genes (<10kb): " << nearby.size() << "\n";
+std::cout << "Nearby genes (<10kb): " << nearby.size() << "\n";   // 1 (GeneB)
+
+// Reverse: same predicate over the edges pointing AT gene2.
+// Only gene1 -> gene2 (metadata 8000) qualifies.
+auto nearby_sources = grove.get_in_neighbors_if(gene2,
+    [](size_t distance) { return distance <= 10000; });   // {gene1}
 ```
 
 **Use Cases:**
@@ -398,10 +474,11 @@ template<typename Predicate>
 size_t remove_edges_if(Predicate predicate);
 ```
 
-- **`remove_edges_from(source)`** — removes all outgoing edges from `source`. O(1) in the number of
-  sources (drops the adjacency entry).
-- **`remove_edges_to(target)`** — removes all incoming edges to `target`. O(E) — scans every
-  adjacency list in the graph.
+- **`remove_edges_from(source)`** — removes all outgoing edges from `source`. O(out-degree) — only
+  touches edges incident to `source`.
+- **`remove_edges_to(target)`** — removes all incoming edges to `target`. O(in-degree) — only
+  touches edges incident to `target` (every edge is indexed under both of its endpoints, so no
+  whole-graph scan is needed).
 - **`remove_all_edges(key)`** — removes both incoming and outgoing edges for `key` (equivalent to
   `remove_edges_from` + `remove_edges_to`).
 - **`remove_edges_if(predicate)`** — removes every edge for which `predicate(const edge&)` returns
@@ -437,25 +514,63 @@ std::cout << "Dropped " << dropped << " low-confidence edges\n";
 not need to remove edges manually before removing a key from the tree.
 ```
 
+#### Locating one specific edge (`find_edge`, `edge_end`)
+
+`add_edge` does not deduplicate, so the same `(source, target)` pair can carry several
+**parallel** edges with distinct metadata (e.g. one per transcript sharing an exon pair). When a
+caller needs one particular edge rather than the whole list, `graph_overlay::find_edge` returns an
+iterator to the `occurrence`-th (0-indexed) matching edge. These two methods live on
+`graph_overlay` only — they are **not** forwarded by `grove` — so reach them through
+`grove::graph()`:
+
+```cpp
+using edge_iterator = std::list<edge>::iterator;   // graph_overlay::edge_iterator
+
+edge_iterator find_edge(const gdt::key<key_type, data_type>* source,
+                        const gdt::key<key_type, data_type>* target,
+                        std::size_t occurrence = 0);
+edge_iterator edge_end();   // past-the-end sentinel returned when no match exists
+```
+
+```cpp
+gst::grove<gdt::interval, std::string, std::string> grove(100);
+
+auto* exon1 = grove.insert_data("chr1", gdt::interval{100, 200}, "exon1");
+auto* exon2 = grove.insert_data("chr1", gdt::interval{300, 400}, "exon2");
+grove.add_edge(exon1, exon2, "tx1");
+grove.add_edge(exon1, exon2, "tx2");   // parallel edge, different metadata
+
+auto& g = grove.graph();
+auto second = g.find_edge(exon1, exon2, 1);   // the "tx2" edge
+if (second != g.edge_end()) {
+    std::cout << second->metadata << "\n";    // tx2
+}
+```
+
+The iterator stays valid until that specific edge is erased; removing other edges does not
+invalidate it.
+
 ### Graph Statistics
 
-#### Counting outgoing edges (`out_degree`)
+#### Counting edges per key (`out_degree`, `in_degree`)
 
-The `out_degree` function returns the number of outgoing edges from a specific key.
+The `out_degree` function returns the number of outgoing edges from a specific key; `in_degree`
+returns the number of incoming edges to it.
 
 **Function Signature:**
 
 ```cpp
-size_t out_degree(const gdt::key<key_type, data_type>* source) const
+std::size_t out_degree(const gdt::key<key_type, data_type>* source) const
+std::size_t in_degree(const gdt::key<key_type, data_type>* target) const
 ```
 
 **Parameters:**
 
-- `source` - Pointer to the source key
+- `source` - Pointer to the source key (`target` for `in_degree`)
 
 **Return Value:**
 
-- Number of outgoing edges from the source key
+- Number of outgoing (resp. incoming) edges; `0` for a null pointer or a key with no edges
 
 **Example:**
 
@@ -473,6 +588,9 @@ grove.add_edge(tf, gene3);
 
 std::cout << "TF1 regulates " << grove.out_degree(tf) << " genes\n";
 // Output: TF1 regulates 3 genes
+
+std::cout << "Gene1 is regulated by " << grove.in_degree(gene1) << " factor(s)\n";
+// Output: Gene1 is regulated by 1 factor(s)
 ```
 
 **Example: Finding hub genes**
@@ -785,12 +903,17 @@ g.get_edge_list(a)        # [(b, {"type": "exon->transcript", "weight": 7})]
 - `get_edge_list(source: Key) -> list[tuple[Key, object]]` — the full outgoing
   edges as `(target, metadata)` pairs, pairing each neighbor with its payload in a
   single call.
+- `get_in_edges(target: Key) -> list` / `get_in_edge_list(target: Key) -> list[tuple[Key, object]]`
+  — the reverse of the two above: the payloads of `target`'s **incoming** edges, and
+  those edges as `(source, metadata)` pairs. Universal `Grove` / point groves only.
 
 ### Navigating neighbors
 
 ```python
 g.get_neighbors(a)                                 # [b]
 g.get_neighbors_if(a, lambda m: m["weight"] > 5)   # [b]
+g.get_in_neighbors(b)                              # [a]  — read the edge from b's side
+g.get_in_neighbors_if(b, lambda m: m["weight"] > 5) # [a]
 ```
 
 - `get_neighbors(source: Key) -> list[Key]` — the target keys directly reachable
@@ -799,6 +922,10 @@ g.get_neighbors_if(a, lambda m: m["weight"] > 5)   # [b]
   whose edge metadata satisfies `predicate(metadata)`. The predicate receives the
   **decoded** payload (edges with no payload yield `None`, so guard for it when
   mixing labelled and unlabelled edges).
+- `get_in_neighbors(target: Key) -> list[Key]` — the reverse: every key with an edge
+  pointing **at** `target`. Available on every grove.
+- `get_in_neighbors_if(target: Key, predicate) -> list[Key]` — incoming edges
+  filtered by `predicate(metadata)`. Universal `Grove` / point groves only.
 
 ### Removing edges
 
@@ -841,6 +968,7 @@ not need to call `remove_all_edges` before removing a key.
 
 ```python
 g.out_degree(a)               # outgoing edges from `a`
+g.in_degree(b)                # incoming edges to `b`
 g.edge_count()                # total edges in the overlay
 g.vertex_count_with_edges()   # keys with at least one outgoing edge
 g.graph_empty()               # False
@@ -849,6 +977,7 @@ g.graph_empty()               # True
 ```
 
 - `out_degree(source: Key) -> int` — number of outgoing edges from `source`.
+- `in_degree(target: Key) -> int` — number of incoming edges to `target`.
 - `edge_count() -> int` — total number of directed edges in the overlay.
 - `vertex_count_with_edges() -> int` — number of keys with at least one outgoing
   edge.

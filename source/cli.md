@@ -8,7 +8,7 @@ The genogrove command-line interface provides tools for indexing and querying ge
 
 ```bash
 genogrove --version
-# genogrove 0.25.5
+# genogrove 0.26.4
 ```
 
 **Invalid arguments** — an unrecognized flag, a non-integer value for an integer option (e.g. `-k foo`),
@@ -87,7 +87,9 @@ is touched — it can never leave a truncated index behind.
 
 `idx -l/--links FILE` attaches directed edges to the grove's `graph_overlay` from a name-keyed
 TSV. The edges are part of grove serialization, so a later `isec -i` against the resulting `.gg`
-sees them with no extra work.
+sees them with no extra work; [`isec --hops`](#following-index-links) follows them from each
+overlap. After writing the index, `idx` reports how many edges it attached
+(`Added N graph edges`).
 
 **Links file format** — a 2- or 3-column TSV:
 
@@ -136,9 +138,14 @@ build an index whose graph edges are visible through the library's graph accesso
 
 ```bash
 genogrove idx features.bed -l links.tsv -o features.gg
+# Index written to features.gg
+# Added 2 graph edges
 
 # The edges geneA → geneB and geneB → geneC travel with the .gg
 genogrove isec -q regions.bed -i features.gg
+
+# ... and can be followed from each overlap
+genogrove isec -q regions.bed -i features.gg --hops all
 ```
 
 **GFF/GTF input** — because GFF/GTF has no name column, name `--gff-name-tag` to select the
@@ -172,15 +179,19 @@ genogrove isec -q <queryfile> (-t <targetfile> | -i <indexfile>) [OPTIONS]
 **Options:**
 
 - `-q, --queryfile <file>`: Query BED, GFF/GTF, or VCF/BCF file (required). VCF/BCF is query-only — see [VCF/BCF queries](#vcf-bcf-queries)
-- `-t, --targetfile <file>`: Target BED or GFF/GTF file to build the grove from (one of `-t` / `-i` required)
-- `-i, --indexfile <file>`: Prebuilt `.gg` index to search against (one of `-t` / `-i` required)
+- `-t, --targetfile <file>`: Target BED or GFF/GTF file to build the grove from (exactly one of `-t` / `-i` required)
+- `-i, --indexfile <file>`: Prebuilt `.gg` index to search against (exactly one of `-t` / `-i` required)
 - `--in-place`: Query the prebuilt index (`-i`) on disk, reading only the blocks each query touches instead of loading the whole file into memory (requires `-i`)
 - `-o, --outputfile <file>`: Output destination (default: stdout)
-- `-k, --order <int>`: B+ tree order used when building from `-t` (default: 3, minimum: 3)
+- `-k, --order <int>`: B+ tree order of the tree built from `-t` (default: 3, minimum: 3; not allowed with `-i`)
+- `--hops <N|all>`: Follow the index's graph edges (from `idx --links`) from each overlapping interval up to `N` hops, or `all` for the whole connected component (default: `0` = off; requires `-i`) — see [Following index links](#following-index-links)
+- `--direction out|in|both`: Which edges `--hops` follows (default: `both`)
 
-Either `-t` or `-i` must be supplied — at least one is required. When both are given, `-i` takes
-precedence and `-t` is ignored. `-k` only affects the grove built from `-t`; an index loaded via
-`-i` keeps the order it was created with.
+Exactly one of `-t` / `-i` is required. Passing both is an error:
+`-t and -i are mutually exclusive; pass a target to build from or a prebuilt index to query`.
+`-k` applies only to the grove built from `-t`; passing it together with `-i` is an error
+(`-k/--order only applies when building from a target (-t); a prebuilt index (-i) keeps the order
+it was built with`).
 
 #### Cross-type queries
 
@@ -260,6 +271,53 @@ genogrove isec -q query.bed -i index.gg              # eager (default)
 genogrove isec -q query.bed -i index.gg --in-place   # partial read
 ```
 
+(following-index-links)=
+#### Following index links
+
+An index built with [`idx --links`](#links-attaching-graph-edges) carries directed graph edges.
+`--hops` makes `isec` follow them from every overlapping interval (the *seeds*) and report the
+intervals it reaches:
+
+- `--hops 0` (default) — plain overlap output, unchanged.
+- `--hops N` — follow up to `N` edges from each seed.
+- `--hops all` — report the seed's whole connected component.
+- `--direction out|in|both` — follow outgoing edges, incoming edges, or both (default `both`).
+
+The walk is a breadth-first search from all seeds of one query at once, so every reached interval
+is printed **once**, with its **minimum** hop count, under the seed that reached it first (ties go
+to the earlier seed). Seeds are hop 0 and are never listed as reached.
+
+**Output.** Each overlap row is followed by one row per interval reached from that seed:
+
+```text
+<query chrom> <query start> <query end> <TAB> <seed row> <TAB> <reached row> <TAB> <hops>
+```
+
+The query columns are 0-based half-open, like the BED-style payload rows; `<seed row>` and
+`<reached row>` are the target/index payload rows in the usual output format.
+
+```bash
+# Build an index with edges, then report everything within two hops of each overlap
+genogrove idx features.bed -l links.tsv -o features.gg
+genogrove isec -q regions.bed -i features.gg --hops 2
+
+# Only follow edges into the overlapping features
+genogrove isec -q regions.bed -i features.gg --hops all --direction in
+```
+
+**Errors and warnings:**
+
+- `--hops` with `-t` is an error (`--hops requires a prebuilt index (-i) built with 'idx --links'`)
+  — a target built on the fly has no links.
+- `--hops` on an eager `-i` index with zero edges is an error (`--hops requires an index built with
+  'idx --links' (no edges in <index>)`).
+- With `--in-place` the index cannot be checked for edges without reading every block, so a one-line
+  warning is printed to stderr and a link-less index simply yields no reached rows.
+- A `--hops` value that is neither a non-negative integer nor `all`, or a `--direction` other than
+  `out` / `in` / `both`, is an error.
+
+Works with both `-i` (eager) and `--in-place` (`grove_view`). Edge metadata is not filtered on.
+
 **Examples:**
 
 ```bash
@@ -302,7 +360,8 @@ Currently supported:
   `idx` links (`-l` with `--gff-name-tag`)
 - VCF/BCF format (`.vcf`, `.bcf`) — for `isec` query input only (`-q`); see
   [VCF/BCF queries](#vcf-bcf-queries)
-- `.gg` index files (produced by `idx`) — for the `isec -i` search target
+- `.gg` index files (produced by `idx`) — for the `isec -i` search target; edges attached with
+  `idx --links` can be followed with [`isec --hops`](#following-index-links)
 
 ```{note}
 The query type and the target/index type are independent — a BED query may run against a GFF index

@@ -83,7 +83,7 @@ my_grove.add_edge(key1, key2, 0.95);
 
 #### Parallel Edges (No Deduplication)
 
-`add_edge(source, target)` appends to the source's adjacency list **unconditionally** — there is no
+`add_edge(source, target)` records a new edge **unconditionally** — there is no
 deduplication. Calling it twice with the same `(source, target)` creates two **parallel** edges. This is
 intentional: parallel edges carrying distinct per-edge metadata are a legitimate use case.
 
@@ -525,6 +525,11 @@ int main() {
         std::cout << "Connected to: " << neighbor->get_data() << "\n";
     }
 
+    // Walk the same edges backwards (sources of incoming edges)
+    for (auto* source : my_grove.get_in_neighbors(exon2)) {
+        std::cout << "Reached from: " << source->get_data() << "\n";   // exon1
+    }
+
     // Get filtered neighbors (e.g., high confidence edges only)
     auto high_conf = my_grove.get_neighbors_if(exon1,
         [](double weight) { return weight > 0.9; });
@@ -536,6 +541,7 @@ int main() {
 
     // Get graph statistics
     std::cout << "Out-degree of exon1: " << my_grove.out_degree(exon1) << "\n";
+    std::cout << "In-degree of exon2: " << my_grove.in_degree(exon2) << "\n";
     std::cout << "Total edges in graph: " << my_grove.edge_count() << "\n";
     std::cout << "Vertices with edges: " << my_grove.vertex_count_with_edges() << "\n";
 
@@ -555,14 +561,21 @@ int main() {
 - `add_edge(source, target, metadata)` - Create edge with metadata
 - `remove_edge(source, target)` - Remove specific edge
 - `get_neighbors(source)` - Get all targets of outgoing edges
-- `get_neighbors_if(source, predicate)` - Get filtered neighbors
+- `get_in_neighbors(target)` - Get all sources of incoming edges (reverse of `get_neighbors`)
+- `get_neighbors_if(source, predicate)` / `get_in_neighbors_if(target, predicate)` - Get filtered neighbors in either direction
+- `get_edges(source)` / `get_in_edges(target)` - Edge metadata of outgoing / incoming edges
+- `get_edge_list(source)` / `get_in_edge_list(target)` - Full `edge` structs (source, target, metadata) in either direction
 - `has_edge(source, target)` - Check if edge exists
-- `out_degree(source)` - Count outgoing edges from a key
+- `out_degree(source)` / `in_degree(target)` - Count outgoing / incoming edges of a key
 - `edge_count()` - Total edges in the graph
 - `vertex_count()` - Total number of keys in the grove (indexed + external)
 - `indexed_vertex_count()` - Number of keys indexed in the B+ tree
 - `external_vertex_count()` - Number of graph-only keys
 - `clear_graph()` - Remove all edges (keeps keys in grove)
+
+Every edge is stored once and indexed under **both** of its endpoints, so the `get_in_*` /
+`in_degree` reverse accessors cost the same as their forward twins — no whole-graph scan and no
+hand-mirrored edges. See {doc}`graph_manipulation` for signatures and examples.
 
 ### Graph Overlay Without Metadata
 
@@ -668,7 +681,10 @@ g.out_degree(a)            # 1
   was removed.
 - `has_edge(source: Key, target: Key) -> bool` — test whether an edge exists.
 - `get_neighbors(source: Key) -> list[Key]` — keys directly reachable from `source`.
+- `get_in_neighbors(target: Key) -> list[Key]` — keys with an edge pointing **at**
+  `target` (the reverse of `get_neighbors`; no mirrored edge needed).
 - `out_degree(source: Key) -> int` — number of outgoing edges from `source`.
+- `in_degree(target: Key) -> int` — number of incoming edges to `target`.
 - `edge_count() -> int` — total edges in the overlay.
 - `vertex_count_with_edges() -> int` — keys with at least one outgoing edge.
 
@@ -719,8 +735,16 @@ g.get_neighbors_if(a, lambda m: m["weight"] > 5)  # [b]
   metadata satisfies `predicate(metadata)`. The predicate receives the **decoded**
   payload (edges added without a payload yield `None`, so guard for it when mixing
   labelled and unlabelled edges).
+- `get_in_edges(target: Key) -> list` / `get_in_neighbors_if(target: Key, predicate) -> list[Key]`
+  — the same two reads over `target`'s **incoming** edges (see {doc}`graph_manipulation`).
 - `link_with(keys: list[Key], predicate)` — label adjacent pairs: `predicate(k1, k2)`
-  returns the edge payload to attach, or `None` to skip.
+  returns the edge payload to attach, or `None` to skip. Like `link_if`, raises
+  `TypeError` if `keys` contains `None`.
+
+:::{note}
+Edge payloads follow the same rule as key payloads: they must be finite JSON. A payload containing
+`float('nan')`, `float('inf')` or `float('-inf')` at any nesting depth raises `ValueError`.
+:::
 
 A canonical example is labelling exon→transcript edges with their intron gaps via
 `link_with` over a chromosome's exon keys.

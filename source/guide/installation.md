@@ -201,7 +201,8 @@ Once installed, proceed to the next sections of the user guide to learn how to u
 pip install pygenogrove
 ```
 
-Building from source requires a C++20 compiler, CMake 3.15+, and Python 3.8+:
+Wheels are published for Python 3.10–3.14 (3.9 is end-of-life and no longer built). Building from
+source requires a C++20 compiler, CMake 3.15+, and Python 3.10+:
 
 ```bash
 git clone --recursive https://github.com/genogrove/pygenogrove.git

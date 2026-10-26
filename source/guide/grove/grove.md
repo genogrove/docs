@@ -78,6 +78,20 @@ struct CustomInterval {
 gst::grove<CustomInterval, std::string> my_grove(100);
 ```
 
+The `grove` and `node` class templates constrain `key_type` with the concept directly
+(`template <gdt::key_type_base key_type, ...>`), so a type missing one of the six operations fails
+at your `grove<my_type>` line, with the compiler reporting that the constraints of `grove` are not
+satisfied and naming `key_type_base` and the missing operation (e.g. the `T::aggregate(a, b)`
+requirement).
+
+`std::hash` is **not** part of `key_type_base`. You only need a `std::hash<CustomInterval>`
+specialization if you put the type in a `registry` (whose `registry_value` concept requires it) or in
+an unordered container. The built-in `genomic_coordinate`, `numeric` and `kmer` ship one; `interval`
+does not.
+
+For persistence the type additionally needs `serialize` / `deserialize` — see the
+{doc}`serialization guide </guide/serialization>`.
+
 ### Creating a Grove
 
 Create a grove with specified template parameters and tree order:
@@ -388,14 +402,14 @@ std::cout << "Live indexed keys: "   << my_grove.indexed_vertex_count() << "\n";
 std::cout << "Deque slots in use: "  << my_grove.key_storage_size()     << "\n";
 
 if (my_grove.key_storage_size() > 2 * my_grove.indexed_vertex_count()) {
-    my_grove.compact();   // O(N + E); rebuilds key_storage, rewrites graph adjacency
+    my_grove.compact();   // O(N + E); rebuilds key_storage, remaps graph edges
 }
 ```
 
 **Behaviour:**
 
 - **O(N + E)** — single pre-order walk of every tree to migrate keys + a single pass over the
-  graph adjacency map to remap pointers.
+  graph's edge list to remap source/target pointers (the per-key edge index is rebuilt afterwards).
 - **Invalidates every indexed-key pointer** previously returned by `insert_data()`, query
   results, or `get_neighbors()`. Callers must rediscover keys via queries after compaction.
 - **External keys are unaffected.** Pointers returned by `add_external_key()` and any graph
@@ -585,6 +599,13 @@ The universal `Grove` is `grove<genomic_coordinate, json>`: a B+ tree keyed by
 (dict / list / scalar / `None`) per key. Each key may carry a **different** shape —
 no schema is enforced.
 
+:::{note}
+Payloads must be **finite** JSON. A payload containing `float('nan')`, `float('inf')` or
+`float('-inf')` — at any nesting depth — raises `ValueError` at insert time rather than writing the
+non-standard `NaN` / `Infinity` tokens. The same rule applies to edge metadata and to `Registry`
+payloads, which share the JSON encoder. Values are encoded with `json.dumps` semantics.
+:::
+
 ```python
 Grove(order: int = 3)
 ```
@@ -631,6 +652,11 @@ inserts and yielded by query results, and it keeps its owning `Grove` alive.
   corrupt ordering).
 - `data` — the payload. On the universal `Grove` this is the JSON value you
   stored, returned as a freshly decoded copy on each access.
+
+`Key` supports `==`, `<`, `>` and `hash()`, delegating to `value` and ignoring `.data` —
+two `Key`s with equal coordinates compare and hash equal even if they come from different
+`Grove`s or carry different payloads, so a `set` / `dict` of keys deduplicates by coordinate.
+`repr(key)` shows the class name plus the coordinate, e.g. `Key(+:100-200)`.
 
 :::{note}
 `Key` objects are only valid while their owning `Grove` is alive. The bindings
@@ -746,7 +772,7 @@ Two additional groves keyed by the point types `Numeric` and `Kmer` (see the
 - `KmerGrove` = `grove<kmer, json, json>` — a k-mer membership dictionary.
 
 Both expose the **same surface** as the universal `Grove`: optional JSON payload
-(insert without data → `None`), labelled graph edges, `.gg` serialization, plus
+(insert without data → `None`; must be finite — NaN/Infinity raise `ValueError`), labelled graph edges, `.gg` serialization, plus
 `NumericKey`/`KmerKey`, `NumericQueryResult`/`KmerQueryResult`, etc.
 
 ```python

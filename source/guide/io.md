@@ -44,8 +44,8 @@ Genogrove can automatically detect file types and compression formats:
 namespace gio = genogrove::io;
 
 int main() {
-    gio::filetype_detector detector;
-    auto [filetype, compression] = detector.detect_filetype("data.bed.gz");
+    // detect_filetype is static — no detector object needed
+    auto [filetype, compression] = gio::filetype_detector::detect_filetype("data.bed.gz");
 
     // filetype will be gio::filetype::BED
     // compression will be gio::compression_type::GZIP
@@ -53,6 +53,9 @@ int main() {
     return 0;
 }
 ```
+
+`filetype_detector` holds no state, so both detection functions are `static`. The older object
+form (`gio::filetype_detector detector; detector.detect_filetype(...)`) still compiles.
 
 **Supported File Types:**
 
@@ -1001,6 +1004,9 @@ BamReader(path, skip_unmapped=True, skip_secondary=False,
 - **`SamEntry.to_dict()`** is a convenient JSON payload of the core fields.
 - **`SamFlags`** exposes the standard FLAG bit constants; **`AlignmentFlags`** (the
   `.flags` object) has `value()` plus the same `is_*()` predicates.
+- Also: `get_header()` (the raw SAM header text), `get_reference_names()` (reference sequence
+  names from the header), `get_error_message()`, `get_current_line()` — mirroring
+  `VcfReader.get_header()` / `get_contigs()`.
 
 :::{note}
 CIGAR element detail (the op/length list), paired-end mate info, auxiliary tags,
@@ -1163,11 +1169,12 @@ annotation or call set stay fast instead of scanning the entire file.
 ```python
 import pygenogrove as pg
 
-ftype, comp = pg.FiletypeDetector().detect_filetype("peaks.bed.gz")
+ftype, comp = pg.FiletypeDetector.detect_filetype("peaks.bed.gz")
 # (Filetype.BED, CompressionType.GZIP)
 ```
 
-- `detect_filetype(path) -> (Filetype, CompressionType)`
+- `detect_filetype(path) -> (Filetype, CompressionType)` — a `staticmethod`; call it on the class
+  (an instance call still works).
 - `Filetype`: `BED` / `BEDGRAPH` / `GFF` / `GTF` / `VCF` / `SAM` / `BAM` /
   `FASTA` / `FASTQ` / `GG` / `UNKNOWN`. (`Filetype.VCF` is recognized for VCF/BCF
   inputs consumed by `VcfReader`.)
