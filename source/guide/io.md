@@ -69,13 +69,12 @@ form (`gio::filetype_detector detector; detector.detect_filetype(...)`) still co
 - VCF (Variant Call Format)
 - GG (Genogrove native format)
 
-**Supported Compression Formats:**
+**Compression:**
 
-- GZIP (.gz, including BGZF)
-- BZIP2 (.bz2)
-- XZ (.xz, LZMA)
-- ZSTD (.zst)
-- LZ4 (.lz4)
+The readers open **plain** and **gzip / BGZF** (`.gz`) files; nothing else is decompressed. The
+detector additionally *recognizes* BZIP2 (`.bz2`), XZ (`.xz`), ZSTD (`.zst`) and LZ4 (`.lz4`) and
+reports them as a `compression_type`, so a caller can give a clear error or decompress first —
+but passing such a file to a reader fails to open.
 
 For `bed_reader` and `gff_reader`, both BGZF (block-gzip, `bgzip`) and plain gzip
 (`gzip`) compressed inputs are accepted with the `.gz` extension — internally they
