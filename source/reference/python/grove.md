@@ -2,7 +2,7 @@
 
 The universal `Grove` (`grove<genomic_coordinate, json>`) and the point-key
 groves `NumericGrove` / `KmerGrove`, together with the key and result wrappers
-they return. See the {doc}`User Guide </guide/grove/grove>` for the conceptual
+they return. See the {doc}`User Guide </guide/grove/index>` for the conceptual
 model, insertion modes, and the graph overlay.
 
 ## Groves

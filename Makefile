@@ -39,8 +39,12 @@ doxygen:
 	doxygen Doxyfile
 	@echo "Doxygen XML generated in $(DOXYGENDIR)/xml/"
 
-# Build HTML documentation (runs update-repos and doxygen first)
-html: update-repos doxygen
+# Check that every guide tab-set has a C++ and a Python tab (see tools/check_tab_parity.py)
+check-tabs:
+	python3 tools/check_tab_parity.py $(SOURCEDIR)
+
+# Build HTML documentation (runs update-repos, doxygen and check-tabs first)
+html: update-repos doxygen check-tabs
 	@echo "Building HTML documentation..."
 	$(SPHINXBUILD) -b html $(SOURCEDIR) $(BUILDDIR)/html $(SPHINXOPTS)
 	@echo

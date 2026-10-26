@@ -179,7 +179,7 @@ int main() {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The schemaless {doc}`./grove` is the everyday tool. The **typed** groves
+The schemaless {doc}`./index` is the everyday tool. The **typed** groves
 `BedGrove` (`grove<genomic_coordinate, bed_entry>`) and `GffGrove`
 (`grove<genomic_coordinate, gff_entry>`) are the alternative for when you want a
 **guaranteed BED/GFF schema** and full interop with typed C++ `.gg` files: instead
