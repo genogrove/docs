@@ -13,7 +13,7 @@ The **C++** tabs document **genogrove {{ cpp_version }}** (the core library). Th
 Before starting, ensure you have:
 
 - Installed genogrove or pygenogrove (see {doc}`guide/installation`)
-- For C++: a C++20 compatible compiler (GCC 13+, Clang 16+, Apple Clang 15+). For Python: Python 3.10+ and `pip install pygenogrove`, nothing else.
+- For C++: a C++20 compatible compiler (GCC 13+, Clang 16+, Apple Clang 15+). For Python: Python 3.10–3.14 and `pip install pygenogrove`; the published wheels need no compiler or htslib (a source build does — see the installation page).
 - Basic familiarity with genomic file formats (BED, GFF/GTF)
 
 ## Guide Contents

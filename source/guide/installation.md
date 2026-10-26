@@ -140,7 +140,7 @@ Compile and run, using the same include path and libraries as in
 
 ```bash
 g++ -std=c++20 -I/path/to/genogrove/include test.cpp \
-    -L/path/to/genogrove/build -lgenogrove -lhts -lz -o test
+    -L/path/to/genogrove/build -lgenogrove -lhts -lz -lpthread -o test   # drop -lpthread on macOS
 ./test
 # Output: Genogrove is working! Interval: [100, 200]
 ```
