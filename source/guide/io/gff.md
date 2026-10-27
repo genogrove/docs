@@ -1,6 +1,6 @@
 # GFF3 / GTF Files
 
-GFF3 and GTF files hold gene annotations. One reader handles both: it detects the dialect from the
+GFF3 and GTF files hold gene annotations. One reader handles both: it detects the format from the
 attribute column (`key=value` for GFF3, `key "value"` for GTF). Coordinates are **1-based closed**
 `[start, end]`; convert with `start - 1`, `end - 1` for a grove key (see {doc}`index`).
 
@@ -86,8 +86,16 @@ GffReader(path: str, skip_invalid_lines: bool = False, validate_gtf: bool = Fals
 | `attributes` | `std::map<std::string, std::string, std::less<>>` | 9 |
 | `format` | `gff_format::GFF3` / `GTF` / `UNKNOWN` | — |
 
-`gff_entry` has `serialize` / `deserialize` members, so a `grove<gdt::interval, gio::gff_entry>` can
-be persisted directly — this is what the CLI's `idx` writes for GFF input.
+Methods:
+
+- `is_gtf()`, `is_gff3()` — the detected format
+- `get_attribute(key)` and the named attribute helpers — see [Attributes](#attributes)
+- `serialize(os)`, `static deserialize(is)` — binary persistence, so a
+  `grove<gdt::interval, gio::gff_entry>` can be saved directly (this is what the CLI's `idx` writes
+  for GFF input)
+
+There is no coordinate helper on the C++ record; build the grove key with
+`gdt::interval(e.start - 1, e.end - 1)`.
 
 ::::
 
@@ -108,8 +116,15 @@ be persisted directly — this is what the CLI's `idx` writes for GFF input.
 | `attributes` | `dict[str, str]` (returned and assigned by copy) | 9 |
 | `format` | `GffFormat.GFF3` / `GTF` / `UNKNOWN` | — |
 
-Records can be built by hand (`GffEntry(seqid, start, end, type)`). `GffEntry` is the payload type
-of `GffGrove` (see {doc}`/guide/grove/loading_data`).
+Constructors: `GffEntry()` and `GffEntry(seqid, start, end, type)`. `repr(entry)` shows the record.
+
+Methods:
+
+- `is_gtf()`, `is_gff3()` — the detected format
+- `get_attribute(key)` and the named attribute helpers — see [Attributes](#attributes)
+
+There is no `to_coordinate()` on `GffEntry`: `GffGrove.insert(index, entry)` derives the grove key
+from the record (see {doc}`/guide/grove/loading_data`).
 
 ::::
 
@@ -141,8 +156,6 @@ if (auto it = entry.attributes.find("ID"); it != entry.attributes.end()) {   // 
 }
 ```
 
-`is_gtf()` / `is_gff3()` report the detected dialect.
-
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -160,8 +173,6 @@ if (auto it = entry.attributes.find("ID"); it != entry.attributes.end()) {   // 
 ```python
 entry.attributes.get("ID")        # direct dict access (a copy of the map)
 ```
-
-`is_gtf()` / `is_gff3()` report the detected dialect.
 
 ::::
 

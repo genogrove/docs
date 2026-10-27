@@ -6,6 +6,11 @@ Rules (see guide/grove/index.md for the layout):
   2. In pages converted to the per-section layout, Markdown headings must live outside the tabs
      (section heading, then one tab-set per section).
 
+Convention (not machine-checked): a section that documents a class gives its field table and then a
+"Methods:" list of that class's own helpers (e.g. SamEntry.to_coordinate()) in each tab where the
+class has any. A class without methods gets no list; if the other language's class has a helper the
+reader might look for (e.g. to_coordinate()), say in one sentence what to use instead.
+
 Usage: python3 tools/check_tab_parity.py [source_dir]   -> exit 1 on any violation
 """
 import re

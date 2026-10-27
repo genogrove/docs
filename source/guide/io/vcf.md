@@ -91,8 +91,18 @@ VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False, region
 | `format` | `std::vector<std::string>` FORMAT keys in column order |
 | `samples` | `std::vector<sample_genotype>`, parallel to `get_sample_names()` |
 
-Predicates: `passed_filter()`, `is_snp()`, `is_indel()`, static `is_symbolic_allele(allele)`.
-Symbolic alleles are excluded from `is_snp()` / `is_indel()`.
+Methods:
+
+- `passed_filter()` — `true` if FILTER is `PASS` or `.`
+- `is_snp()` — single-base REF and exactly **one** single-base, non-symbolic ALT (a multi-allelic
+  record such as `A → C,G` is not a SNP)
+- `is_indel()` — at least one non-symbolic ALT whose length differs from REF
+- `static is_symbolic_allele(allele)` — `true` for anything that is not a plain base sequence:
+  `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation containing `[` or
+  `]`, and the empty string; such alleles are excluded from `is_snp()` / `is_indel()`
+
+There is no coordinate helper on the C++ record; build the grove key with
+`gdt::interval(v.start, v.end - 1)`.
 
 ```cpp
 if (auto it = v.info.find("DP"); it != v.info.end()) {
@@ -122,9 +132,21 @@ if (auto it = v.info.find("DP"); it != v.info.end()) {
 | `format` | `list[str]` FORMAT keys in column order |
 | `samples` | `list[SampleGenotype]`, parallel to `get_sample_names()` |
 
-Predicates: `passed_filter()`, `is_snp()`, `is_indel()`, static `is_symbolic_allele(allele)`.
-Symbolic alleles are excluded from `is_snp()` / `is_indel()`. `info`, `format`, `alt`, `filter` and
-`samples` are returned as fresh copies on each access.
+Methods:
+
+- `passed_filter()` — `True` if FILTER is `PASS` or `.`
+- `is_snp()` — single-base REF and exactly **one** single-base, non-symbolic ALT (a multi-allelic
+  record such as `A → C,G` is not a SNP)
+- `is_indel()` — at least one non-symbolic ALT whose length differs from REF
+- `VcfEntry.is_symbolic_allele(allele)` — static; `True` for anything that is not a plain base
+  sequence: `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation containing
+  `[` or `]`, and the empty string; such alleles are excluded from `is_snp()` / `is_indel()`
+- `to_coordinate()` — the grove key as an unstranded `GenomicCoordinate('.', start, end - 1)`
+  (0-based closed); raises `ValueError` for a record that spans no reference bases
+  (`end <= start`)
+- `to_dict()` — the record's core fields as a JSON-ready `dict`, for use as a `Grove` payload
+
+`info`, `format`, `alt`, `filter` and `samples` are returned as fresh copies on each access.
 
 ```python
 v.info.get("DP")        # e.g. [37]
@@ -146,9 +168,16 @@ Each element of `samples` decodes one sample's FORMAT column.
 `gio::sample_genotype`: `gt_alleles` (`std::vector<int32_t>`; `0` = REF, `1..` = ALT index,
 `-1` = missing), `phased` (`|` separator), `has_gt`, `fields` (`std::unordered_map<std::string,
 vcf_format_value>` for everything except GT; `vcf_format_value` is a
-`std::variant<std::vector<int32_t>, std::vector<float>, std::string>`). Helpers
-`gt_string()` (`"0/1"`, `"0|1"`, `"./."`) and `is_hom_ref()`. Ragged numeric fields are trimmed of
-htslib's vector-end padding.
+`std::variant<std::vector<int32_t>, std::vector<float>, std::string>`). Ragged numeric fields are
+trimmed of htslib's vector-end padding.
+
+Methods:
+
+- `gt_string()` — the genotype rebuilt from `gt_alleles` and `phased`: `"0/1"`, `"0|1"`, `"./."`.
+  One phasing flag covers the whole genotype, so a mixed-phase genotype like `0|1/2` comes back
+  with a single separator; empty string when the sample has no GT
+- `is_hom_ref()` — `true` only when GT is present and **every** allele is `0`; a missing allele
+  (`./0`, `./.`) makes it `false`
 
 ::::
 
@@ -156,8 +185,15 @@ htslib's vector-end padding.
 :sync: py
 
 `SampleGenotype`: `gt_alleles` (`list[int]`; `0` = REF, `1..` = ALT index, `-1` = missing),
-`phased`, `has_gt`, `fields` (`dict` of the other FORMAT keys). Helpers `gt_string()` (`"0/1"`,
-`"0|1"`, `"./."`) and `is_hom_ref()`.
+`phased`, `has_gt`, `fields` (`dict` of the other FORMAT keys).
+
+Methods:
+
+- `gt_string()` — the genotype rebuilt from `gt_alleles` and `phased`: `"0/1"`, `"0|1"`, `"./."`.
+  One phasing flag covers the whole genotype, so a mixed-phase genotype like `0|1/2` comes back
+  with a single separator; empty string when the sample has no GT
+- `is_hom_ref()` — `True` only when GT is present and **every** allele is `0`; a missing allele
+  (`./0`, `./.`) makes it `False`
 
 ::::
 
@@ -212,8 +248,8 @@ for (const auto& v : gio::vcf_reader("calls.vcf.gz", {.skip_filtered = true})) {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-There is no typed VCF grove (`VcfEntry` is not serializable); load into the universal `Grove` through
-`to_coordinate()` (an unstranded `GenomicCoordinate`) and `to_dict()`:
+There is no typed VCF grove (`VcfEntry` is not serializable); load into the universal `Grove` with
+the record's `to_coordinate()` and `to_dict()`:
 
 ```python
 g = pg.Grove(100)
