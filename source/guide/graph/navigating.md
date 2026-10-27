@@ -77,16 +77,15 @@ Three views of the same edges: the metadata alone, the metadata paired with the 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Available when `edge_data_type` is not `void`:
-
 ```cpp
-std::vector<M>    get_edges(const key* source) const;         // metadata of outgoing edges
-std::vector<M>    get_in_edges(const key* target) const;      // metadata of incoming edges
-std::vector<edge> get_edge_list(const key* source) const;     // full outgoing edges
-std::vector<edge> get_in_edge_list(const key* target) const;  // full incoming edges
+std::vector<M>    get_edges(const key* source) const;         // metadata of outgoing edges   (edge_data_type != void)
+std::vector<M>    get_in_edges(const key* target) const;      // metadata of incoming edges   (edge_data_type != void)
+std::vector<edge> get_edge_list(const key* source) const;     // full outgoing edges          (always)
+std::vector<edge> get_in_edge_list(const key* target) const;  // full incoming edges          (always)
 ```
 
-`edge` has three fields: `source`, `target` and `metadata`. The lists are returned **by value**.
+`edge` has three fields: `source`, `target` and `metadata`; on a plain-edge grove (`void` edge type)
+`metadata` is `std::monostate`. The lists are returned **by value**.
 
 ```cpp
 g.get_edges(enh1);                 // {0.9}
@@ -150,15 +149,16 @@ auto* gene1 = g.insert_data("chr1", gdt::interval{1000, 2000}, "GeneA");
 auto* gene2 = g.insert_data("chr1", gdt::interval{10000, 11000}, "GeneB");
 auto* gene3 = g.insert_data("chr1", gdt::interval{50000, 51000}, "GeneC");
 
-// Caller computes the gap and stores it as the edge's metadata
+// Caller computes the gap (bases strictly between two closed intervals)
+// and stores it as the edge's metadata
 auto gap = [](const auto* a, const auto* b) {
-    return b->get_value().get_start() - a->get_value().get_end();
+    return b->get_value().get_start() - a->get_value().get_end() - 1;
 };
-g.add_edge(gene1, gene2, gap(gene1, gene2));   // edge gene1 -> gene2 stores 8000
-g.add_edge(gene1, gene3, gap(gene1, gene3));   // edge gene1 -> gene3 stores 48000
+g.add_edge(gene1, gene2, gap(gene1, gene2));   // edge gene1 -> gene2 stores 7999
+g.add_edge(gene1, gene3, gap(gene1, gene3));   // edge gene1 -> gene3 stores 47999
 
 // The predicate is called once per outgoing edge of gene1 with that edge's
-// metadata (8000, then 48000); targets of accepted edges are returned.
+// metadata (7999, then 47999); targets of accepted edges are returned.
 auto nearby = g.get_neighbors_if(gene1,
     [](size_t distance) { return distance <= 10000; });          // {gene2}
 
@@ -181,12 +181,13 @@ gene1 = g.insert("chr1", pg.GenomicCoordinate("+", 1000, 2000), "GeneA")
 gene2 = g.insert("chr1", pg.GenomicCoordinate("+", 10000, 11000), "GeneB")
 gene3 = g.insert("chr1", pg.GenomicCoordinate("+", 50000, 51000), "GeneC")
 
-# Caller computes the gap and stores it as the edge's payload
+# Caller computes the gap (bases strictly between two closed intervals)
+# and stores it as the edge's payload
 def gap(a, b):
-    return b.value.start - a.value.end
+    return b.value.start - a.value.end - 1
 
-g.add_edge(gene1, gene2, {"distance": gap(gene1, gene2)})   # stores 8000
-g.add_edge(gene1, gene3, {"distance": gap(gene1, gene3)})   # stores 48000
+g.add_edge(gene1, gene2, {"distance": gap(gene1, gene2)})   # stores 7999
+g.add_edge(gene1, gene3, {"distance": gap(gene1, gene3)})   # stores 47999
 
 # The predicate is called once per outgoing edge of gene1 with that edge's
 # payload; targets of accepted edges are returned.

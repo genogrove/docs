@@ -51,7 +51,8 @@ With parallel edges, `remove_edge` removes the first matching `source → target
 ## Removing many edges
 
 Each of these returns the number of edges removed. Every edge is indexed under both of its
-endpoints, so removing by endpoint costs O(degree of that key), not a scan of the whole graph.
+endpoints in one per-key bucket, so removing by endpoint costs O(in-degree + out-degree of that
+key) — the bucket is scanned once — not a scan of the whole graph.
 
 :::::{tab-set}
 
@@ -59,9 +60,9 @@ endpoints, so removing by endpoint costs O(degree of that key), not a scan of th
 :sync: cpp
 
 ```cpp
-size_t remove_edges_from(key* source);   // all outgoing edges of source   — O(out-degree)
-size_t remove_edges_to(key* target);     // all incoming edges of target   — O(in-degree)
-size_t remove_all_edges(key* key);       // both directions
+size_t remove_edges_from(key* source);   // all outgoing edges of source   — O(degree of source)
+size_t remove_edges_to(key* target);     // all incoming edges of target   — O(degree of target)
+size_t remove_all_edges(key* key);       // both directions                — O(degree of key)
 size_t remove_edges_if(Predicate p);     // every edge e with p(const edge& e) == true — O(E)
 ```
 
@@ -81,9 +82,9 @@ must satisfy `std::predicate<Predicate, const edge&>`.
 :sync: py
 
 ```python
-remove_edges_from(source: Key) -> int    # all outgoing edges of source   — O(out-degree)
-remove_edges_to(target: Key) -> int      # all incoming edges of target   — O(in-degree)
-remove_all_edges(key: Key) -> int        # both directions
+remove_edges_from(source: Key) -> int    # all outgoing edges of source   — O(degree of source)
+remove_edges_to(target: Key) -> int      # all incoming edges of target   — O(degree of target)
+remove_all_edges(key: Key) -> int        # both directions                — O(degree of key)
 remove_edges_if(predicate) -> int        # every edge the predicate accepts — O(E)
 ```
 

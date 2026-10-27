@@ -102,9 +102,13 @@ weighted.add_edge(a, b, 0.95);          // a -> b with weight 0.95
 weighted.get_edges(a);                  // {0.95}
 ```
 
-The metadata-dependent accessors (`get_edges`, `get_neighbors_if`, `get_edge_list` and their
-`get_in_*` twins) exist only when the edge type is not `void`. For several metadata shapes in one
-grove use a `std::variant` as the edge type.
+The metadata-dependent accessors (`get_edges`, `get_neighbors_if` and their `get_in_*` twins) exist
+only when the edge type is not `void`; `get_edge_list` / `get_in_edge_list` always exist, with the
+`metadata` field being `std::monostate` on plain-edge groves. For several metadata shapes in one
+grove use a `std::variant` as the edge type — but note that the default serializer handles only
+trivially copyable types and `std::string`, so a grove with a `std::variant` edge type (or any other
+non-trivial metadata) needs a `serialization_traits` specialization before it can be saved (see the
+{doc}`serialization guide </guide/serialization>`).
 
 ::::
 
@@ -149,6 +153,10 @@ transcripts can share an exon pair with different metadata. If you do not want d
 :sync: cpp
 
 ```cpp
+gst::grove<gdt::interval, std::string> g(100);
+auto* a = g.insert_data("chr1", gdt::interval{100, 200}, "A");
+auto* b = g.insert_data("chr1", gdt::interval{300, 400}, "B");
+
 g.add_edge(a, b);
 g.add_edge(a, b);            // second, parallel edge
 
@@ -165,6 +173,10 @@ Both edges are serialized. A null `source` or `target` throws `std::invalid_argu
 :sync: py
 
 ```python
+g = pg.Grove(100)
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "A")
+b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "B")
+
 g.add_edge(a, b)
 g.add_edge(a, b)             # second, parallel edge
 

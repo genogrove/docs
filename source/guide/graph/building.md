@@ -135,7 +135,10 @@ gst::grove<gdt::interval, std::string, double> w(100);
 auto keys = w.insert_data("chr1", data, gst::sorted, gst::bulk);
 
 w.link_if(keys, [](auto* k1, auto* k2) -> std::optional<double> {
-    size_t intron = k2->get_value().get_start() - k1->get_value().get_end();
+    auto start = k2->get_value().get_start();
+    auto end   = k1->get_value().get_end();
+    if (start <= end) return std::nullopt;            // overlapping or touching: no intron
+    size_t intron = start - end - 1;                  // bases strictly between the closed intervals
     if (intron < 100000) return static_cast<double>(intron);
     return std::nullopt;
 });
@@ -159,8 +162,8 @@ g.link_if(exons, lambda k1, k2: k1.data["tx"] == k2.data["tx"])
 
 # Labelled edges: store the intron length, skip implausibly long gaps
 def intron(k1, k2):
-    gap = k2.value.start - k1.value.end
-    return {"intron": gap} if gap < 100_000 else None     # None = no edge
+    gap = k2.value.start - k1.value.end - 1               # bases strictly between the closed intervals
+    return {"intron": gap} if 0 <= gap < 100_000 else None   # None = no edge (also for overlaps)
 
 g.link_with(exons, intron)
 ```
