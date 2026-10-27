@@ -87,7 +87,7 @@ VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False, region
 | `alt` | `std::vector<std::string>`; empty for `ALT=.`; symbolic alleles (`<*>`, `<NON_REF>`, `*`) kept verbatim |
 | `qual`, `qual_missing` | `float`, and `true` when QUAL is `.` |
 | `filter` | `std::vector<std::string>`; `{"PASS"}` when passed, empty for `.` |
-| `info` | `vcf_info` = `std::unordered_map<std::string, vcf_info_value>` (a `std::variant` over Flag `bool`, Int, Float, String) |
+| `info` | `vcf_info` = `std::unordered_map<std::string, vcf_info_value>`; the value is a `std::variant<bool, std::vector<int32_t>, std::vector<float>, std::string>` (Flag, Integer, Float, String — numeric fields are always vectors, even single values) |
 | `format` | `std::vector<std::string>` FORMAT keys in column order |
 | `samples` | `std::vector<sample_genotype>`, parallel to `get_sample_names()` |
 
@@ -96,7 +96,9 @@ Symbolic alleles are excluded from `is_snp()` / `is_indel()`.
 
 ```cpp
 if (auto it = v.info.find("DP"); it != v.info.end()) {
-    if (auto* dp = std::get_if<int>(&it->second)) std::cout << "depth " << *dp << "\n";
+    if (auto* dp = std::get_if<std::vector<int32_t>>(&it->second); dp && !dp->empty()) {
+        std::cout << "depth " << (*dp)[0] << "\n";
+    }
 }
 ```
 
@@ -143,7 +145,8 @@ Each element of `samples` decodes one sample's FORMAT column.
 
 `gio::sample_genotype`: `gt_alleles` (`std::vector<int32_t>`; `0` = REF, `1..` = ALT index,
 `-1` = missing), `phased` (`|` separator), `has_gt`, `fields` (`std::unordered_map<std::string,
-vcf_format_value>` for everything except GT; the variant covers Int, Float, String). Helpers
+vcf_format_value>` for everything except GT; `vcf_format_value` is a
+`std::variant<std::vector<int32_t>, std::vector<float>, std::string>`). Helpers
 `gt_string()` (`"0/1"`, `"0|1"`, `"./."`) and `is_hom_ref()`. Ragged numeric fields are trimmed of
 htslib's vector-end padding.
 

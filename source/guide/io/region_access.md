@@ -13,16 +13,22 @@ A per-locus lookup is O(records in the region), not O(file).
 :sync: cpp
 
 ```cpp
+#include <genogrove/io/bed_reader.hpp>
 #include <genogrove/io/gff_reader.hpp>
+#include <genogrove/io/vcf_reader.hpp>
+#include <iostream>
 
 namespace gio = genogrove::io;
 
 // Only records overlapping the EGFR locus
-gio::gff_reader r("genes.gff3.gz", {.region = "chr7:55000000-55300000"});
-for (const auto& e : r) { /* ... */ }
+gio::gff_reader genes("genes.gff3.gz", {.region = "chr7:55000000-55300000"});
+for (const auto& e : genes) {
+    std::cout << e.type << " " << e.start << "-" << e.end << "\n";
+}
 
-gio::bed_reader b("peaks.bed.gz", {.region = "chr1:1-1000000"});
-gio::vcf_reader v("calls.vcf.gz", {.region = "chr1:1-1000000"});
+// Same option on the other two readers
+gio::bed_reader peaks("peaks.bed.gz", {.region = "chr1:1-1000000"});
+gio::vcf_reader calls("calls.vcf.gz", {.region = "chr1:1-1000000"});
 ```
 
 An empty `region` (the default) streams the whole file.
@@ -67,16 +73,31 @@ Region access needs a block-compressed, indexed input:
 
 A plain, plain-gzip or unindexed file, an invalid region, or an unknown sequence name fails at
 construction. Files distributed as plain gzip (e.g. a downloaded GENCODE `.gff3.gz`) are **not**
-bgzip and must be recompressed and indexed first:
+bgzip and must be prepared first.
+
+The tools for that come with the same libraries genogrove uses: `bgzip` and `tabix` ship with
+[htslib](https://www.htslib.org/) (`conda install -c bioconda htslib`, `apt install tabix`, or
+`brew install htslib`), and `bcftools` is the companion package for VCF/BCF
+(`conda install -c bioconda bcftools`, `apt install bcftools`, `brew install bcftools`). Both
+indexers require the records to be **sorted** by sequence name and then start position, so sort
+before compressing:
 
 ```bash
-# BED / GFF
-bgzip annotations.gff3                 # -> annotations.gff3.gz (bgzip)
-tabix -p gff annotations.gff3.gz       # -> annotations.gff3.gz.tbi
+# BED: sort, block-compress, index
+sort -k1,1 -k2,2n peaks.bed | bgzip > peaks.bed.gz
+tabix -p bed peaks.bed.gz                                    # writes peaks.bed.gz.tbi
 
-# VCF / BCF
-bgzip calls.vcf && tabix -p vcf calls.vcf.gz   # .tbi (or tabix -C for .csi)
-bcftools index calls.bcf                        # .csi for a BCF
+# GFF / GTF: same, dropping the comment lines first
+zcat annotations.gff3.gz | grep -v '^#' | sort -k1,1 -k4,4n | bgzip > annotations.sorted.gff3.gz
+tabix -p gff annotations.sorted.gff3.gz                      # writes .tbi
+
+# VCF: bcftools sorts and compresses in one step, then index
+bcftools sort calls.vcf -Oz -o calls.vcf.gz
+tabix -p vcf calls.vcf.gz                                    # writes .tbi (tabix -C for .csi)
+
+# BCF: sort, then index (always .csi)
+bcftools sort calls.bcf -Ob -o calls.sorted.bcf
+bcftools index calls.sorted.bcf
 ```
 
 :::::{tab-set}

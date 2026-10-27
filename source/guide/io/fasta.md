@@ -117,6 +117,9 @@ return the bases as a string.
 
 ```cpp
 #include <genogrove/io/fasta_index.hpp>
+#include <iostream>
+
+namespace gio = genogrove::io;
 
 gio::fasta_index fasta("genome.fa");
 

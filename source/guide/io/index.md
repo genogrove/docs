@@ -102,7 +102,9 @@ for e in pg.BedReader("peaks.bed"):
 
 g = pg.Grove(100)
 for aln in pg.BamReader("reads.bam"):
-    g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
+    if aln.consumes_reference():                        # skip zero-length alignments
+        # to_coordinate(): half-open [start, end) -> 0-based closed [start, end - 1]
+        g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
 ```
 
 Converting by hand: `pg.GenomicCoordinate(strand, e.start, e.end - 1)` for BED/BAM/VCF and
@@ -159,43 +161,43 @@ ftype, comp = pg.FiletypeDetector.detect_filetype("data.bed.gz")
 
 ## Errors and malformed records
 
-By default a reader fails loudly: an unopenable file fails at construction, and a malformed record
-fails during iteration with a message that names the line. The BED and GFF readers can instead
-**skip** malformed records; `get_error_message()` then tells you what was skipped.
+By default a reader fails loudly: an unopenable file, or a malformed **first** record, fails at
+construction; a malformed later record fails during iteration. Messages name the offending line.
+The BED and GFF readers can instead **skip** malformed records.
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Readers throw `std::runtime_error`. Wrap iteration in `try` / `catch`:
+Readers throw `std::runtime_error`. Construct and iterate inside one `try` so both construction
+and per-record failures are caught:
 
 ```cpp
-gio::bed_reader reader("data.bed");
 try {
+    gio::bed_reader reader("data.bed");
     for (const auto& entry : reader) { /* ... */ }
 } catch (const std::runtime_error& e) {
     std::cerr << e.what() << "\n";            // e.g. "Invalid coordinate format at line 42"
 }
 ```
 
-Lenient mode for BED / GFF (`bam_reader` and `fasta_reader` have none; they throw only on I/O
-errors):
+Lenient mode for BED / GFF:
 
 ```cpp
 gio::bed_reader reader("data.bed", gio::bed_reader_options{.skip_invalid_lines = true});
-for (const auto& entry : reader) {
-    if (!reader.get_error_message().empty()) {
-        std::cerr << "skipped: " << reader.get_error_message() << "\n";
-    }
-}
+for (const auto& entry : reader) { /* only well-formed records arrive here */ }
 ```
 
-With `skip_invalid_lines` the first data record is treated like any other: a malformed first line is
-skipped rather than failing construction. `get_error_message()` reflects the **most recently
-attempted record** only — it is cleared at the start of every read, so after the loop ends it is
-empty. A mid-stream BGZF/tabix I/O error both throws and records its message, so the message is
-available in the `catch`.
+With `skip_invalid_lines` a malformed first line is skipped like any other rather than failing
+construction. Skipped records are **silent**: the reader clears its error message at the start of
+every read attempt and keeps reading until a record parses, so by the time your loop body runs the
+message is empty again. To find out what a file contains that would be skipped, read it once without
+the flag. `get_error_message()` is useful after a *caught* exception — a mid-stream BGZF/tabix I/O
+error records its message before propagating.
+
+`bam_reader` and `fasta_reader` have no lenient mode; they throw on I/O errors and on truncated
+records (auxiliary data in BAM, quality strings in FASTQ).
 
 ::::
 
@@ -213,18 +215,21 @@ except RuntimeError as e:
     print(e)                                  # e.g. "Invalid coordinate format at line 42"
 ```
 
-Lenient mode for `BedReader` / `GffReader` (`BamReader` and `FastaReader` have none):
+Lenient mode for `BedReader` / `GffReader`:
 
 ```python
-r = pg.BedReader("data.bed", skip_invalid_lines=True)
-for entry in r:
-    if r.get_error_message():
-        print("skipped:", r.get_error_message())
+for entry in pg.BedReader("data.bed", skip_invalid_lines=True):
+    ...                                       # only well-formed records arrive here
 ```
 
-With `skip_invalid_lines=True` a malformed first record is skipped rather than raising at
-construction. `get_error_message()` reflects the most recently attempted record only and is empty
-once iteration has finished; `get_current_line()` gives the 1-based line of the last record.
+With `skip_invalid_lines=True` a malformed first record is skipped like any other rather than
+raising at construction. Skipped records are **silent**: the reader clears its error message at the
+start of every read attempt and keeps reading until a record parses, so `get_error_message()` is
+empty by the time your loop body runs. To find out what would be skipped, read the file once without
+the flag. `get_current_line()` gives the 1-based line of the last record.
+
+`BamReader` and `FastaReader` have no lenient mode; they raise `RuntimeError` on I/O errors and on
+truncated records (auxiliary data in BAM, quality strings in FASTQ).
 
 ::::
 
@@ -232,9 +237,11 @@ once iteration has finished; `get_current_line()` gives the 1-based line of the 
 
 ## Files with no records
 
-A structurally valid file that contains no records — empty, only blank lines, or only `#` comments
-and headers — is **not** an error: the reader constructs normally and the loop body runs zero times.
-Deciding what "no data" means is left to the caller.
+For the BED and GFF readers, a structurally valid file that contains no records — empty, only blank
+lines, or only `#` comments and headers — is **not** an error: the reader constructs normally and
+the loop body runs zero times. Deciding what "no data" means is left to the caller. VCF/BCF and BAM
+files must carry a header, so a zero-byte file fails at construction there; a header-only file yields
+zero records.
 
 :::::{tab-set}
 

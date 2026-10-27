@@ -112,10 +112,14 @@ int main() {
     gio::gff_reader reader("annotations.gff.gz");
     try {
         for (const auto& entry : reader) {
-            // GFF coordinates are 1-based inclusive — use start and end directly
+            // Keep gene features that carry a gene_id; the ID is the payload
+            auto gene_id = entry.get_gene_id();
+            if (entry.type != "gene" || !gene_id) continue;
+
+            // GFF coordinates are 1-based inclusive — shift both to the grove's 0-based closed keys
             my_grove.insert_data(entry.seqid,
-                                gdt::interval(entry.start, entry.end),
-                                entry.get_gene_id().value_or(entry.type),
+                                gdt::interval(entry.start - 1, entry.end - 1),
+                                *gene_id,
                                 gst::sorted);
         }
     } catch (const std::runtime_error& e) {
@@ -166,7 +170,7 @@ int main() {
 ### Key Points
 
 - BED and BAM readers produce 0-based half-open `[start, end)` coordinates — subtract 1 from `end` when constructing `gdt::interval`
-- GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — use `start` and `end` directly with `gdt::interval`
+- GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — subtract 1 from both `start` and `end` so BED- and GFF-derived keys share the grove's 0-based closed space
 - File readers handle decompression automatically
 - For small files, use incremental insertion with `sorted` tag
 - For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag

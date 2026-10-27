@@ -91,11 +91,12 @@ int main() {
             // Only process gene features
             if (entry.type != "gene") continue;
 
-            // Create genomic coordinate with strand (GFF is 1-based inclusive)
+            // Create genomic coordinate with strand (GFF is 1-based inclusive;
+            // shift to the grove's 0-based closed keys)
             gdt::genomic_coordinate coord{
                 entry.strand.value_or('.'),
-                entry.start,
-                entry.end
+                entry.start - 1,
+                entry.end - 1
             };
 
             // Extract annotation info
@@ -167,10 +168,10 @@ int main() {
 
             auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-            // Insert exon (GFF is 1-based inclusive)
+            // Insert exon (GFF is 1-based inclusive; shift to 0-based closed)
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
-                gdt::interval(entry.start, entry.end),
+                gdt::interval(entry.start - 1, entry.end - 1),
                 transcript_id,
                 gst::sorted
             );

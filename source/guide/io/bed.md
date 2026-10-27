@@ -128,17 +128,27 @@ assigned by copy. `BedEntry` is the payload type of `BedGrove` (see
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-BED files are normally position-sorted, so the sorted insert path applies. Convert the half-open end:
+Convert the half-open end:
 
 ```cpp
+#include <genogrove/io/bed_reader.hpp>
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+
+namespace gio = genogrove::io;
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
 gst::grove<gdt::interval, std::string> g(100);
-for (const auto& e : gio::bed_reader("genes.bed.gz")) {
-    g.insert_data(e.chrom, gdt::interval(e.start, e.end - 1),
-                  e.name.value_or("unnamed"), gst::sorted);
+gio::bed_reader reader("genes.bed.gz");
+for (const auto& e : reader) {
+    g.insert_data(e.chrom, gdt::interval(e.start, e.end - 1), e.name.value_or("unnamed"));
 }
 ```
 
-For large files collect per chromosome and bulk-insert — see {doc}`/guide/grove/loading_data`.
+If you know the file is position-sorted, add `gst::sorted` as the last argument for the O(1) append
+path — but only then; the sorted path does not check (see {doc}`/guide/grove/inserting`). For large
+files collect per chromosome and bulk-insert — see {doc}`/guide/grove/loading_data`.
 
 ::::
 

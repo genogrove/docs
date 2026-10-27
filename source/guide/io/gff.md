@@ -207,13 +207,25 @@ lenient = pg.GffReader("annotations.gtf", skip_invalid_lines=True, validate_gtf=
 :sync: cpp
 
 ```cpp
-gst::grove<gdt::interval, std::string> g(100);
-for (const auto& e : gio::gff_reader("annotations.gff3.gz")) {
-    if (e.type != "gene") continue;
-    g.insert_data(e.seqid, gdt::interval(e.start - 1, e.end - 1),
-                  e.get_gene_id().value_or(e.type), gst::sorted);
+#include <genogrove/io/gff_reader.hpp>
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+
+namespace gio = genogrove::io;
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+gst::grove<gdt::interval, std::string> g(100);     // payload: the gene ID
+gio::gff_reader reader("annotations.gff3.gz");
+for (const auto& e : reader) {
+    auto gene_id = e.get_gene_id();
+    if (e.type != "gene" || !gene_id) continue;    // genes with an ID only
+    g.insert_data(e.seqid, gdt::interval(e.start - 1, e.end - 1), *gene_id);
 }
 ```
+
+GFF files are often but not always position-sorted; add `gst::sorted` only when you know yours is
+(see {doc}`/guide/grove/inserting`).
 
 ::::
 
