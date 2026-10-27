@@ -243,13 +243,14 @@ the key later; otherwise you can discard it and rediscover keys through queries.
 :sync: cpp
 
 The handle is a raw pointer `gdt::key<key_type, data_type>*` into storage the grove owns. It stays
-valid until the key is removed **and** `compact()` is called (see {doc}`removing`). Read the
+valid until `compact()` is called, which invalidates every indexed key pointer (see
+{doc}`removing`). Read the
 coordinate with `get_value()` and the payload with `get_data()`; the payload may be modified
 through the pointer.
 
 ```cpp
 auto* key = my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1");
-key->get_value().to_string();   // "[100, 200]"
+key->get_value().to_string();   // "[100,200]"
 key->get_data() = "renamed";    // payload is yours to change
 ```
 

@@ -208,7 +208,8 @@ groves.push_back(std::move(my_grove));
 ```
 
 The key pointers a grove hands out (from inserts and queries) point into storage the grove owns.
-They stay valid until the key is removed and `compact()` is called — see {doc}`removing`.
+They stay valid until `compact()` is called, which invalidates every indexed key pointer — see
+{doc}`removing`.
 
 ::::
 

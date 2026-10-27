@@ -90,15 +90,16 @@ table and the helpers that do it for you are in the {doc}`I/O guide </guide/io/i
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The four types share one interface, which is what the `key_type_base` concept names:
+The four types share one interface. The first four rows are the `key_type_base` concept — what any
+key type must provide; the last row is needed only to persist a grove:
 
 | Operation | Meaning |
 |---|---|
 | `a < b`, `a > b`, `a == b` | ordering and equality (what the tree sorts by) |
 | `T::overlaps(a, b)` | static; the type's own overlap rule |
 | `T::aggregate(a, b)` | static; the smallest value covering both (used for the tree's internal separators) |
-| `a.to_string()` | text form, e.g. `"[100, 200]"`, `"+:100-200"`, `"ACGT"` |
-| `a.serialize(os)`, `T::deserialize(is)` | binary persistence (used by `grove::serialize`) |
+| `a.to_string()` | text form, e.g. `"[100,200]"`, `"+:100-200"`, `"ACGT"` |
+| `a.serialize(os)`, `T::deserialize(is)` | binary persistence (used by `grove::serialize`; not part of the concept) |
 
 Constructors, comparisons, getters/setters and `overlaps` are `constexpr`, so they work in
 compile-time contexts. The one exception is `kmer`'s sequence constructor (`kmer{"ACGT"}`), which

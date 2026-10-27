@@ -59,11 +59,11 @@ hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also
 :sync: cpp
 
 ```cpp
-gene.get_value().to_string();        // "[100, 200]"  — the coordinate
+gene.get_value().to_string();        // "[100,200]"   — the coordinate
 gene.get_data().name;                // "BRCA1"       — the payload (const or mutable reference)
 gene.get_data().expression = 50.0;   // edit the payload in place
 gene.set_data(GeneInfo{"TP53", 32.1});
-gene.to_string();                    // "[100, 200]"  — delegates to the value
+gene.to_string();                    // "[100,200]"   — delegates to the value
 ```
 
 Methods:
@@ -165,11 +165,14 @@ coordinate types.)
 :sync: cpp
 
 A grove owns its keys in storage with stable addresses, so a `key*` from an insert or a query stays
-valid until the key is removed **and** the grove is compacted (see {doc}`/guide/grove/removing`).
-A key you construct yourself is an ordinary value: copyable, movable, destroyed with its scope.
+valid until the grove is **compacted**: `compact()` rebuilds the storage and invalidates every
+indexed key pointer, whether or not that key was removed (see {doc}`/guide/grove/removing`); only
+pointers from `add_external_key` survive. A key you construct yourself is an ordinary value:
+copyable, movable, destroyed with its scope.
 
-A key without a payload costs nothing extra: `sizeof(gdt::key<gdt::interval>) ==
-sizeof(gdt::interval)`.
+A key without a payload costs nothing extra on GCC and Clang
+(`sizeof(gdt::key<gdt::interval>) == sizeof(gdt::interval)`, via `[[no_unique_address]]`); MSVC
+ignores that attribute and pads the key by a byte.
 
 ::::
 

@@ -54,7 +54,8 @@ Kmer(encoding: int, k: int)           # encoding is masked to k bases
 ```
 
 The sequence constructor raises `ValueError` for a base outside `ACGT` or a length over 32; the
-encoding constructor masks the encoding to `k` bases and raises `ValueError` only if `k > 32`.
+encoding constructor masks the encoding to `k` bases and raises `ValueError` for `k` in 33–255
+(a `k` above 255 does not fit the 8-bit parameter and is rejected earlier with `TypeError`).
 
 ::::
 

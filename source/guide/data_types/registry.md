@@ -70,8 +70,9 @@ reg.contains(999);                      // false
 ```
 
 IDs are `registry::id_type` (`uint32_t`), handed out in insertion order from 0; `registry::null_id`
-(`UINT32_MAX`) is reserved and never returned. `intern` throws `std::runtime_error` once the pool
-would reach `null_id` entries. `get(id)` with an unknown ID throws `std::out_of_range`.
+(`UINT32_MAX`) is reserved and never returned. A pool can hold up to `null_id` entries; `intern`
+throws `std::runtime_error` on the entry after that. `get(id)` with an unknown ID throws
+`std::out_of_range`.
 
 Store the ID in the grove instead of the string:
 

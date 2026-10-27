@@ -130,7 +130,7 @@ Methods:
 - `set_range(start, end)` — set both at once; throws `std::invalid_argument` if `start > end`
 - `static overlaps(a, b)` — ranges share at least one base
 - `static aggregate(a, b)` — the bounding interval `[min(start), max(end)]`
-- `to_string()` — `"[100, 200]"`
+- `to_string()` — `"[100,200]"`
 - `serialize(os)`, `static deserialize(is)` — binary persistence; `deserialize` throws
   `std::invalid_argument` if the stored `start > end`
 - `INVALID_POSITION` — `static constexpr size_t`, the default-constructed sentinel
