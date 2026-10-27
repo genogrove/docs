@@ -155,6 +155,61 @@ html_theme_options = {
 html_sidebars = {"**": ["sidebar-nav-bs"]}
 
 
+def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
+    """Dedent the per-overload bodies of a pybind11 overloaded-function docstring.
+
+    pybind11 renders an overloaded function (e.g. ``BedGrove.insert``, which has
+    a 3-argument and an entry-deriving 2-argument form) as::
+
+        insert(*args, **kwargs)
+        Overloaded function.
+
+        1. insert(self: ..., index: str, key: ..., data: ...) -> BedKey
+
+                            Insert a key ...
+
+                            Parameters
+                            ----------
+                            index : str
+                                ...
+
+        2. insert(self: ..., index: str, entry: BedEntry) -> BedKey
+                            ...
+
+    The ``N. signature`` lines sit at column 0, so ``inspect.cleandoc`` cannot
+    strip the bodies' indentation (it removes only the indentation common to all
+    lines). Each body therefore reaches docutils as an indented block, i.e. a
+    block quote, where the numpy-style section titles (``Parameters`` /
+    ``----------``) are illegal: "CRITICAL: Unexpected section title". With the
+    pybind11 2.x wheels (pygenogrove <= 0.7.x) Sphinx special-cased these
+    docstrings; the pybind11 3.x function type (pygenogrove >= 0.9, shown by
+    autodoc as ``PyCapsule``) is not recognised, so the raw text goes through.
+    Dedenting each body here, before napoleon runs, lets napoleon turn the
+    sections into field lists exactly as for the non-overloaded methods.
+    Non-overloaded docstrings are left untouched.
+    """
+    import re
+    import textwrap
+
+    if not any(line.strip() == "Overloaded function." for line in lines):
+        return
+    out, body = [], []
+
+    def flush():
+        if body:
+            out.extend(textwrap.dedent("\n".join(body)).split("\n"))
+            body.clear()
+
+    for line in lines:
+        if re.match(r"^\d+\. \w+\(", line):
+            flush()
+            out.append(line)
+        else:
+            body.append(line)
+    flush()
+    lines[:] = out
+
+
 def setup(app):
     """Drop the un-suppressible breathe duplicate-declaration warning.
 
@@ -163,7 +218,13 @@ def setup(app):
     domain reports a duplicate. The warning carries no suppressible type (see the
     note by ``suppress_warnings``), so it is filtered here by message. Both
     declarations are valid C++; this is purely a rendering artifact.
+
+    Also installs ``_dedent_pybind11_overloads`` ahead of napoleon (which
+    connects at the default priority 500) so overloaded pybind11 docstrings in
+    the pygenogrove wheel parse without docutils errors.
     """
+    app.connect("autodoc-process-docstring", _dedent_pybind11_overloads, priority=400)
+
     import logging
 
     class _DropCppKeyDuplicate(logging.Filter):
