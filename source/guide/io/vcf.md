@@ -94,10 +94,12 @@ VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False, region
 Methods:
 
 - `passed_filter()` — `true` if FILTER is `PASS` or `.`
-- `is_snp()` — single-base REF and a single-base ALT
-- `is_indel()` — insertion or deletion
-- `static is_symbolic_allele(allele)` — `true` for `<*>`, `<NON_REF>`, `*`; such alleles are
-  excluded from `is_snp()` / `is_indel()`
+- `is_snp()` — single-base REF and exactly **one** single-base, non-symbolic ALT (a multi-allelic
+  record such as `A → C,G` is not a SNP)
+- `is_indel()` — at least one non-symbolic ALT whose length differs from REF
+- `static is_symbolic_allele(allele)` — `true` for anything that is not a plain base sequence:
+  `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation containing `[` or
+  `]`, and the empty string; such alleles are excluded from `is_snp()` / `is_indel()`
 
 There is no coordinate helper on the C++ record; build the grove key with
 `gdt::interval(v.start, v.end - 1)`.
@@ -133,12 +135,15 @@ if (auto it = v.info.find("DP"); it != v.info.end()) {
 Methods:
 
 - `passed_filter()` — `True` if FILTER is `PASS` or `.`
-- `is_snp()` — single-base REF and a single-base ALT
-- `is_indel()` — insertion or deletion
-- `VcfEntry.is_symbolic_allele(allele)` — static; `True` for `<*>`, `<NON_REF>`, `*`; such alleles
-  are excluded from `is_snp()` / `is_indel()`
+- `is_snp()` — single-base REF and exactly **one** single-base, non-symbolic ALT (a multi-allelic
+  record such as `A → C,G` is not a SNP)
+- `is_indel()` — at least one non-symbolic ALT whose length differs from REF
+- `VcfEntry.is_symbolic_allele(allele)` — static; `True` for anything that is not a plain base
+  sequence: `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation containing
+  `[` or `]`, and the empty string; such alleles are excluded from `is_snp()` / `is_indel()`
 - `to_coordinate()` — the grove key as an unstranded `GenomicCoordinate('.', start, end - 1)`
-  (0-based closed)
+  (0-based closed); raises `ValueError` for a record that spans no reference bases
+  (`end <= start`)
 - `to_dict()` — the record's core fields as a JSON-ready `dict`, for use as a `Grove` payload
 
 `info`, `format`, `alt`, `filter` and `samples` are returned as fresh copies on each access.
@@ -168,8 +173,11 @@ trimmed of htslib's vector-end padding.
 
 Methods:
 
-- `gt_string()` — the genotype as written in the file: `"0/1"`, `"0|1"`, `"./."`
-- `is_hom_ref()` — every called allele is `0`
+- `gt_string()` — the genotype rebuilt from `gt_alleles` and `phased`: `"0/1"`, `"0|1"`, `"./."`.
+  One phasing flag covers the whole genotype, so a mixed-phase genotype like `0|1/2` comes back
+  with a single separator; empty string when the sample has no GT
+- `is_hom_ref()` — `true` only when GT is present and **every** allele is `0`; a missing allele
+  (`./0`, `./.`) makes it `false`
 
 ::::
 
@@ -181,8 +189,11 @@ Methods:
 
 Methods:
 
-- `gt_string()` — the genotype as written in the file: `"0/1"`, `"0|1"`, `"./."`
-- `is_hom_ref()` — every called allele is `0`
+- `gt_string()` — the genotype rebuilt from `gt_alleles` and `phased`: `"0/1"`, `"0|1"`, `"./."`.
+  One phasing flag covers the whole genotype, so a mixed-phase genotype like `0|1/2` comes back
+  with a single separator; empty string when the sample has no GT
+- `is_hom_ref()` — `True` only when GT is present and **every** allele is `0`; a missing allele
+  (`./0`, `./.`) makes it `False`
 
 ::::
 
