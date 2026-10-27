@@ -184,8 +184,16 @@ def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
     pybind11 2.x wheels (pygenogrove <= 0.7.x) Sphinx special-cased these
     docstrings; the pybind11 3.x function type (pygenogrove >= 0.9, shown by
     autodoc as ``PyCapsule``) is not recognised, so the raw text goes through.
-    Dedenting each body here, before napoleon runs, lets napoleon turn the
-    sections into field lists exactly as for the non-overloaded methods.
+
+    Two rewrites, applied before napoleon runs so it turns the sections into field
+    lists exactly as for the non-overloaded methods:
+
+    * each body is dedented to column 0 (a section title is equally illegal inside
+      a list item, so the body cannot simply stay nested under ``N. signature``);
+    * each ``N. signature`` line becomes a ``.. rubric:: Overload N`` heading with
+      the signature as a literal, so the body that follows reads as belonging to
+      that overload instead of trailing a one-item enumerated list.
+
     Non-overloaded docstrings are left untouched.
     """
     import re
@@ -201,9 +209,10 @@ def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
             body.clear()
 
     for line in lines:
-        if re.match(r"^\d+\. \w+\(", line):
+        if match := re.match(r"^(\d+)\. (\w+\(.*)$", line):
             flush()
-            out.append(line)
+            out.extend(["", f".. rubric:: Overload {match.group(1)}", "",
+                        f"``{match.group(2)}``", ""])
         else:
             body.append(line)
     flush()
