@@ -91,8 +91,13 @@ the line did not have them.
 | `item_rgb` | `std::optional<rgb_color>` (`red`, `green`, `blue`) | 9 |
 | `blocks` | `std::optional<block_info>` (`count`, `sizes`, `starts`) | 10–12 |
 
-`bed_entry` has `serialize` / `deserialize` members, so a `grove<gdt::interval, gio::bed_entry>`
-can be persisted directly — this is what the CLI's `idx` writes.
+Methods:
+
+- `serialize(os)`, `static deserialize(is)` — binary persistence, so a
+  `grove<gdt::interval, gio::bed_entry>` can be saved directly (this is what the CLI's `idx` writes)
+
+Otherwise the fields are the record: there is no coordinate helper, so build the grove key with
+`gdt::interval(e.start, e.end - 1)`.
 
 ::::
 
@@ -112,10 +117,13 @@ can be persisted directly — this is what the CLI's `idx` writes.
 | `item_rgb` | `Optional[RgbColor]` (`red`, `green`, `blue`, 0–255) | 9 |
 | `blocks` | `Optional[BlockInfo]` (`count`, `sizes`, `starts`) | 10–12 |
 
-Records can also be built by hand (`BedEntry(chrom, start, end)` and set attributes); assigning an
-empty or multi-character `strand` raises `ValueError`, `None` clears it. List fields are returned and
-assigned by copy. `BedEntry` is the payload type of `BedGrove` (see
-{doc}`/guide/grove/loading_data`).
+Constructors: `BedEntry()` and `BedEntry(chrom, start, end)`; set the optional attributes
+afterwards. `repr(entry)` shows the record. Assigning an empty or multi-character `strand` raises
+`ValueError`, `None` clears it. List fields (`blocks.sizes`, `blocks.starts`) are returned and
+assigned by copy.
+
+There is no `to_coordinate()` on `BedEntry`: `BedGrove.insert(index, entry)` derives the grove key
+from the record (see {doc}`/guide/grove/loading_data`).
 
 ::::
 

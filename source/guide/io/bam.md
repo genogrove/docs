@@ -156,9 +156,20 @@ if (auto it = aln.tags.find("NH"); it != aln.tags.end()) {
 | `cigar` | `str` (string form) |
 | `sequence`, `quality` | `str` |
 
-Helpers: `get_strand()`, `is_primary()`, `is_mapped()`, `consumes_reference()`, `has_flag(flag)`
-(with the constants on `SamFlags`), `to_coordinate()`, `to_dict()`. CIGAR element detail, mate
-information and auxiliary tags are not yet exposed.
+Methods:
+
+- `get_strand()` — `'+'`, `'-'`, or `'.'` for an unmapped read
+- `is_primary()`, `is_mapped()`, `is_reverse()`, `is_secondary()`, `is_supplementary()`,
+  `is_duplicate()`, `is_paired()`, `is_proper_pair()`, `is_qc_fail()`, `is_unmapped()`,
+  `is_mate_reverse()`, `is_mate_unmapped()` — FLAG bit tests
+- `has_flag(flag)` — test an arbitrary bit, with the constants on `SamFlags`
+- `consumes_reference()` — `start < end`; `False` for unmapped reads and for CIGARs that consume no
+  reference bases (pure soft-clip, hard-clip-only)
+- `to_coordinate()` — the grove key as `GenomicCoordinate(strand, start, end - 1)` (0-based
+  closed, strand from FLAG); raises `ValueError` for a read that consumes no reference bases
+- `to_dict()` — the record's core fields as a JSON-ready `dict`, for use as a `Grove` payload
+
+CIGAR element detail, mate information and auxiliary tags are not yet exposed.
 
 ::::
 
@@ -214,9 +225,8 @@ for (const auto& aln : reader) {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-There is no typed BAM grove (`SamEntry` is not serializable); load into the universal `Grove`
-through `to_coordinate()` (strand from FLAG, closed `[start, end - 1]`; raises for an unmapped read)
-and `to_dict()`:
+There is no typed BAM grove (`SamEntry` is not serializable); load into the universal `Grove` with
+the record's `to_coordinate()` and `to_dict()`:
 
 ```python
 g = pg.Grove(100)

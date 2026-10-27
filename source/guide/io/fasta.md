@@ -97,8 +97,12 @@ truncated quality string or an I/O error raises `RuntimeError`.
 | `sequence` | `str` |
 | `quality` | `Optional[str]` — set for FASTQ, `None` for FASTA |
 
-`is_fastq()` reports whether a quality string is present; `len(rec)` is the sequence length. A record
-can be built by hand with `FastaEntry(name, sequence)`.
+Constructors: `FastaEntry()` and `FastaEntry(name, sequence)`. `repr(rec)` shows the record.
+
+Methods:
+
+- `is_fastq()` — `True` when a quality string is present
+- `len(rec)` — the sequence length
 
 ::::
 
