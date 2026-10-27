@@ -80,7 +80,9 @@ Capture its output for step 9 under `## Independent doc-vs-code pass`, substanti
 
 Dispatch a second fresh general-purpose subagent with this brief:
 
-> Read the documentation pages changed in this PR (list them) as someone with basic C++ or Python knowledge and no knowledge of genogrove. For each page report, one line each: the first place you would get stuck or misunderstand, any term used before it is defined, any example that would not run as pasted, and anything the C++ tab explains that the Python tab does not (or vice versa). Terse format: `file:line — <problem>. <fix>.` End with `Clear enough. Ship.` if nothing blocks a newcomer.
+> Read the documentation pages changed in this PR (list them) as a **complete newcomer**: you know what a genome, a chromosome and a BED/GFF file are, you can copy a command into a terminal and edit a few lines of a script, but you have little programming knowledge — no templates, pointers, iterators, GIL, "O(n)", "const", "predicate" or "overload" unless the page explains them where they appear. You have never heard of genogrove. For each page report, one line each: the first sentence or snippet where you would be lost, every term or concept used before the page (or a link right there) explains it, every example you could not run by pasting it, every step the page assumes you already did, and anything one language tab explains that the other does not. Say which tab you were reading. Terse format: `file:line — <where I got lost>. <what would have helped>.` End with `Clear enough. Ship.` only if you could follow every page from top to bottom.
+
+Treat this pass's findings as real even when they look obvious to an expert; its purpose is to catch the jargon and skipped steps the other passes are blind to.
 
 Capture its output for step 9 under `## Beginner-readability pass`.
 
