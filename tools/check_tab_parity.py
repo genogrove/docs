@@ -24,6 +24,13 @@ CONVERTED = {
     "guide/graph/building.md",
     "guide/graph/navigating.md",
     "guide/graph/editing.md",
+    "guide/io/index.md",
+    "guide/io/bed.md",
+    "guide/io/gff.md",
+    "guide/io/bam.md",
+    "guide/io/fasta.md",
+    "guide/io/vcf.md",
+    "guide/io/region_access.md",
 }
 
 FENCE = re.compile(r"^(:{3,})\{(tab-set|tab-item)\}\s*(.*)$")
