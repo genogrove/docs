@@ -176,14 +176,14 @@ def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
         2. insert(self: ..., index: str, entry: BedEntry) -> BedKey
                             ...
 
-    The ``N. signature`` lines sit at column 0, so ``inspect.cleandoc`` cannot
-    strip the bodies' indentation (it removes only the indentation common to all
-    lines). Each body therefore reaches docutils as an indented block, i.e. a
-    block quote, where the numpy-style section titles (``Parameters`` /
-    ``----------``) are illegal: "CRITICAL: Unexpected section title". With the
-    pybind11 2.x wheels (pygenogrove <= 0.7.x) Sphinx special-cased these
-    docstrings; the pybind11 3.x function type (pygenogrove >= 0.9, shown by
-    autodoc as ``PyCapsule``) is not recognised, so the raw text goes through.
+    The ``N. signature`` lines sit at column 0, so autodoc's
+    ``sphinx.util.docstrings.prepare_docstring`` cannot strip the bodies'
+    indentation (it removes only the indentation common to every line after the
+    first). Each body therefore reaches docutils as a block quote inside the list
+    item, where the numpy-style section titles (``Parameters`` / ``----------``)
+    are illegal: "CRITICAL: Unexpected section title". This has been true for
+    every pygenogrove wheel (pybind11 2.x and 3.x emit the same layout); it simply
+    went unnoticed until a clean build was inspected.
 
     Two rewrites, applied before napoleon runs so it turns the sections into field
     lists exactly as for the non-overloaded methods:
@@ -202,6 +202,9 @@ def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
     if not any(line.strip() == "Overloaded function." for line in lines):
         return
     out, body = [], []
+    # Only this function's own "N. name(" headers split the docstring; a numbered
+    # line mentioning some other call inside a body is left alone.
+    header = re.compile(r"^(\d+)\. (" + re.escape(name.rsplit(".", 1)[-1]) + r"\(.*)$")
 
     def flush():
         if body:
@@ -209,7 +212,7 @@ def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
             body.clear()
 
     for line in lines:
-        if match := re.match(r"^(\d+)\. (\w+\(.*)$", line):
+        if match := header.match(line):
             flush()
             out.extend(["", f".. rubric:: Overload {match.group(1)}", "",
                         f"``{match.group(2)}``", ""])
