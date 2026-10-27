@@ -32,7 +32,7 @@ gst::grove<key_type, data_type = void, edge_data_type = void>
 ```
 
 - `key_type` — the coordinate type the tree sorts and searches on. Four built-in types are
-  provided (see {doc}`../data_types`): `interval` (0-based closed `[start, end]`),
+  provided (see {doc}`../data_types/index`): `interval` (0-based closed `[start, end]`),
   `genomic_coordinate` (the same plus a strand), `numeric` (a single integer) and `kmer` (a DNA
   k-mer). Any type satisfying the `key_type_base` concept works — see {doc}`custom_key_types`.
 - `data_type` — the payload attached to each key, e.g. `std::string`, a struct, or a file-reader
