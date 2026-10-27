@@ -14,7 +14,7 @@ This page explains the model and how to create a grove. The subpages cover each 
 - {doc}`removing` — removing keys and reclaiming storage
 - {doc}`custom_key_types` — using your own type as the key (C++)
 - {doc}`loading_data` — filling a grove from BED, GFF/GTF and BAM files
-- {doc}`graph` and {doc}`graph_manipulation` — the graph overlay
+- {doc}`/guide/graph/index` — the graph overlay
 
 Persisting a grove to disk is covered in the {doc}`serialization guide </guide/serialization>`.
 
@@ -234,6 +234,4 @@ querying
 removing
 custom_key_types
 loading_data
-graph
-graph_manipulation
 ```

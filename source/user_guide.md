@@ -19,7 +19,7 @@ Before starting, ensure you have:
 ## Guide Contents
 
 Start with {doc}`guide/installation` and {doc}`guide/grove/index` (create a grove, insert, query),
-then {doc}`guide/grove/loading_data` to fill it from a file. {doc}`guide/examples` has complete
+then {doc}`guide/grove/loading_data` to fill it from a file and {doc}`guide/graph/index` to link keys. {doc}`guide/examples` has complete
 programs. The remaining pages are reference-style and can be read as needed.
 
 ```{toctree}
@@ -27,6 +27,7 @@ programs. The remaining pages are reference-style and can be read as needed.
 
 guide/installation
 guide/grove/index
+guide/graph/index
 guide/examples
 guide/io
 guide/data_types

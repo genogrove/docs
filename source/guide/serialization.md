@@ -548,7 +548,7 @@ its point-key siblings `NumericGroveView` / `KmerGroveView`), whose edges carry 
 `BedGroveView` / `GffGroveView` keep unlabelled (void) edges for binary interop, so — mirroring the
 mutable `BedGrove` / `GffGrove` — the labelled-edge reads are absent there; use `get_neighbors`
 to traverse. These accessors match the mutable `Grove`'s adjacency surface (see the
-{doc}`graph guide </guide/grove/graph>`), but query-only.
+{doc}`graph guide </guide/graph/index>`), but query-only.
 
 :::{warning}
 **Not thread-safe.** A query mutates the view's block cache and holds the GIL, so concurrent Python
