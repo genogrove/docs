@@ -113,8 +113,10 @@ There is no way to change a stored key's **value** from Python, by design.
 ## Comparison and hashing
 
 Keys compare by **value only**; the payload is ignored. That is the tree's notion of identity, and
-it means a payload type never has to be comparable. Two keys with equal coordinates are equal even
-if they come from different groves or carry different payloads.
+it means a payload type never has to be comparable. Two keys of the **same key class** with equal
+coordinates are equal even if they come from different groves or carry different payloads. (Keys of
+different classes — a C++ `key<interval, std::string>` versus a `key<interval, int>`, or a Python
+`Key` versus a `BedKey` — are different types and are not compared with each other.)
 
 :::::{tab-set}
 
@@ -174,10 +176,11 @@ sizeof(gdt::interval)`.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-A `Key` keeps its owning grove alive for as long as you hold it, so it can never dangle. It cannot be
-pickled or moved to another grove. Indexed keys become invalid after `grove.compact()` — rediscover
-them with a fresh query (see {doc}`/guide/grove/removing`); keys from `add_external_key` are
-unaffected.
+A `Key` keeps its owning grove alive for as long as you hold it, so the grove cannot disappear
+underneath it. It stays valid until the grove is **compacted**: `grove.compact()` rebuilds the key
+storage and invalidates every indexed key — rediscover them with a fresh query (see
+{doc}`/guide/grove/removing`); keys from `add_external_key` are unaffected. A `Key` cannot be
+pickled or moved to another grove.
 
 ::::
 

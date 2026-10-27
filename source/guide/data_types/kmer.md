@@ -2,8 +2,8 @@
 
 A **point** key holding a DNA sequence of at most 32 bases, packed two bits per base (`A=00`,
 `C=01`, `G=10`, `T=11`) into one 64-bit integer together with its length `k`. Two k-mers "overlap"
-only when they are **identical**, so a grove keyed by `kmer` is a k-mer dictionary — membership
-tests and counts, not range queries.
+only when they are **identical**, so in a grove keyed by `kmer` `intersect` is an exact lookup
+(membership, counts) and `flanking` returns the nearest k-mers on either side in sort order.
 
 ## Building a k-mer
 
@@ -53,7 +53,8 @@ Kmer(sequence: str)
 Kmer(encoding: int, k: int)           # encoding is masked to k bases
 ```
 
-Both constructors raise `ValueError` for an invalid base or a length over 32.
+The sequence constructor raises `ValueError` for a base outside `ACGT` or a length over 32; the
+encoding constructor masks the encoding to `k` bases and raises `ValueError` only if `k > 32`.
 
 ::::
 
@@ -115,10 +116,17 @@ Methods:
 :sync: cpp
 
 ```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/kmer.hpp>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
 gst::grove<gdt::kmer, int> counts(100);
 counts.insert_data("reads", gdt::kmer{"ACGT"}, 3);
 
-auto hit = counts.intersect(gdt::kmer{"ACGT"}, "reads");     // membership: 1 key, data 3
+auto hit = counts.intersect(gdt::kmer{"ACGT"}, "reads");     // membership: 1 key
+hit.get_keys().front()->get_data();                           // 3
 ```
 
 ::::

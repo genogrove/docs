@@ -76,6 +76,11 @@ would reach `null_id` entries. `get(id)` with an unknown ID throws `std::out_of_
 Store the ID in the grove instead of the string:
 
 ```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+
+namespace gst = genogrove::structure;
+
 gst::grove<gdt::interval, gdt::registry<std::string>::id_type> g(100);
 g.insert_data("chr1", gdt::interval{100, 200}, reg.intern("SampleA_liver"));
 ```
@@ -260,6 +265,8 @@ write the registry **first** and read it back **first**, so the IDs resolve (see
 :sync: cpp
 
 ```cpp
+#include <fstream>
+
 std::ofstream out("names.bin", std::ios::binary);
 reg.serialize(out);
 
@@ -268,7 +275,10 @@ auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the 
 ```
 
 - Wire format: with `Key == Payload`, a `uint64_t` count then each payload; otherwise `(key, payload)`
-  pairs in ID order.
+  pairs in ID order. Each value is written through `gdt::serializer<Payload>` (and
+  `gdt::serializer<Key>` when they differ), so a custom payload such as the `gene_info` above must be
+  trivially copyable, or `serialization_traits` must be specialised for it — see
+  {doc}`/guide/serialization`.
 - `deserialize` offers a **strong exception guarantee**: it builds into temporaries and commits only
   after the whole stream has been read, so a truncated or corrupt stream leaves the singleton exactly
   as it was. It throws `std::runtime_error` for a count beyond `id_type` capacity
@@ -301,7 +311,10 @@ Both calls release the GIL.
 One internal `std::mutex` per singleton.
 
 - **Locked**: `intern()`, `find()`, `clear()`, `serialize()`, and the final commit of `deserialize()`
-  (its I/O and parsing run unlocked, so a long load does not block `intern` / `find`).
+  (its I/O and parsing run unlocked, so a long load does not block `intern` / `find`). Because the
+  commit **replaces** the contents, an `intern()` that ran while a `deserialize()` was in flight is
+  discarded and its ID may now refer to a different loaded value — do not intern concurrently with a
+  load, or repeat the interns after it.
 - **Unlocked**: `get(id)`, `contains(id)`, `size()`, `empty()`. These are safe only while no writer
   (`intern`, `clear`, `reset`, `deserialize`) runs concurrently; an unlocked read overlapping a
   writer is a data race, not a stale snapshot. `get(id)` is safe once the `intern` that produced `id`
@@ -316,7 +329,9 @@ Heavy concurrent interning serialises on the one mutex. See {doc}`/guide/thread_
 
 The same C++ mutex applies underneath, and `serialize` / `deserialize` release the GIL. `intern`,
 `find` and `clear` are safe to call from several threads; `get`, `contains`, `size` and `empty` are
-safe only while no thread is interning, clearing or deserializing. See {doc}`/guide/thread_safety`.
+safe only while no thread is interning, clearing or deserializing. `deserialize` **replaces** the
+contents when it finishes, so an `intern` from another thread during a load is discarded — do not
+intern while a load is running, or repeat the interns after it. See {doc}`/guide/thread_safety`.
 
 ::::
 

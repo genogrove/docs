@@ -105,11 +105,21 @@ Methods:
 :sync: cpp
 
 ```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/numeric.hpp>
+#include <string>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
 gst::grove<gdt::numeric, std::string> ids(100);
 ids.insert_data("samples", gdt::numeric{42}, "sample-42");
 
 auto hit = ids.intersect(gdt::numeric{42}, "samples");        // exact lookup: 1 key
-auto nb  = ids.flanking(gdt::numeric{40}, "samples");         // nearest below / above 40
+hit.get_keys().front()->get_data();                           // "sample-42"
+
+auto nb = ids.flanking(gdt::numeric{40}, "samples");          // nearest below / above 40
+nb.get_successor()->get_value().get_value();                  // 42
 ```
 
 ::::

@@ -25,8 +25,8 @@ Pages: {doc}`interval_coordinate`, {doc}`numeric`, {doc}`kmer`, {doc}`key`, {doc
 - **`genomic_coordinate`** when features on opposite strands must not count as overlapping
   (stranded annotation, reads). Query with strand `'*'` to ignore strand for one query.
 - **`interval`** when strand is irrelevant and you want the smallest key: two integers, no strand.
-- **`numeric`** / **`kmer`** when "overlap" means "same value": the grove then behaves as a sorted
-  dictionary with range scans.
+- **`numeric`** / **`kmer`** when "overlap" means "same value": `intersect` is then an exact lookup
+  and `flanking` gives the nearest values on either side.
 
 All four are plain value types in `genogrove::data_type` (alias `gdt` throughout the docs):
 
@@ -55,7 +55,8 @@ Your own type can be a key type too — see {doc}`/guide/grove/custom_key_types`
   interval class in Python: an unstranded region is `GenomicCoordinate('.', start, end)`, and a
   query that should ignore strand uses `'*'`.
 - **`Numeric`** is the key type of `NumericGrove`, **`Kmer`** of `KmerGrove`: "overlap" means
-  "same value", so those groves behave as sorted dictionaries.
+  "same value", so `intersect` is an exact lookup and `flanking` gives the nearest values on either
+  side.
 
 ```python
 import pygenogrove as pg
@@ -76,9 +77,11 @@ Custom key types are not available in Python (see {doc}`/guide/grove/custom_key_
 
 Region keys are **0-based and closed**: `[100, 200]` covers bases 100 through 200 inclusive, so a
 single base is `[n, n]`. File formats differ (BED and BAM are 0-based half-open, GFF is 1-based
-closed), and the readers keep each format's native numbers, so convert when building keys from file
-records: BED/BAM/VCF `[s, e)` → `[s, e - 1]`, GFF `[s, e]` → `[s - 1, e - 1]`. The conversion table
-and the helpers that do it for you are in the {doc}`I/O guide </guide/io/index>`.
+closed), and the readers keep each format's native numbers, so convert when building keys from the
+**reader records' `start` / `end` fields**: BED/BAM/VCF `[s, e)` → `[s, e - 1]`, GFF `[s, e]` →
+`[s - 1, e - 1]`. (The VCF reader has already turned the file's 1-based `POS` into a 0-based `start`;
+the rule applies to the record, not to a position read straight out of a VCF file.) The conversion
+table and the helpers that do it for you are in the {doc}`I/O guide </guide/io/index>`.
 
 ## What every key type can do
 
@@ -98,7 +101,8 @@ The four types share one interface, which is what the `key_type_base` concept na
 | `a.serialize(os)`, `T::deserialize(is)` | binary persistence (used by `grove::serialize`) |
 
 Constructors, comparisons, getters/setters and `overlaps` are `constexpr`, so they work in
-compile-time contexts:
+compile-time contexts. The one exception is `kmer`'s sequence constructor (`kmer{"ACGT"}`), which
+parses at run time; use `kmer{encoding, k}` when you need a compile-time k-mer.
 
 ```cpp
 constexpr gdt::interval region{100, 200};
@@ -123,10 +127,14 @@ The three types share one interface:
 | `a < b`, `a <= b`, `a > b`, `a >= b`, `a == b` | ordering and equality (what the tree sorts by) |
 | `T.overlaps(a, b)` | static; the type's own overlap rule |
 | `str(a)`, `repr(a)` | text form, e.g. `"+:100-200"`, `"42"`, `"ACGT"` |
-| `hash(a)` | value-based, delegating to the C++ `std::hash`, so Python and C++ hashes agree |
+| `hash(a)` | value-based, built on the C++ `std::hash` of the value, so equal values always hash equal |
 
-That makes all three usable as `set` members, `dict` keys and sort keys. Serialization happens
-through the grove (`Grove.serialize`), not on the values themselves.
+That makes all three usable as `set` members, `dict` keys and sort keys. (The Python integer is not
+guaranteed to be the raw C++ hash value — Python normalises hash results — so do not compare hashes
+across the two languages.) `GenomicCoordinate` and `Numeric` have setters: do not call them on a
+value while it is a `set` member or `dict` key, since the stored hash would no longer match and the
+lookup fails. Serialization happens through the grove (`Grove.serialize`), not on the values
+themselves.
 
 ::::
 

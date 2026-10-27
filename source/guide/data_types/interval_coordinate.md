@@ -20,7 +20,7 @@ namespace gdt = genogrove::data_type;
 gdt::interval           iv{100, 200};            // [100, 200], no strand
 gdt::genomic_coordinate gc{'+', 1000, 2000};     // + strand, [1000, 2000]
 gdt::genomic_coordinate un{'.', 1000, 2000};     // unstranded value
-gdt::genomic_coordinate any{'*', 1000, 2000};    // wildcard strand (for queries)
+gdt::genomic_coordinate wild{'*', 1000, 2000};   // wildcard strand (for queries)
 ```
 
 Both constructors throw `std::invalid_argument` if `start > end`; `genomic_coordinate` also throws
@@ -36,9 +36,9 @@ A default-constructed `genomic_coordinate` is the real value `'.'`, `[0, 0]`, no
 ```python
 import pygenogrove as pg
 
-gc  = pg.GenomicCoordinate("+", 1000, 2000)     # + strand, [1000, 2000]
-un  = pg.GenomicCoordinate(".", 1000, 2000)     # unstranded value
-any = pg.GenomicCoordinate("*", 1000, 2000)     # wildcard strand (for queries)
+gc   = pg.GenomicCoordinate("+", 1000, 2000)    # + strand, [1000, 2000]
+un   = pg.GenomicCoordinate(".", 1000, 2000)    # unstranded value
+wild = pg.GenomicCoordinate("*", 1000, 2000)    # wildcard strand (for queries)
 ```
 
 ```python
