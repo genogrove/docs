@@ -20,6 +20,10 @@ CONVERTED = {
     "guide/grove/querying.md",
     "guide/grove/removing.md",
     "guide/grove/custom_key_types.md",
+    "guide/graph/index.md",
+    "guide/graph/building.md",
+    "guide/graph/navigating.md",
+    "guide/graph/editing.md",
 }
 
 FENCE = re.compile(r"^(:{3,})\{(tab-set|tab-item)\}\s*(.*)$")

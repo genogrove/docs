@@ -221,7 +221,7 @@ Differences from the universal `Grove`:
 - Typed groves keep **unlabelled** graph edges (for binary C++ interop), so the
   labelled-edge methods (`add_edge(s, t, data)`, `get_edges`, `get_neighbors_if`,
   `link_with`) are **absent**. Plain edges and all edge-cleanup methods are
-  present — see {doc}`./graph`.
+  present — see {doc}`/guide/graph/index`.
 
 `GffGrove` is identical with a `GffEntry` payload.
 
