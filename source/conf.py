@@ -155,6 +155,73 @@ html_theme_options = {
 html_sidebars = {"**": ["sidebar-nav-bs"]}
 
 
+def _dedent_pybind11_overloads(app, what, name, obj, options, lines):
+    """Dedent the per-overload bodies of a pybind11 overloaded-function docstring.
+
+    pybind11 renders an overloaded function (e.g. ``BedGrove.insert``, which has
+    a 3-argument and an entry-deriving 2-argument form) as::
+
+        insert(*args, **kwargs)
+        Overloaded function.
+
+        1. insert(self: ..., index: str, key: ..., data: ...) -> BedKey
+
+                            Insert a key ...
+
+                            Parameters
+                            ----------
+                            index : str
+                                ...
+
+        2. insert(self: ..., index: str, entry: BedEntry) -> BedKey
+                            ...
+
+    The ``N. signature`` lines sit at column 0, so autodoc's
+    ``sphinx.util.docstrings.prepare_docstring`` cannot strip the bodies'
+    indentation (it removes only the indentation common to every line after the
+    first). Each body therefore reaches docutils as a block quote inside the list
+    item, where the numpy-style section titles (``Parameters`` / ``----------``)
+    are illegal: "CRITICAL: Unexpected section title". This has been true for
+    every pygenogrove wheel (pybind11 2.x and 3.x emit the same layout); it simply
+    went unnoticed until a clean build was inspected.
+
+    Two rewrites, applied before napoleon runs so it turns the sections into field
+    lists exactly as for the non-overloaded methods:
+
+    * each body is dedented to column 0 (a section title is equally illegal inside
+      a list item, so the body cannot simply stay nested under ``N. signature``);
+    * each ``N. signature`` line becomes a ``.. rubric:: Overload N`` heading with
+      the signature as a literal, so the body that follows reads as belonging to
+      that overload instead of trailing a one-item enumerated list.
+
+    Non-overloaded docstrings are left untouched.
+    """
+    import re
+    import textwrap
+
+    if not any(line.strip() == "Overloaded function." for line in lines):
+        return
+    out, body = [], []
+    # Only this function's own "N. name(" headers split the docstring; a numbered
+    # line mentioning some other call inside a body is left alone.
+    header = re.compile(r"^(\d+)\. (" + re.escape(name.rsplit(".", 1)[-1]) + r"\(.*)$")
+
+    def flush():
+        if body:
+            out.extend(textwrap.dedent("\n".join(body)).split("\n"))
+            body.clear()
+
+    for line in lines:
+        if match := header.match(line):
+            flush()
+            out.extend(["", f".. rubric:: Overload {match.group(1)}", "",
+                        f"``{match.group(2)}``", ""])
+        else:
+            body.append(line)
+    flush()
+    lines[:] = out
+
+
 def setup(app):
     """Drop the un-suppressible breathe duplicate-declaration warning.
 
@@ -163,7 +230,13 @@ def setup(app):
     domain reports a duplicate. The warning carries no suppressible type (see the
     note by ``suppress_warnings``), so it is filtered here by message. Both
     declarations are valid C++; this is purely a rendering artifact.
+
+    Also installs ``_dedent_pybind11_overloads`` ahead of napoleon (which
+    connects at the default priority 500) so overloaded pybind11 docstrings in
+    the pygenogrove wheel parse without docutils errors.
     """
+    app.connect("autodoc-process-docstring", _dedent_pybind11_overloads, priority=400)
+
     import logging
 
     class _DropCppKeyDuplicate(logging.Filter):
