@@ -2,6 +2,15 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-10-27
+
+### Changed
+- Replaced `guide/io.md` with `guide/io/index.md`, `bed.md`, `gff.md`, `bam.md`, `fasta.md`, `vcf.md` and `region_access.md` in the per-section tab layout: format table with native coordinates and the conversion table up front, one page per format with record field tables in both languages, and `region_access` with the sort / `bgzip` / `tabix` / `bcftools` preparation steps; links repointed in `user_guide.md`, `guide/performance.md`, `guide/data_types.md` and `reference/python/io.md` ([#255](https://github.com/genogrove/docs/pull/255), refs [#249](https://github.com/genogrove/docs/issues/249))
+
+### Fixed
+- GFF/GTF C++ examples in `guide/grove/loading_data.md` and `guide/examples.md` kept 1-based coordinates; they now convert to the grove's 0-based closed keys (`start - 1`, `end - 1`) like every other conversion in the docs ([#255](https://github.com/genogrove/docs/pull/255))
+- I/O guide: a malformed first record is skipped under `skip_invalid_lines` (the old Python tab said it always raised); skipped records are silent, so the in-loop `get_error_message()` logging example was removed; BAM/FASTA throw on truncated records as well as I/O errors; the empty-file guarantee is scoped to BED/GFF; `vcf_info_value` integers are `std::vector<int32_t>` ([#255](https://github.com/genogrove/docs/pull/255))
+
 ## 2026-10-26
 
 ### Added
