@@ -106,7 +106,7 @@ Benefits:
 #### Use BGZF
 
 The readers read plain and gzip/BGZF files only (ZSTD, LZ4, BZIP2 and XZ are recognized by
-`filetype_detector` but not decompressed — see {doc}`io`). Between the two gzip flavours, prefer
+`filetype_detector` but not decompressed — see {doc}`io/index`). Between the two gzip flavours, prefer
 **BGZF** (`bgzip`): it is the genomics standard, the readers handle it transparently, and only
 BGZF supports the random-access seeks that tabix `region` queries need. Plain gzip is read
 sequentially.

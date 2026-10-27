@@ -2,7 +2,7 @@
 
 Single-pass readers for the common genomic formats, random-access FASTA, the
 format detector, and the record/flag types they yield. See the
-{doc}`User Guide </guide/io>` for the iteration contract and grove-loading
+{doc}`User Guide </guide/io/index>` for the iteration contract and grove-loading
 workflows.
 
 ## Readers

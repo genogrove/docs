@@ -43,7 +43,7 @@ seen.insert(gdt::genomic_coordinate{'+', 100, 200});
 The `interval` class represents genomic regions using closed `[start, end]` coordinates: **0-based,
 both endpoints inclusive**. This differs from BED's 0-based half-open `[start, end)` and from
 GFF's 1-based inclusive convention, so convert when loading files (BED: `end - 1`; GFF: `start - 1`
-and `end - 1`; see {doc}`io`). `interval` carries no strand — use
+and `end - 1`; see {doc}`io/index`). `interval` carries no strand — use
 [`genomic_coordinate`](#genomic-coordinates) when strand matters.
 
 ```cpp

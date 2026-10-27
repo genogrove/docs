@@ -29,7 +29,7 @@ guide/installation
 guide/grove/index
 guide/graph/index
 guide/examples
-guide/io
+guide/io/index
 guide/data_types
 guide/serialization
 guide/performance
