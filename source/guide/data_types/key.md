@@ -1,47 +1,18 @@
 # Key
 
-A key wraps a key value (e.g., interval, genomic_coordinate, kmer) together with optional associated data, serving as the fundamental storage unit inside grove structures.
+A **key** is what a grove actually stores: a key-type value (the coordinate the tree sorts on, see
+{doc}`index`) together with an optional **data payload** (whatever you want to carry with it — a
+name, a record, a JSON object). Inserts and queries hand you keys; graph edges connect keys.
+
+## What a key holds
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The `key` class is a wrapper that combines a key value (e.g., interval, genomic_coordinate, kmer) with optional associated data. It serves as the fundamental storage unit in grove structures, enabling efficient indexing while maintaining arbitrary metadata.
-
-### Template Parameters
-
-The key class takes two template parameters:
-
-- `key_type`: The core key value type (must satisfy `key_type_base` concept)
-- `data_type`: Optional associated data type (default: `void` for keys without data)
-
-```cpp
-// genogrove
-#include <genogrove/data_type/key.hpp>
-#include <genogrove/data_type/interval.hpp>
-
-// STL
-#include <iostream>
-#include <sstream>
-
-namespace gdt = genogrove::data_type;
-
-// Key without data (data_type = void)
-gdt::key<gdt::interval> k1{gdt::interval{100, 200}};
-
-// Key with data
-struct GeneInfo {
-    std::string name;
-    double score;
-};
-gdt::key<gdt::interval, GeneInfo> k2{
-    gdt::interval{100, 200},
-    GeneInfo{"BRCA1", 0.95}
-};
-```
-
-### Basic Usage
+`gdt::key<key_type, data_type = void>` — the value, and a payload of type `data_type`. Leave
+`data_type` out (or write `void`) for a key that is only a value.
 
 ```cpp
 #include <genogrove/data_type/key.hpp>
@@ -49,276 +20,170 @@ gdt::key<gdt::interval, GeneInfo> k2{
 
 namespace gdt = genogrove::data_type;
 
-struct GeneInfo {
-    std::string name;
-    double expression;
-};
+struct GeneInfo { std::string name; double expression; };
 
-int main() {
-    // 1. Create a key with value and data
-    gdt::key<gdt::interval, GeneInfo> gene_key{
-        gdt::interval{100, 200},
-        GeneInfo{"BRCA1", 45.3}
-    };
-
-    // 2. Access the key value
-    const auto& interval = gene_key.get_value();
-    std::cout << interval.to_string() << "\n";  // "[100, 200]"
-
-    // 3. Access associated data (const)
-    const auto& info = gene_key.get_data();
-    std::cout << info.name << "\n";  // "BRCA1"
-
-    // 4. Modify data in place (mutable access)
-    gene_key.get_data().expression = 50.0;
-
-    // 5. Replace data entirely
-    gene_key.set_data(GeneInfo{"TP53", 32.1});
-
-    // 6. Replace the key value
-    gene_key.set_value(gdt::interval{300, 400});
-
-    // 7. Check if key has data (compile-time constant)
-    if (gene_key.has_data()) {
-        std::cout << "Key has associated data\n";
-    }
-
-    // 8. String representation (delegates to key_type)
-    std::cout << gene_key.to_string() << "\n";  // "[300, 400]"
-
-    return 0;
-}
+gdt::key<gdt::interval, GeneInfo> gene{gdt::interval{100, 200}, GeneInfo{"BRCA1", 45.3}};
+gdt::key<gdt::interval>           bare{gdt::interval{100, 200}};     // no payload
 ```
 
-### Keys Without Data
-
-When `data_type` is `void`, the key contains only the value with zero memory overhead:
-
-```cpp
-#include <genogrove/data_type/key.hpp>
-#include <genogrove/data_type/interval.hpp>
-
-namespace gdt = genogrove::data_type;
-
-int main() {
-    // Key without data - just the interval
-    gdt::key<gdt::interval> simple_key{gdt::interval{100, 200}};
-
-    // Access value works the same way
-    const auto& interval = simple_key.get_value();
-
-    // has_data() returns false (compile-time)
-    static_assert(!gdt::key<gdt::interval>::has_data());
-
-    // get_data() and set_data() do not compile - disabled at compile time
-    // simple_key.get_data();  // Error: method doesn't exist
-
-    return 0;
-}
-```
-
-### Comparison Operators
-
-Keys support equality and ordering comparisons. **All comparisons are
-value-only — the `data` payload is ignored.** This matches the B+ tree's
-notion of identity (the tree orders and searches by `value`) and means
-`data_type` is never required to be equality- or order-comparable.
-
-```cpp
-#include <genogrove/data_type/key.hpp>
-#include <genogrove/data_type/interval.hpp>
-
-namespace gdt = genogrove::data_type;
-
-int main() {
-    // Keys without data: compare values
-    gdt::key<gdt::interval> k1{gdt::interval{100, 200}};
-    gdt::key<gdt::interval> k2{gdt::interval{100, 200}};
-    gdt::key<gdt::interval> k3{gdt::interval{100, 300}};
-
-    k1 == k2;  // true: same interval
-    k1 == k3;  // false: different end
-    k1 != k3;  // true (auto-generated from operator==)
-    k1 <  k3;  // true: ordered by interval
-
-    // Keys with data: data is ignored — only the value matters
-    gdt::key<gdt::interval, std::string> kd1{gdt::interval{100, 200}, "gene1"};
-    gdt::key<gdt::interval, std::string> kd2{gdt::interval{100, 200}, "gene2"};
-
-    kd1 == kd2;  // true: same interval, different data is ignored
-    kd1 <  kd2;  // false: same interval ⇒ neither is less than the other
-
-    return 0;
-}
-```
-
-Available operators:
-
-- `operator==` — value-equality. Requires `key_type` to satisfy
-  `std::equality_comparable`; `data_type` has no equality requirement.
-- `operator!=` — auto-generated by the compiler from `operator==`.
-- `operator<` / `operator>` — value-ordering. Unconditionally available
-  because the `key_type_base` concept already requires `<` and `>` on
-  `key_type`. C++20 does **not** auto-generate `<=` / `>=` from `<` / `>`,
-  so callers that need them should spell `!(a > b)` / `!(a < b)`.
-
-### Serialization
-
-Keys support binary serialization for persistence:
-
-```cpp
-#include <genogrove/data_type/key.hpp>
-#include <genogrove/data_type/interval.hpp>
-#include <sstream>
-
-namespace gdt = genogrove::data_type;
-
-int main() {
-    gdt::key<gdt::interval, std::string> original{
-        gdt::interval{100, 200},
-        "gene1"
-    };
-
-    // Serialize to binary stream
-    std::ostringstream oss(std::ios::binary);
-    original.serialize(oss);
-
-    // Deserialize from binary stream
-    std::istringstream iss(oss.str(), std::ios::binary);
-    auto restored = gdt::key<gdt::interval, std::string>::deserialize(iss);
-
-    // restored == original
-    std::cout << restored.get_value().to_string() << "\n";  // "[100, 200]"
-    std::cout << restored.get_data() << "\n";               // "gene1"
-
-    return 0;
-}
-```
-
-### Using Keys with Grove
-
-The key class is the internal storage type used by grove. When you insert data into a grove, it creates keys internally:
-
-```cpp
-#include <genogrove/structure/grove/grove.hpp>
-#include <genogrove/data_type/interval.hpp>
-
-namespace gdt = genogrove::data_type;
-namespace gst = genogrove::structure;
-
-int main() {
-    // Grove stores key<interval, std::string> internally
-    gst::grove<gdt::interval, std::string> my_grove(100);
-
-    // insert_data returns a pointer to the internal key
-    auto* key_ptr = my_grove.insert_data("chr1",
-                                         gdt::interval{100, 200},
-                                         "gene1");
-
-    // Access via key pointer
-    std::cout << key_ptr->get_value().to_string() << "\n";  // "[100, 200]"
-    std::cout << key_ptr->get_data() << "\n";               // "gene1"
-
-    // Query results return key pointers
-    auto results = my_grove.intersect(gdt::interval{150, 175}, "chr1");
-    for (auto* k : results.get_keys()) {
-        std::cout << k->get_value().to_string() << ": "
-                  << k->get_data() << "\n";
-    }
-
-    return 0;
-}
-```
-
-### Memory Optimization
-
-The key class uses several C++ techniques to minimize memory overhead:
-
-- **Zero-overhead for void data**: When `data_type` is `void`, the key stores `std::monostate` with `[[no_unique_address]]`, resulting in zero additional memory
-- **Move semantics**: Constructors and setters use move semantics to avoid unnecessary copies
-- **Compile-time method elimination**: Methods like `get_data()` don't exist when `data_type` is `void` (using `requires` clauses)
-
-```cpp
-#include <genogrove/data_type/key.hpp>
-#include <genogrove/data_type/interval.hpp>
-
-namespace gdt = genogrove::data_type;
-
-// Key without data has same size as interval alone
-static_assert(sizeof(gdt::key<gdt::interval>) == sizeof(gdt::interval));
-
-// Key with data adds only the data size
-static_assert(sizeof(gdt::key<gdt::interval, int>) ==
-              sizeof(gdt::interval) + sizeof(int));
-```
-
-**Key Features Summary:**
-
-- `get_value()`, `set_value()`: Access/modify the key value
-- `get_data()`, `set_data()`: Access/modify associated data (only when `data_type != void`)
-- `has_data()`: Compile-time check for data presence
-- `to_string()`: String representation (delegates to key_type)
-- `serialize(os)`, `deserialize(is)`: Binary persistence
-- `operator==`, `operator!=`, `operator<`, `operator>`: Value-only comparison (data ignored)
+A grove creates keys for you on insert and returns a pointer to the stored key; you rarely construct
+one by hand except for `grove::insert(index, key)` on a payload-less grove.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-A `Key` wraps a coordinate stored in the grove. It is returned by inserts and
-yielded by query results, and it keeps its owning grove alive.
-
-### Attributes
-
-- `value` — the key's value (e.g. a `GenomicCoordinate`), returned **by copy**, so
-  mutating the copy cannot corrupt the grove's ordering.
-- `data` — the payload. On the universal `Grove` this is the JSON value you stored,
-  returned as a freshly decoded copy on **each** access; on the typed groves
-  (`BedGrove` / `GffGrove`) `data` is a live, mutable `BedEntry` / `GffEntry`
-  reference.
+`Key` — the coordinate, and a payload. You never construct a `Key` yourself: `insert` returns one,
+queries yield them, and `add_external_key` returns one for a graph-only node.
 
 ```python
 import pygenogrove as pg
 
 g = pg.Grove()
 k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
-
-k.value          # GenomicCoordinate('+', 100, 200) — a copy
-k.data           # {'gene': 'FOO'} — freshly decoded copy on each access
-
-# Keys are also yielded by query results
-hit = list(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))[0]
-hit.value, hit.data
+hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also a Key
 ```
 
-### Comparison and hashing
+`BedKey`, `GffKey`, `NumericKey` and `KmerKey` are the same thing for the typed and point groves.
 
-`Key` binds `==`, `<`, `>` and `hash()`, all delegating to `value` and **ignoring `.data`** — the
-same value-only contract as the C++ `key<>` and the B+ tree's notion of identity. Two `Key`s with
-equal coordinates therefore compare and hash equal even if they come from different groves or carry
-different payloads, which makes deduplicating query results by coordinate a one-liner:
+::::
+
+:::::
+
+## Reading and changing a key
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+```cpp
+gene.get_value().to_string();        // "[100,200]"   — the coordinate
+gene.get_data().name;                // "BRCA1"       — the payload (const or mutable reference)
+gene.get_data().expression = 50.0;   // edit the payload in place
+gene.set_data(GeneInfo{"TP53", 32.1});
+gene.to_string();                    // "[100,200]"   — delegates to the value
+```
+
+Methods:
+
+- `get_value()` — `const key_type&`
+- `set_value(v)` — replace the value. **Never call this on a key a grove holds**: the tree is
+  ordered by the value (see {doc}`index`)
+- `get_data()` — `const data_type&` on a const key, `data_type&` otherwise; `set_data(d)` — replace
+  the payload. Both exist only when `data_type` is not `void`
+- `has_data()` — `constexpr bool`, `true` iff `data_type` is not `void`
+- `to_string()` — the value's text form
+- `serialize(os)`, `static deserialize(is)` — binary persistence of value and payload (what
+  `grove::serialize` uses); the payload type must be serializable (see
+  {doc}`/guide/serialization`)
+- `operator==`, `operator<`, `operator>` — see below
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+```python
+k.value          # GenomicCoordinate('+', 100, 200) — a copy
+k.data           # {'gene': 'FOO'}
+str(k)           # "+:100-200"
+repr(k)          # "Key(+:100-200)"
+```
+
+Attributes:
+
+- `value` — the coordinate, returned **by copy**, so editing it cannot disturb the grove
+- `data` — the payload. On `Grove` / `NumericGrove` / `KmerGrove` it is your JSON value, decoded
+  afresh on **each** access, so `k.data["x"] = 1` does not stick — build a new payload if you need
+  to change it. On `BedGrove` / `GffGrove` it is the live `BedEntry` / `GffEntry`, and editing it in
+  place is fine (the payload is not part of the tree order)
+
+Methods:
+
+- `==`, `<`, `>`, `hash()`, `str()`, `repr()` — see below
+
+There is no way to change a stored key's **value** from Python, by design.
+
+::::
+
+:::::
+
+## Comparison and hashing
+
+Keys compare by **value only**; the payload is ignored. That is the tree's notion of identity, and
+it means a payload type never has to be comparable. Two keys of the **same key class** with equal
+coordinates are equal even if they come from different groves or carry different payloads. (Keys of
+different classes — a C++ `key<interval, std::string>` versus a `key<interval, int>`, or a Python
+`Key` versus a `BedKey` — are different types and are not compared with each other.)
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+```cpp
+gdt::key<gdt::interval, std::string> a{gdt::interval{100, 200}, "gene1"};
+gdt::key<gdt::interval, std::string> b{gdt::interval{100, 200}, "gene2"};
+gdt::key<gdt::interval, std::string> c{gdt::interval{100, 300}, "gene1"};
+
+a == b;    // true  — same interval, payload ignored
+a != c;    // true  — auto-generated from operator==
+a <  c;    // true  — ordered by the interval
+```
+
+`operator==` requires the key type to be `std::equality_comparable`; `<` and `>` are always
+available because `key_type_base` requires them. C++20 does not derive `<=` / `>=` from these; spell
+them `!(a > b)` / `!(a < b)` if needed. There is no `std::hash<key>`; hash the value if you need to
+(`std::hash<gdt::genomic_coordinate>{}(k.get_value())`).
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
 
 ```python
 hits = list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"))
-unique_coords = set(hits)                # one entry per distinct coordinate
-first = hits[0]
-first == k                               # True: same coordinate, payload ignored
-repr(first)                              # "Key(+:100-200)"
+unique_coords = set(hits)      # one entry per distinct coordinate — payloads ignored
+hits[0] == k                   # True if same coordinate, whatever the payloads
 ```
 
-### Typed and point variants
+`==`, `<`, `>` and `hash()` all delegate to `value`. `hash(k)` is the C++ `std::hash` of the
+value, so it agrees with `hash(k.value)`. (`<=` / `>=` are not defined on `Key`; they are on the
+coordinate types.)
 
-`BedKey`, `GffKey`, `NumericKey`, and `KmerKey` present the same surface
-(`value` / `data`) for the typed and point-keyed groves. On the typed groves,
-`data` yields a live, mutable entry reference rather than a decoded copy.
+::::
 
-:::{note}
-`Key` objects are only valid while their owning grove is alive (the binding keeps
-the grove alive while you hold a `Key`). They cannot be pickled or carried across
-groves. Indexed keys are also invalidated by `grove.compact()` — re-discover them
-via a fresh query.
-:::
+:::::
+
+## Lifetime
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+A grove owns its keys in storage with stable addresses, so a `key*` from an insert or a query stays
+valid until the grove is **compacted**: `compact()` rebuilds the storage and invalidates every
+indexed key pointer, whether or not that key was removed (see {doc}`/guide/grove/removing`); only
+pointers from `add_external_key` survive. A key you construct yourself is an ordinary value:
+copyable, movable, destroyed with its scope.
+
+A key without a payload costs nothing extra on GCC and Clang
+(`sizeof(gdt::key<gdt::interval>) == sizeof(gdt::interval)`, via `[[no_unique_address]]`); MSVC
+ignores that attribute and pads the key by a byte.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+A `Key` keeps its owning grove alive for as long as you hold it, so the grove cannot disappear
+underneath it. It stays valid until the grove is **compacted**: `grove.compact()` rebuilds the key
+storage and invalidates every indexed key — rediscover them with a fresh query (see
+{doc}`/guide/grove/removing`); keys from `add_external_key` are unaffected. A `Key` cannot be
+pickled or moved to another grove.
 
 ::::
 

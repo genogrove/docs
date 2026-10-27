@@ -36,6 +36,12 @@ CONVERTED = {
     "guide/io/fasta.md",
     "guide/io/vcf.md",
     "guide/io/region_access.md",
+    "guide/data_types/index.md",
+    "guide/data_types/interval_coordinate.md",
+    "guide/data_types/numeric.md",
+    "guide/data_types/kmer.md",
+    "guide/data_types/key.md",
+    "guide/data_types/registry.md",
 }
 
 FENCE = re.compile(r"^(:{3,})\{(tab-set|tab-item)\}\s*(.*)$")

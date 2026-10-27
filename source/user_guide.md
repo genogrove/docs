@@ -30,7 +30,7 @@ guide/grove/index
 guide/graph/index
 guide/examples
 guide/io/index
-guide/data_types
+guide/data_types/index
 guide/serialization
 guide/performance
 guide/thread_safety
