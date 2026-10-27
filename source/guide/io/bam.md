@@ -159,15 +159,22 @@ if (auto it = aln.tags.find("NH"); it != aln.tags.end()) {
 Methods:
 
 - `get_strand()` — `'+'`, `'-'`, or `'.'` for an unmapped read
-- `is_primary()`, `is_mapped()`, `is_reverse()`, `is_secondary()`, `is_supplementary()`,
-  `is_duplicate()`, `is_paired()`, `is_proper_pair()`, `is_qc_fail()`, `is_unmapped()`,
-  `is_mate_reverse()`, `is_mate_unmapped()` — FLAG bit tests
-- `has_flag(flag)` — test an arbitrary bit, with the constants on `SamFlags`
+- `is_primary()` — neither secondary nor supplementary
+- `is_mapped()` — the unmapped flag is not set
 - `consumes_reference()` — `start < end`; `False` for unmapped reads and for CIGARs that consume no
   reference bases (pure soft-clip, hard-clip-only)
 - `to_coordinate()` — the grove key as `GenomicCoordinate(strand, start, end - 1)` (0-based
   closed, strand from FLAG); raises `ValueError` for a read that consumes no reference bases
 - `to_dict()` — the record's core fields as a JSON-ready `dict`, for use as a `Grove` payload
+
+The individual FLAG bits live on `aln.flags`, an `AlignmentFlags`:
+
+- `value()` — the raw FLAG integer
+- `has_flag(flag)` — test one bit, with the constants on `SamFlags`:
+  `aln.flags.has_flag(pg.SamFlags.REVERSE)`
+- `is_paired()`, `is_proper_pair()`, `is_unmapped()`, `is_mate_unmapped()`, `is_reverse()`,
+  `is_mate_reverse()`, `is_read1()`, `is_read2()`, `is_secondary()`, `is_qc_fail()`,
+  `is_duplicate()`, `is_supplementary()` — one test per standard bit, e.g. `aln.flags.is_reverse()`
 
 CIGAR element detail, mate information and auxiliary tags are not yet exposed.
 
