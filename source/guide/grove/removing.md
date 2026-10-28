@@ -34,10 +34,14 @@ for (auto* key : results.get_keys()) {
 }
 ```
 
+Removing while looping over the result is safe: the result holds its own list of handles, and
+removing one key does not invalidate the others.
+
 The tree rebalances itself (a {term}`node` left too empty borrows from a neighbour or merges with
 it, repeating upwards as needed, and a root with a single child is collapsed), and all incoming and
 outgoing graph edges of the key are dropped, so there is no need to call `remove_edge` /
-`remove_all_edges` first. The `key<>` object stays in the grove's storage as a dead slot.
+`remove_all_edges` ({doc}`/guide/graph/editing`) first. The key stays in the grove's storage as a
+dead slot.
 
 ::::
 
@@ -57,10 +61,13 @@ k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"coverage": 3})
 g.remove_key("chr1", k)        # True
 
 # Typical use: prune by a property of the payload
-for key in list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1")):
+for key in g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"):
     if key.data["coverage"] < 5:
         g.remove_key("chr1", key)
 ```
+
+Removing while looping over the result is safe: the result holds its own list of handles, and
+removing one key does not invalidate the others.
 
 The tree rebalances itself and every graph edge touching the key is dropped, so there is no need to
 call `remove_all_edges` first. The key stays in the grove's storage as a dead slot. `remove_key`
@@ -87,7 +94,8 @@ query afterwards. Handles of **{term}`external <external key>`** (graph-only) ke
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Continuing from above (`std::cout` needs `#include <iostream>`):
+Continuing from above (`std::cout` needs `#include <iostream>`; `my_grove` is the grove from the
+removal example, after many inserts and removals):
 
 ```cpp
 // ... many insert / remove cycles ...
@@ -101,9 +109,10 @@ if (my_grove.key_storage_size() > 2 * my_grove.indexed_vertex_count()) {
 ```
 
 `key_storage_size()` also counts the internal separator keys a {term}`B+ tree` needs (the signpost
-keys in its internal nodes that route a search), so it is always larger than
-`indexed_vertex_count()` even without removals; compaction pays off once removed keys dominate the
-difference.
+keys in its internal nodes that route a search), so it is larger than `indexed_vertex_count()` even
+without removals as soon as a tree has internal nodes; compaction pays off once removed keys
+dominate the difference. ("Vertex" is the graph word for a key: `indexed_vertex_count()` counts the
+keys the trees hold.)
 
 ::::
 
@@ -125,8 +134,9 @@ for key in g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"):
 ```
 
 `key_storage_size()` also counts the internal separator keys a B+ tree needs (the signpost keys in
-its internal nodes that route a search), so it is always larger than `indexed_vertex_count()` even
-without removals; compaction pays off once removed keys dominate the difference. `compact()`
+its internal nodes that route a search), so it is larger than `indexed_vertex_count()` even
+without removals as soon as a tree has internal nodes; compaction pays off once removed keys
+dominate the difference. `compact()`
 releases the GIL.
 
 ::::

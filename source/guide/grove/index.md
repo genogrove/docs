@@ -109,7 +109,7 @@ int main() {
     // Stranded coordinates with a string payload
     gst::grove<gdt::genomic_coordinate, std::string> grove2(100);
 
-    // Default-constructed grove uses order 3
+    // Created with no argument: the order defaults to 3
     gst::grove<gdt::interval, std::string> grove3;
 
     return 0;
@@ -117,8 +117,8 @@ int main() {
 ```
 
 An order below 3 throws the {term}`exception` `std::invalid_argument("grove order must be >= 3")`:
-with order 2, splitting a full node in two would leave one half with zero keys, which a B+ tree
-forbids.
+with order 2, splitting a full internal node would leave its new sibling with zero keys, which a
+B+ tree forbids.
 
 ::::
 
@@ -136,8 +136,8 @@ g = pg.Grove(100)       # order 100
 Grove(order: int = 3)
 ```
 
-An order below 3 raises `ValueError` (with order 2, splitting a full node in two would leave one
-half with zero keys, which a B+ tree forbids). `get_order()` returns the order a grove was built
+An order below 3 raises `ValueError` (with order 2, splitting a full internal node would leave its
+new sibling with zero keys, which a B+ tree forbids). `get_order()` returns the order a grove was built
 with.
 
 ::::
@@ -157,17 +157,22 @@ than querying all of them, so pass the chromosome whenever you know it.
 
 The index is the first argument of `insert_data` and the last argument of `intersect` (a
 `std::string_view`, so a string literal or a `std::string` both work). To see which indices exist,
-read the index map (continuing from `grove1` above, here called `my_grove`):
+read the index map of a grove (continuing from `grove1` above):
 
 ```cpp
-const auto& roots = my_grove.get_root_nodes();   // const std::unordered_map<std::string, node*, ...>&
+const auto& roots = grove1.get_root_nodes();   // maps each index name to its tree's root node
+for (const auto& [name, root] : roots) {
+    std::cout << name << "\n";                  // chr1, chr2, ... (in no particular order)
+}
+
 if (auto it = roots.find("chr1"); it != roots.end()) {
     // it->second is the root node for chr1
 }
 ```
 
 The map is returned by **{term}`const` reference** — you may read it but not change it — so use
-`.find()` / `.at()`, not `operator[]`. The reference is valid only while the grove is alive and
+`.find()` / `.at()` to look a name up, not `operator[]`, which would try to insert a missing name
+and does not compile on a read-only map. The reference is valid only while the grove is alive and
 unmodified. Indices cannot be created by hand; they appear on first insertion.
 
 ::::

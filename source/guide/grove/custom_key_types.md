@@ -28,6 +28,7 @@ A C++ *concept* is a compile-time checklist of operations a type must provide; t
 #include <algorithm>
 #include <string>
 
+namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 struct CustomInterval {
@@ -35,6 +36,8 @@ struct CustomInterval {
     size_t end;
     int priority;
 
+    // operator< is how C++ spells "a < b" for your own type; the trailing const promises
+    // that comparing does not change the object
     bool operator<(const CustomInterval& other) const { return start < other.start; }
     bool operator>(const CustomInterval& other) const { return start > other.start; }
     bool operator==(const CustomInterval& other) const {
@@ -55,8 +58,12 @@ struct CustomInterval {
     }
 };
 
-// Use it like any built-in key type
-gst::grove<CustomInterval, std::string> my_grove(100);
+int main() {
+    // Use it like any built-in key type
+    gst::grove<CustomInterval, std::string> my_grove(100);
+    my_grove.insert_data("chr1", CustomInterval{100, 200, 1}, "gene1");
+    return 0;
+}
 ```
 
 `grove` and `node` constrain their first {term}`template` parameter with the concept directly
@@ -90,8 +97,8 @@ If you need a different notion of "key" in Python, map it onto one of the three:
 :sync: cpp
 
 `std::hash` is **not** part of `key_type_base` — the grove never hashes keys. You need a
-`std::hash<CustomInterval>` specialization (the function the standard library uses to turn a value
-into a hash number) only if you put the type in a {term}`registry` (whose `registry_value` concept
+`std::hash<CustomInterval>` of your own (a small function object that turns a value into a
+{term}`hash` number; C++ calls providing it for your type a *specialization*) only if you put the type in a {term}`registry` (whose `registry_value` concept
 requires it) or in an unordered container such as `std::unordered_set`. Of the built-in types,
 `genomic_coordinate`, `numeric` and `kmer` ship one; `interval` does not.
 

@@ -68,8 +68,10 @@ Each returned `Key` refers to the key stored inside the grove, not to a copy of 
 ## Sorted inserts
 
 If you insert keys in ascending order — the common case when reading a position-sorted BED or
-GFF file — tell the grove so. The sorted path appends to the rightmost leaf in O(1) — a fixed cost
-that does not grow with the size of the tree — instead of walking the tree.
+GFF file — tell the grove so. The sorted path appends to the rightmost leaf instead of searching
+down the tree for the right place; only the chain of nodes above that leaf is refreshed, which grows
+with the height of the tree (logarithmically with the number of keys), not with the keys already
+stored.
 
 :::{warning}
 "Sorted" is a **promise, not a hint**: every key inserted this way must be greater than all keys
@@ -146,8 +148,9 @@ int main() {
 }
 ```
 
-Appending a batch to a non-empty index whose keys are not all greater than the existing ones
-throws the {term}`exception` `std::runtime_error`. The container must satisfy
+Appending a batch to a non-empty index requires every new key to be greater than every existing
+one. This is **not checked** and nothing is thrown: a batch that breaks the rule silently corrupts
+the tree's order, exactly as for a sorted insert above. The container must satisfy
 `std::ranges::forward_range` and `std::ranges::sized_range` — it can be walked front to back and
 knows its own size, as a `std::vector` does.
 
@@ -167,6 +170,7 @@ import pygenogrove as pg
 
 g = pg.Grove(100)
 
+# builds one million (coordinate, name) pairs, already in ascending order
 items = [(pg.GenomicCoordinate("+", i * 100, i * 100 + 50), f"feature{i}")
          for i in range(1_000_000)]
 
@@ -179,8 +183,9 @@ insert_bulk(index: str, items: list[tuple[GenomicCoordinate, object]], presorted
 
 `insert_bulk` {term}`releases the GIL <GIL>` around the native (C++) build, so other Python threads
 keep running.
-Appending a batch to a non-empty index whose keys are not all greater than the existing ones is
-rejected. The typed `BedGrove` / `GffGrove` also accept a list of bare `BedEntry` / `GffEntry`
+Appending a batch to a non-empty index requires every new key to be greater than every existing
+one. This is **not checked** and no exception is raised: a batch that breaks the rule silently
+corrupts the tree's order, exactly as for `insert_sorted` above. The typed `BedGrove` / `GffGrove` also accept a list of bare `BedEntry` / `GffEntry`
 records and derive the coordinates — see {doc}`loading_data`.
 
 ::::
@@ -216,11 +221,13 @@ int main() {
     auto results = my_grove.intersect(gdt::interval{150, 175}, "chr1");   // queries work as usual
 
     auto* enhancer = my_grove.add_external_key(gdt::interval{5000, 5500});
-    my_grove.add_edge(inserted, enhancer);
+    my_grove.add_edge(inserted, enhancer);   // link the two keys with a directed edge
 
     return 0;
 }
 ```
+
+Edges between keys are covered in the {doc}`graph guide </guide/graph/index>`.
 
 The two APIs are mutually exclusive and enforced at compile time (using the wrong one is a compile
 error, not a runtime one): `insert_data` and the two-argument `add_external_key(key_value, data_value)`
@@ -265,7 +272,8 @@ valid until `compact()` ({term}`compact`) is called, which invalidates every ind
 the payload may be modified through the pointer. Continuing from the first example on this page:
 
 ```cpp
-auto* key = my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1");
+// key1 from the first example on this page
+auto* key = key1;
 key->get_value().to_string();   // "[100,200]"
 key->get_data() = "renamed";    // payload is yours to change
 ```
@@ -293,9 +301,13 @@ k.data        # {'gene': 'FOO'}
 repr(k)       # 'Key(+:100-200)'
 ```
 
-`Key` supports `==`, `<`, `>` and `hash()`, delegating to `value` and ignoring `.data` — two keys with
-equal coordinates compare and hash equal even from different groves, so a `set` of keys deduplicates
-by coordinate. A `Key` keeps its grove alive, cannot be pickled (saved with Python's `pickle`
+Because `k.data` is a fresh copy on the universal `Grove`, changing it (`k.data["gene"] = "BAR"`)
+does **not** change what is stored; to change a payload, insert the key again with the new value.
+On `BedGrove` / `GffGrove` the record is live, so editing its fields in place does persist.
+
+`Key` supports `==`, `<`, `>` and `hash()` ({term}`hash`), all computed from `value` alone and
+ignoring `.data` — two keys with equal coordinates compare and hash equal even from different
+groves, so a `set` of keys deduplicates by coordinate. A `Key` keeps its grove alive, cannot be pickled (saved with Python's `pickle`
 module), and is invalidated by `compact()` (see {doc}`removing`). More in {doc}`/guide/data_types/key`.
 
 ::::
