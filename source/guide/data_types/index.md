@@ -1,17 +1,17 @@
 # Data Types
 
-A grove sorts and searches on a **key type**: the value that says *where* something is. genogrove
-ships four — two interval-like types for genomic regions and two point types for exact matches — and
-every grove is built on exactly one of them. The payload you attach to a key (a name, a record, a
-JSON object) is a separate thing and is covered in {doc}`key`; interning repeated values into small
-IDs is covered in {doc}`registry`.
+A {term}`grove` sorts and searches on a {term}`key type`: the value that says *where* something is.
+{term}`genogrove` ships four — two interval-like types for genomic regions and two point types for
+exact matches — and every grove is built on exactly one of them. The {term}`payload` you attach to a
+key (a name, a record, a JSON object) is a separate thing and is covered in {doc}`key`;
+{term}`interning` repeated values into small IDs is covered in {doc}`registry`.
 
-| Key type (C++ / Python) | What it holds | Two values "overlap" when | Use it for |
+| Key type (C++ / Python) | What it holds | Two values "{term}`overlap`" when | Use it for |
 |---|---|---|---|
-| `interval` / — | 0-based closed `[start, end]` | the ranges share at least one base | regions where strand does not matter (C++ only) |
+| `interval` / — | {term}`0-based closed` `[start, end]` | the ranges share at least one base | regions where {term}`strand` does not matter (C++ only) |
 | `genomic_coordinate` / `GenomicCoordinate` | `[start, end]` plus a strand `+ - . *` | ranges share a base **and** strands are compatible | genes, reads, peaks — anything stranded; the only region type in Python |
 | `numeric` / `Numeric` | one 32-bit integer | the values are equal | ids, ranks, positions used as exact lookups |
-| `kmer` / `Kmer` | a DNA sequence of up to 32 bases, 2-bit packed | the sequences are identical | k-mer membership and counting |
+| `kmer` / `Kmer` | a DNA sequence of up to 32 bases, packed two bits per base into one integer | the sequences are identical | {term}`k-mer` membership and counting |
 
 Pages: {doc}`interval_coordinate`, {doc}`numeric`, {doc}`kmer`, {doc}`key`, {doc}`registry`.
 
@@ -26,9 +26,10 @@ Pages: {doc}`interval_coordinate`, {doc}`numeric`, {doc}`kmer`, {doc}`key`, {doc
   (stranded annotation, reads). Query with strand `'*'` to ignore strand for one query.
 - **`interval`** when strand is irrelevant and you want the smallest key: two integers, no strand.
 - **`numeric`** / **`kmer`** when "overlap" means "same value": `intersect` is then an exact lookup
-  and `flanking` gives the nearest values on either side.
+  and {term}`flanking` gives the nearest values on either side.
 
-All four are plain value types in `genogrove::data_type` (alias `gdt` throughout the docs):
+All four are plain value types (copied and passed around like integers, no {term}`pointer` needed)
+in `genogrove::data_type` (alias `gdt` throughout the docs):
 
 ```cpp
 #include <genogrove/data_type/interval.hpp>
@@ -67,7 +68,8 @@ n  = pg.Numeric(42)
 k  = pg.Kmer("ACGT")
 ```
 
-Custom key types are not available in Python (see {doc}`/guide/grove/custom_key_types`).
+The three built-in types cover every grove class pygenogrove ships; defining your own key type is a
+C++ feature (see {doc}`/guide/grove/custom_key_types`).
 
 ::::
 
@@ -90,19 +92,21 @@ table and the helpers that do it for you are in the {doc}`I/O guide </guide/io/i
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The four types share one interface. The first four rows are the `key_type_base` concept — what any
-key type must provide; the last row is needed only to persist a grove:
+The four types share one interface. The first four rows are the `key_type_base` concept (a C++20
+*concept* is a named checklist of operations a type must offer) — what any key type must provide; the
+last row is needed only to persist a grove:
 
 | Operation | Meaning |
 |---|---|
 | `a < b`, `a > b`, `a == b` | ordering and equality (what the tree sorts by) |
 | `T::overlaps(a, b)` | static; the type's own overlap rule |
-| `T::aggregate(a, b)` | static; the smallest value covering both (used for the tree's internal separators) |
+| `T::aggregate(a, b)` | static; the smallest value covering both (used for the tree's internal separators — the values its inner {term}`nodes <node>` route a search by) |
 | `a.to_string()` | text form, e.g. `"[100,200]"`, `"+:100-200"`, `"ACGT"` |
-| `a.serialize(os)`, `T::deserialize(is)` | binary persistence (used by `grove::serialize`; not part of the concept) |
+| `a.serialize(os)`, `T::deserialize(is)` | binary persistence ({term}`serialization`; used by `grove::serialize`; not part of the concept) |
 
-Constructors, comparisons, getters/setters and `overlaps` are `constexpr`, so they work in
-compile-time contexts. The one exception is `kmer`'s sequence constructor (`kmer{"ACGT"}`), which
+Constructors, comparisons, getters/setters and `overlaps` are `constexpr` (the compiler may evaluate
+them while compiling), so they work in compile-time contexts such as the `static_assert` checks
+below. The one exception is `kmer`'s sequence constructor (`kmer{"ACGT"}`), which
 parses at run time; use `kmer{encoding, k}` when you need a compile-time k-mer.
 
 ```cpp
@@ -111,9 +115,10 @@ static_assert(region.get_start() == 100);
 static_assert(gdt::interval::overlaps(region, gdt::interval{150, 250}));
 ```
 
-`genomic_coordinate`, `numeric` and `kmer` also specialise `std::hash` (mixing exactly the fields
-`operator==` compares), so they work as `std::unordered_set` / `std::unordered_map` keys and as
-`registry` keys; `interval` does not. Hashing is not part of `key_type_base` — the grove never hashes
+`genomic_coordinate`, `numeric` and `kmer` also specialise `std::hash` — the standard hook that
+tells C++ how to turn a value into the small integer (*hash*) that `std::unordered_set` /
+`std::unordered_map` file it under; it mixes exactly the fields `operator==` compares — so they work
+as keys of those containers and as {term}`registry` keys; `interval` does not. Hashing is not part of `key_type_base` — the grove never hashes
 keys.
 
 ::::
@@ -130,12 +135,13 @@ The three types share one interface:
 | `str(a)`, `repr(a)` | text form, e.g. `"+:100-200"`, `"42"`, `"ACGT"` |
 | `hash(a)` | value-based, built on the C++ `std::hash` of the value, so equal values always hash equal |
 
-That makes all three usable as `set` members, `dict` keys and sort keys. (The Python integer is not
+(A *hash* is the small integer `set` and `dict` file a value under to find it again quickly.) That
+makes all three usable as `set` members, `dict` keys and sort keys. (The Python integer is not
 guaranteed to be the raw C++ hash value — Python normalises hash results — so do not compare hashes
 across the two languages.) `GenomicCoordinate` and `Numeric` have setters: do not call them on a
 value while it is a `set` member or `dict` key, since the stored hash would no longer match and the
-lookup fails. Serialization happens through the grove (`Grove.serialize`), not on the values
-themselves.
+lookup fails. {term}`Serialization <serialization>` happens through the grove (`Grove.serialize`),
+not on the values themselves.
 
 ::::
 
@@ -152,8 +158,9 @@ inserting it (a query object, say); never call them on something the grove alrea
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The key handles a grove returns are non-const, and `key::set_value(...)` / the type setters
-(`set_range`, `set_strand`, `set_value`) compile fine through them. The rule is enforced by
+The {term}`key handles <key handle>` a grove returns are non-{term}`const` (not read-only), and
+`key::set_value(...)` / the type setters (`set_range`, `set_strand`, `set_value`) compile fine
+through them. The rule is enforced by
 discipline: edit only the **data payload** through a handle, never the value.
 
 ::::
