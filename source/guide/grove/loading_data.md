@@ -83,6 +83,8 @@ int main() {
     try {
         gio::bed_reader reader("large_dataset.bed.gz");
         for (const auto& entry : reader) {
+            // data[chrom] is that chromosome's list (created on first use);
+            // emplace_back builds one (interval, name) pair at the end of the list
             data[entry.chrom].emplace_back(
                 gdt::interval(entry.start, entry.end - 1),
                 entry.name.value_or("unknown"));
@@ -91,7 +93,8 @@ int main() {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
-    // Bulk insert per chromosome (data must be sorted)
+    // Bulk insert per chromosome (data must be sorted).
+    // Each map entry is a (name, list) pair; [chrom, chrom_data] gives both parts a name.
     for (auto& [chrom, chrom_data] : data) {
         my_grove.insert_data(chrom, chrom_data, gst::sorted, gst::bulk);
     }
