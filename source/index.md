@@ -124,7 +124,6 @@ genogrove is distributed under the [GNU General Public License v3.0 or later](ht
 :hidden: true
 :maxdepth: 2
 
-self
 user_guide
 reference/index
 cli
