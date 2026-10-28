@@ -38,7 +38,9 @@ grove.insert_data(index, interval, data, gst::sorted);  // Much faster!
 grove.insert_data(index, interval, data);
 ```
 
-Sorted insertion provides O(1) amortized insertion time vs O(log n) for unsorted.
+A sorted insert skips the search down the tree, so it is faster than an unsorted insert by a constant
+factor. The cost still grows slowly with the height of the tree, because the nodes above the new key
+are updated.
 
 #### Use Bulk Insertion for Large Datasets
 
@@ -64,7 +66,7 @@ grove.insert_data("chr1", data, gst::sorted, gst::bulk);
 - **Existing data**: Appends to rightmost node
 
   - **CRITICAL**: All new keys must be strictly greater than existing keys
-  - Throws `std::runtime_error` if violated
+  - This is not checked. A batch that breaks the rule throws nothing and silently corrupts the tree order
 
 **Performance Comparison (1M intervals, empty index):**
 
