@@ -91,7 +91,7 @@ Methods:
 - `get_encoding()`, `get_k()`
 - `static overlaps(a, b)` — same `k` and same encoding
 - `static aggregate(a, b)` — the greater of the two in sort order
-- `static is_valid(sequence)` — `constexpr` validity check (bases and length; usable at compile time)
+- `static is_valid(sequence)` — `constexpr` check that every character is a base `A`, `C`, `G` or `T` (either case; usable at compile time). It does not check the length: a valid sequence of more than 32 bases passes this check and then fails in the constructor
 - `static encode_base(c)`, `static decode_base(bits)` — single-base conversions; `BASE_MASK`
   (`0x03`, binary `11`) isolates one base from an encoding (AND-ing with it keeps the lowest two bits)
 - `to_string()` — the sequence
@@ -112,7 +112,7 @@ are no setters.
 Methods:
 
 - `Kmer.overlaps(a, b)` — static; same `k` and same encoding
-- `Kmer.is_valid(sequence)` — static validity check (bases and length)
+- `Kmer.is_valid(sequence)` — static check that every character is a base `A`, `C`, `G` or `T` (either case). It does not check the length: a valid sequence of more than 32 bases passes this check and then fails in the constructor
 - `Kmer.max_k` — class attribute, 32
 - `<`, `<=`, `>`, `>=`, `==`, `hash()`, `str()`, `repr()` — ordering as above
 

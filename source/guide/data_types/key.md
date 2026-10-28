@@ -153,9 +153,17 @@ a <  c;    // true  — ordered by the interval
 The comments show what each line evaluates to; the lines compute the value without printing it.
 `operator==` requires the key type to be `std::equality_comparable` (a C++20 concept: the type has
 `==`); `<` and `>` are always available because `key_type_base` requires them. C++20 does not derive
-`<=` / `>=` from these; spell them `!(a > b)` / `!(a < b)` if needed. There is no `std::hash<key>`
-(no standard hash function — the small integer unordered containers file a value under; see
-{doc}`index`); hash the value if you need to (`std::hash<gdt::genomic_coordinate>{}(k.get_value())`).
+`<=` / `>=` from these; spell them `!(a > b)` / `!(a < b)` if needed. There is no `std::hash<key>`: the
+standard {term}`hash` function, which computes the integer that unordered containers use to place
+and find a value, is not defined for `key` (see {doc}`index`). Hash the value if you need a hash:
+
+```cpp
+#include <genogrove/data_type/genomic_coordinate.hpp>
+#include <functional>
+
+gdt::key<gdt::genomic_coordinate, std::string> k{gdt::genomic_coordinate{'+', 100, 200}, "gene1"};
+std::size_t h = std::hash<gdt::genomic_coordinate>{}(k.get_value());   // hash of the coordinate
+```
 
 ::::
 
@@ -169,7 +177,7 @@ unique_coords = set(hits)      # one entry per distinct coordinate — payloads 
 hits[0] == k                   # True if same coordinate, whatever the payloads
 ```
 
-`==`, `<`, `>` and `hash()` (the small integer `set` and `dict` file a value under) all delegate to
+`==`, `<`, `>` and `hash()` (the integer that `set` and `dict` use to place and find a value) all delegate to
 `value`. `hash(k)` is the C++ `std::hash` of the
 value, so it agrees with `hash(k.value)`. (`<=` / `>=` are not defined on `Key`; they are on the
 coordinate types.)

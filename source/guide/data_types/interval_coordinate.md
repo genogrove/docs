@@ -150,9 +150,10 @@ Methods:
 - `INVALID_POSITION` — `static constexpr size_t` (a compile-time constant), the default-constructed
   sentinel
 
-`interval` has no `std::hash` specialisation (the standard hook that turns a value into the small
-integer unordered containers file it under; see {doc}`index`), so it cannot be a {term}`registry`
-key or an unordered container key without one of your own.
+`interval` has no `std::hash` specialisation. `std::hash` is the standard function that computes an
+integer from a value (a {term}`hash`); unordered containers use that integer to place and find the
+value (see {doc}`index`). Without one, an `interval` cannot be a {term}`registry` key or an unordered
+container key, unless you write a hash of your own.
 
 ::::
 
