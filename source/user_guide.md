@@ -20,7 +20,8 @@ Before starting, ensure you have:
 
 Start with {doc}`guide/installation` and {doc}`guide/grove/index` (create a grove, insert, query),
 then {doc}`guide/grove/loading_data` to fill it from a file and {doc}`guide/graph/index` to link keys. {doc}`guide/examples` has complete
-programs. The remaining pages are reference-style and can be read as needed.
+programs. The remaining pages are reference-style and can be read as needed. Unfamiliar words —
+"index", "key handle", "0-based closed", "GIL" — are defined in the {doc}`guide/glossary`.
 
 ```{toctree}
 :maxdepth: 3
@@ -34,6 +35,7 @@ guide/data_types/index
 guide/serialization/index
 guide/performance
 guide/thread_safety
+guide/glossary
 ```
 
 ## Next Steps
