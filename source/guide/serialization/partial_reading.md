@@ -1,14 +1,17 @@
 # Partial Reading
 
-Loading a `.gg` with `deserialize` reads the whole file into memory. For a large index that you
-only want to query a few times, that is wasteful. A **view** opens the file, reads only the small
-directory at its start, and then pages in just the blocks a query walks — the path down the tree
-plus the leaves that overlap — caching them for the view's lifetime. The result of a query is the
-same as from the fully loaded grove.
+Loading a {term}`.gg file` with {term}`deserialize` reads the whole file into memory. For a large
+index that you only want to query a few times, that is wasteful. A **{term}`view`** opens the file,
+reads only the small directory at its start, and then pages in just the blocks a query walks — the
+path down the {term}`tree <B+ tree>` plus the leaves that overlap — caching them for the view's
+lifetime. The result of a query is the same as from the fully loaded {term}`grove`.
 
 A view is **read-only**: it has no insert and no serialize. It complements, rather than replaces,
-the eager grove, which remains the builder and the load-it-all reader. The CLI's `isec --in-place`
-is built on it — see the [CLI reference](../../cli.md#in-place-querying).
+the {term}`eager` grove, which remains the builder and the load-it-all reader. The {term}`CLI`'s
+`isec --in-place` is built on it — see the [CLI reference](../../cli.md#in-place-querying).
+
+The snippets below continue from one another: each section reuses the `view` opened in
+[Opening a view](#opening-a-view) and, later, the `hits` from [Querying](#querying).
 
 ## Opening a view
 
@@ -17,9 +20,9 @@ is built on it — see the [CLI reference](../../cli.md#in-place-querying).
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`genogrove::structure::grove_view` takes the same three template parameters as `grove`; they must
-match the grove that wrote the file. `open` takes a **file path** because partial reading seeks to
-individual block offsets, which needs a seekable source.
+`genogrove::structure::grove_view` takes the same three {term}`template` parameters as `grove`;
+they must match the grove that wrote the file. `open` takes a **file path** because partial reading
+seeks to individual block offsets, which needs a {term}`seekable` source.
 
 ```cpp
 #include <genogrove/structure/grove/grove_view.hpp>
@@ -33,8 +36,9 @@ auto view = gst::grove_view<gdt::interval, std::string>::open("grove.gg");
 ```
 
 The second argument, `data_offset`, is the byte offset at which the grove stream starts. It defaults
-to `0`, which is right for a file written by `grove::serialize`. A `.gg` written by the CLI starts
-with a 12-byte {doc}`file header <format>`, so pass `gio::gg_header::SIZE` to skip it:
+to `0`, which is right for a file written by `grove::serialize`. A `.gg` written by the
+{doc}`CLI </cli>` starts with a 12-byte {doc}`file header <format>`, so pass `gio::gg_header::SIZE`
+to skip it:
 
 ```cpp
 #include <genogrove/io/gg_format.hpp>
@@ -47,8 +51,10 @@ auto cli_view = gst::grove_view<gdt::interval, gio::bed_entry, std::string>::ope
     "index.gg", gio::gg_header::SIZE);
 ```
 
-`open` throws `std::runtime_error` on a missing file, a bad magic value, a non-seekable or
-truncated stream, or a malformed directory. Hold the view by value as returned from `open()`.
+`open` throws `std::runtime_error` (an {term}`exception`) on a missing file, a bad {term}`magic`
+value, a non-seekable or truncated {term}`stream`, or a malformed directory. Hold the view by value
+as returned from `open()` — that is, write `auto view = ...::open(...)` as above and keep using
+that variable.
 
 ::::
 
@@ -56,9 +62,10 @@ truncated stream, or a malformed directory. Hold the view by value as returned f
 :sync: py
 
 There is one view class per grove class: `GroveView`, `NumericGroveView`, `KmerGroveView`,
-`BedGroveView` and `GffGroveView`. Each returns the `Key` / `QueryResult` types of its grove. Open a
-file with the view class that matches the grove class that wrote it. `open` takes a **file path**
-because partial reading seeks to individual block offsets, which needs a seekable source.
+`BedGroveView` and `GffGroveView`. Each returns the {term}`Key <key>` / {term}`QueryResult` types
+of its grove. Open a file with the view class that matches the grove class that wrote it (see
+{doc}`/guide/grove/index` for the grove classes). `open` takes a **file path** because partial
+reading seeks to individual block offsets, which needs a {term}`seekable` source.
 
 ```python
 import pygenogrove as pg
@@ -73,9 +80,9 @@ GroveView.open(path: str, data_offset: int = 0) -> GroveView
 
 `data_offset` is the byte offset at which the grove stream starts; `0` is right for a file written
 by `serialize()`. Pass a non-zero offset only for a `.gg` that has something in front of the grove
-stream, such as the 12-byte {doc}`file header <format>` the genogrove CLI writes. `open` raises
-`RuntimeError` on a missing file, a bad magic value, a non-seekable source or a malformed
-directory. It releases the GIL.
+stream, such as the 12-byte {doc}`file header <format>` the {doc}`genogrove CLI </cli>` writes.
+`open` raises `RuntimeError` (an {term}`exception`) on a missing file, a bad {term}`magic` value, a
+non-seekable source or a malformed directory. It {term}`releases the GIL <GIL>`.
 
 ::::
 
@@ -83,15 +90,17 @@ directory. It releases the GIL.
 
 ## Querying
 
-`intersect` and `flanking` have the same signatures and return the same results as on the eager
-grove — they share the query engine. The difference is only in what gets read: `intersect` pages in
-the descent path plus the overlapping leaves; `flanking` may page in a few more blocks, because it
-can branch into both sides of the query.
+`intersect` ({term}`overlap` search) and {term}`flanking` have the same signatures and return the
+same results as on the eager grove — they share the query engine. The difference is only in what
+gets read: `intersect` pages in the descent path plus the overlapping leaves; `flanking` may page
+in a few more blocks, because it can branch into both sides of the query.
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
+
+Continuing with `view` from above:
 
 ```cpp
 // Overlap query within one index, or across every index
@@ -107,15 +116,20 @@ auto same_side = view.flanking(gdt::interval{100, 200}, "chr1",
     [](const gdt::interval& candidate, const gdt::interval& query) { return true; });
 ```
 
-The `flanking` predicate overload applies `is_compatible` at **leaf candidates only** —
-internal-node pruning stays purely structural (aggregate ranges) and never consults the predicate,
-exactly as in `grove::flanking`. Either result field may be null; both are null if the index is
-absent. See {doc}`/guide/grove/querying` for the semantics.
+The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`)
+that decides which neighbour candidates count; it never changes how much of the tree is read.
+Precisely: the `flanking` predicate {term}`overload` applies `is_compatible` at **leaf candidates
+only** — the internal nodes above the leaves are skipped or descended purely on the position ranges
+they summarise (aggregate ranges), without consulting the predicate — exactly as in
+`grove::flanking`. Either result field may be null (a {term}`pointer` to nothing); both are null if
+the index is absent. See {doc}`/guide/grove/querying` for the semantics.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
+
+Continuing with `view` from above (`"*"` is the any-{term}`strand` wildcard):
 
 ```python
 # Overlap query within one index, or across every index
@@ -131,9 +145,11 @@ fl = view.flanking(pg.GenomicCoordinate("+", 100, 200), "chr1",
                    lambda cand, q: cand.strand == q.strand)
 ```
 
-The predicate is applied at leaf candidates only, exactly as in `Grove.flanking`; exceptions it
-raises propagate out. Queries hold the GIL, because a query pages blocks into the view's cache. See
-{doc}`/guide/grove/querying` for the semantics.
+The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`) that
+decides which neighbour candidates count. It is applied at leaf candidates only, exactly as in
+`Grove.flanking`; exceptions it raises propagate out. Queries hold the GIL,
+because a query pages blocks into the view's cache. See {doc}`/guide/grove/querying` for the
+semantics.
 
 ::::
 
@@ -142,14 +158,20 @@ raises propagate out. Queries hold the GIL, because a query pages blocks into th
 ## Following graph edges
 
 A view can follow the {doc}`graph overlay </guide/graph/index>` too, in both directions. Following
-an edge pages in only the block that holds the other endpoint, so hopping to a key on another
-chromosome costs one block load. Edge counts and edge metadata are stored next to the key itself,
-so reading them loads nothing extra.
+an {term}`edge` pages in only the block that holds the other endpoint, so hopping to a key on
+another chromosome costs one block load. Edge counts and {term}`edge metadata` are stored next to
+the key itself, so reading them loads nothing extra.
+
+The snippets reuse `hits` from [Querying](#querying). They are shown for a file whose grove has
+edges — `grove.gg` from the {doc}`saving example <index>` has none, so there they would find
+nothing to follow.
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
+
+`cli_view` is the header-skipping view from [Opening a view](#opening-a-view).
 
 ```cpp
 for (auto* k : hits.get_keys()) {
@@ -169,14 +191,18 @@ for (auto* k : cli_hits.get_keys()) {
 }
 ```
 
-Key pointers passed in must be ones this view produced. The key-resolving accessors throw
-`std::invalid_argument` on a null pointer; `get_edges` / `get_in_edges` return an empty vector and
-`out_degree` / `in_degree` return `0` instead — the same split as `graph_overlay`.
+Key pointers passed in must be ones this view produced. The key-resolving accessors (those that
+return keys) throw `std::invalid_argument` on a null pointer; `get_edges` / `get_in_edges` return
+an empty vector and `out_degree` / `in_degree` return `0` instead — the same split as
+`graph_overlay`.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
+
+The `m["weight"] > 5` filter assumes edges whose metadata is a dict with a `weight` entry, as built
+in {doc}`/guide/graph/building`.
 
 ```python
 for key in hits:
@@ -216,6 +242,8 @@ the read really was partial.
 :sync: cpp
 
 ```cpp
+#include <cassert>
+
 view.get_order();           // B+ tree order the file was built with
 view.get_index_names();     // std::vector<std::string>, unspecified order
 view.blocks_loaded();       // blocks paged in so far
@@ -223,9 +251,10 @@ view.block_count();         // total blocks in the file
 assert(view.blocks_loaded() < view.block_count());   // the query was partial
 ```
 
+`get_order()` is the tree {term}`order` the grove was built with (the `100` in `grove(100)`).
 `get_index_names()` reads nothing beyond the directory already loaded at `open()`. Unlike
-`grove::get_root_nodes()`, which hands back live node pointers, the view returns a copied name list —
-a lazy reader has no persistent root nodes.
+`grove::get_root_nodes()`, which hands back live {term}`node` pointers, the view returns a copied
+name list — a lazy reader has no persistent root nodes.
 
 ::::
 
@@ -240,6 +269,7 @@ view.block_count()          # total blocks in the file (0 for an empty grove)
 assert view.blocks_loaded() < view.block_count()     # the query was partial
 ```
 
+`get_order()` is the tree {term}`order` the grove was built with (the `100` in `Grove(100)`).
 `get_index_names()` reads nothing beyond the directory already loaded at `open()`. The eager `Grove`
 has no equivalent — see {doc}`/guide/grove/index`.
 
@@ -255,7 +285,7 @@ has no equivalent — see {doc}`/guide/grove/index`.
 :sync: cpp
 
 `grove_view<key_type, data_type = void, edge_data_type = void>` in
-`genogrove/structure/grove/grove_view.hpp`. Every method is `[[nodiscard]]`.
+`genogrove/structure/grove/grove_view.hpp`. Every method is `[[nodiscard]]` ({term}`nodiscard`).
 
 Methods:
 
@@ -320,28 +350,33 @@ All raise `TypeError` on `None`.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-- **Non-copyable and non-movable** — it owns the file and a zlib state. Hold it by value from
-  `open()`; the return is guaranteed copy elision, so no move is needed.
-- **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
-  query footprint.
-- **Not thread-safe** — a query pages in blocks on demand, so use one view per thread.
+- **Non-copyable and non-movable** — keep the view in the variable `open()` returned; it cannot be
+  copied or moved afterwards. It owns the file and a {term}`zlib` decompression state. Hold it by
+  value from `open()`; the return is guaranteed copy elision, so no move is needed.
+- **The block cache never evicts** — every block a query reads stays in memory until the view is
+  destroyed, so memory grows with the set of blocks touched, bounded by the query footprint (the
+  distinct blocks your queries reach), and never shrinks.
+- **Not {term}`thread-safe`** — a query pages in blocks on demand, so use one view per thread.
 - **Key pointers** a view returns point into its block cache and are valid only while the view is
   alive.
-- Requires a **format 0.3** `.gg` (see {doc}`format`). Match the template arguments to the grove
-  that wrote the file; the stream does not record them.
+- Requires a **{term}`format <format version>` 0.3** `.gg` (genogrove v0.26.1+; see
+  {doc}`format`). Match the template arguments to the grove that wrote the file; the stream does
+  not record them.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-- **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
-  query footprint.
-- **Not thread-safe** — a query mutates the block cache and holds the GIL, so concurrent Python
-  threads take turns on view I/O; use **one view per thread**.
+- **The block cache never evicts** — every block a query reads stays in memory for as long as the
+  view (and any `Key` it returned) is alive, so memory grows with the set of blocks touched,
+  bounded by the query footprint (the distinct blocks your queries reach), and never shrinks.
+- **Not {term}`thread-safe`** — a query mutates the block cache and holds the GIL, so concurrent
+  Python threads take turns on view I/O; use **one view per thread**.
 - **Keys** a view returns point into its own storage and are valid only while the view is alive.
   A `Key` keeps its view alive for as long as you hold it.
-- Requires a **format 0.3** `.gg` (genogrove v0.26.1+, pygenogrove 0.8.0+; see {doc}`format`).
+- Requires a **{term}`format <format version>` 0.3** `.gg` (genogrove v0.26.1+, pygenogrove 0.8.0+;
+  see {doc}`format`).
   Match the view class to the grove class that wrote the file; the file does not record it.
 
 ::::

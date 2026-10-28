@@ -1,7 +1,8 @@
 # The `.gg` Format
 
-This page describes what a serialized grove looks like on disk, which versions of the format exist,
-the extra header the CLI writes in front of the grove, and the text export for graph visualisation.
+This page describes what a {term}`serialized <serialization>` {term}`grove` looks like on disk,
+which {term}`versions of the format <format version>` exist, the extra header the {term}`CLI` writes
+in front of the grove, and the text export for graph visualisation.
 You do not need any of it to save and load a grove; read it when you need to tell whether a file is
 compatible, when you want to read a CLI-built index from your own code, or when you are curious how
 {doc}`partial reading <partial_reading>` is possible.
@@ -13,20 +14,24 @@ compatible, when you want to read a CLI-built index from your own code, or when 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The grove serializes its complete B+ tree structure using **zlib compression**. The output is a
-compressed binary stream, so files are compact but not directly inspectable with a hex editor.
+A `.gg` is a short plain header followed by many small, independently compressed blocks — one per
+{term}`B+ tree` {term}`node`, plus a few for keys outside the tree — so a reader can inflate
+(decompress) one block without touching the others. That is what makes partial reading possible.
+
+In detail: the grove serializes its complete B+ tree structure using **{term}`zlib` compression**.
+The output is a compressed binary {term}`stream`, so files are compact but not directly inspectable
+with a hex editor.
 
 The payload is **block-structured**: each B+ tree node is an independently zlib-compressed,
-length-prefixed block, and external keys are distributed into fixed-size blocks. The block structure
-is what makes partial reading possible — a reader can inflate one block without touching the
-others. Because each block is inflated from an isolated buffer of exactly its length, the source is
-read sequentially, so `grove::deserialize` works on non-seekable input streams and leaves any
-trailing bytes after the grove intact.
+length-prefixed block, and {term}`external keys <external key>` are distributed into fixed-size
+blocks. Because each block is inflated from an isolated buffer of exactly its length, the source is
+read sequentially, so `grove::deserialize` works on non-{term}`seekable` input streams and leaves
+any trailing bytes after the grove intact.
 
 The stream is laid out as:
 
-1. A plain (uncompressed) header: magic, tree order, the index directory (one name + root block id
-   per chromosome) and the block/key counts
+1. A plain (uncompressed) header: {term}`magic`, tree {term}`order`, the index directory (one name +
+   root block id per chromosome) and the block/key counts
 2. One zlib-compressed block per B+ tree node, in depth-first order per index; each key in a leaf
    is followed by its **outgoing** edge list and then its **incoming** edge list (other endpoint as
    `(block_id, slot)`, plus metadata when `edge_data_type != void`)
@@ -41,14 +46,27 @@ lets `grove_view` surface either side of an edge after paging in only one endpoi
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-A file written by `serialize()` is exactly the C++ stream described in the C++ tab: a plain header
-with the index directory, then one zlib-compressed block per B+ tree node and per chunk of external
-keys, each key followed by its outgoing and incoming edge lists. pygenogrove adds nothing of its
-own; the only Python-specific detail is that payloads and edge metadata of the universal `Grove`
-are stored as JSON text.
+A `.gg` is a short plain header followed by many small, independently compressed blocks — one per
+{term}`B+ tree` {term}`node`, plus a few for keys outside the tree — so `GroveView` can inflate
+(decompress) just the blocks a query needs without touching the others. A file written by
+`serialize()` is byte for byte the stream the C++ library writes; pygenogrove adds nothing of its
+own.
 
-The block structure is what lets `GroveView` answer a query after reading only a handful of blocks,
-and what lets each edge be followed from either end.
+The stream is laid out as:
+
+1. A plain (uncompressed) header: {term}`magic`, tree {term}`order`, the index directory (one name +
+   root block id per chromosome) and the block/key counts
+2. One {term}`zlib`-compressed block per B+ tree node, in depth-first order per index; each key in a
+   leaf is followed by its **outgoing** edge list and then its **incoming** edge list (other
+   endpoint as `(block_id, slot)`, plus metadata on the edge-carrying `Grove` / `NumericGrove` /
+   `KmerGrove`)
+3. {term}`External keys <external key>`, distributed into fixed-size blocks, each key again followed
+   by its outgoing and incoming edge lists
+
+The only Python-specific detail is that payloads and edge metadata of the universal `Grove` are
+stored as JSON text. Every edge appears twice on disk — under its source and under its target —
+which is what lets `GroveView` follow an edge from either end after paging in only one endpoint's
+block.
 
 ::::
 
@@ -67,7 +85,8 @@ The stream format is versioned as `format_major.format_minor` (the numbers appea
 
 :::{warning}
 **No serialization back-compat.** A build reads exactly one format: v0.26.1+ rejects 0.1 and 0.2
-`.gg` files, which must be regenerated (re-run `genogrove idx` or save the grove again). While
+`.gg` files, which must be regenerated (re-run {doc}`genogrove idx </cli>` or save the grove again).
+While
 `format_major == 0` the format is still evolving and may break again.
 :::
 
@@ -104,11 +123,12 @@ on the current build).
 
 ## The `.gg` file header
 
-Every `.gg` file produced by the `idx` CLI subcommand begins with a **12-byte plain (uncompressed)
-header** written before the grove stream. Because it is uncompressed, a `.gg` file can be identified
-and validated without decompressing first (for example with `xxd` or `file`). The `isec -i`
-subcommand validates this header before reading the grove. A file written by `serialize` directly
-has **no** such header.
+Every `.gg` file produced by the {doc}`CLI </cli>`'s `idx` subcommand begins with a **12-byte plain
+(uncompressed) header** written before the grove stream. Because it is uncompressed, a `.gg` file
+can be identified and validated without decompressing first. In a terminal, `xxd -l 12 index.gg`
+prints the twelve header bytes with the letters `GROV` visible on the right, and `file index.gg`
+names a file's type from its magic bytes. The `isec -i` subcommand validates this header before
+reading the grove. A file written by `serialize` directly has **no** such header.
 
 | Offset | Size | Field | Notes |
 |---|---|---|---|
@@ -213,14 +233,15 @@ wrote a header, so no pygenogrove file is invalidated by it.
 
 ## SIF export (visualisation)
 
-A grove can be exported as **SIF** (Simple Interaction Format) text for visualisation in tools such
-as Cytoscape. The output is tab-separated and uses three interaction types: `nodelink` (internal
-node → child), `leaflink` (leaf → next leaf) and `keylink` (key → graph-overlay neighbour). An empty
-grove produces no output.
+A grove can be exported as **{term}`SIF`** (Simple Interaction Format) text for visualisation in
+tools such as Cytoscape (a network-visualisation program). The output is tab-separated and uses
+three interaction types: `nodelink` (internal node → child), `leaflink` (leaf → next leaf) and
+`keylink` (key → {term}`graph overlay` neighbour). An empty grove produces no output.
 
 :::{warning}
-Index iteration order is **not stable across runs** (hash-map iteration) — treat the output as a
-*set* of interactions rather than an ordered list.
+The chromosomes may come out in a different order each time the program runs: index iteration
+order is **not stable across runs**, because the grove keeps its indexes in a hash map, which has no
+fixed iteration order. Treat the output as a *set* of interactions rather than an ordered list.
 :::
 
 :::::{tab-set}
@@ -228,7 +249,7 @@ Index iteration order is **not stable across runs** (hash-map iteration) — tre
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Two `const` overloads are available:
+Two {term}`const` {term}`overloads <overload>` are available:
 
 ```cpp
 // Whole-grove export: walks the grove's own roots, no node pointer needed.
@@ -239,7 +260,8 @@ void grove_to_sif(std::ostream& os, const node<key_type, data_type>* root) const
 ```
 
 Both are stream-only by design, mirroring `serialize()` / `deserialize()` — there is intentionally
-**no** path overload, so wrap your own `std::ofstream`:
+**no** path overload, so wrap your own `std::ofstream`. With `my_grove` from the
+{doc}`saving example <index>`:
 
 ```cpp
 #include <fstream>
@@ -253,8 +275,9 @@ my_grove.grove_to_sif(out);   // writes every indexed tree
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-`to_sif(path)` writes the whole grove to a file and is available on every grove class. It releases
-the GIL. There is no per-tree variant.
+`to_sif(path)` writes the whole grove to a file and is available on every grove class. It
+{term}`releases the GIL <GIL>`. There is no per-tree variant. With `g` from the
+{doc}`saving example <index>`:
 
 ```python
 g.to_sif("graph.sif")
