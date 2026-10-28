@@ -2,6 +2,14 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-10-28
+
+### Added
+- Glossary: `O(1)`, `O(log n)` and `O(n)` are separate term names (the single `O(log n), O(n)` entry could not be targeted by `{term}`); `leaf` and `internal node` stacked under `node`; new entries `half-open`, `parallel edge`, `block`, `htslib`, `bgzip` / `tabix`, `concept`, `move-only`, `std::optional`, `trivially copyable` and `hash`, each linking the page that explains it ([#270](https://github.com/genogrove/docs/pull/270), refs [#258](https://github.com/genogrove/docs/issues/258))
+
+### Fixed
+- Glossary: automatic payload serialization requires a trivially copyable **and** default-constructible type; a raw-pointer member passes that check but would be saved as an address, so such types need custom `serialize` / `deserialize` like `std::string` holders do — the entry had called pointer holders non-trivially-copyable ([#270](https://github.com/genogrove/docs/pull/270))
+
 ## 2026-10-27
 
 ### Added
