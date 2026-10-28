@@ -226,7 +226,7 @@ g.insert_bulk("chr1", [e for e in pg.BedReader("genes.bed.gz") if e.chrom == "ch
 ```
 
 The C++ example stores the name column as payload; a `BedGrove` stores the whole `BedEntry`, so the
-name is still there as `e.name` after a query. The bulk-insert variant above shows `chr1` only, as
+name is still there after a query, as `hit.data.name` for each hit `hit` of the result. The bulk-insert variant above shows `chr1` only, as
 one chromosome of the loop.
 
 Sortedness: `insert` finds the right place itself, so the file need not be sorted.

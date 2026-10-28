@@ -267,7 +267,7 @@ for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
     print(reg.get(key.data["sample"]))   # "SampleA_liver" and "SampleB_brain" (both overlap)
 ```
 
-C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
+C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 `Registry.deserialize` loads into the {term}`singleton` (the one registry the whole program
 shares), **replacing** its contents; see {doc}`/guide/data_types/registry` for its guarantees.

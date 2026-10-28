@@ -52,10 +52,12 @@ genogrove::structure::grove<gdt::interval, std::string> g(64);
     g.insert_data("chr1", {100, 200}, "feat", gst::sorted);
 }
 
-// Reader
+// Reader: finish with the result while the lock is held (the key handles in it
+// become invalid if another thread calls compact())
 {
     std::shared_lock lock(mtx);
     auto hits = g.intersect(gdt::interval{100, 200}, "chr1");
+    for (auto* k : hits.get_keys()) { /* use *k here, before the lock ends */ }
 }
 ```
 
@@ -93,7 +95,10 @@ operations: no other access to the grove being (de)serialized while they run.
 
 The project's `-DENABLE_SANITIZER=ON` CMake option turns on AddressSanitizer and
 UndefinedBehaviorSanitizer only; it does not detect data races. To catch races in how you share
-groves, compile your own multithreaded code with the compiler flag `-fsanitize=thread` and run it.
+groves, build your own multithreaded code **and** genogrove with the compiler flag `-fsanitize=thread`
+(for example `-DCMAKE_CXX_FLAGS=-fsanitize=thread` when you configure both), and run it. A
+ThreadSanitizer build of only your program leaves the code inside an already-built `libgenogrove`
+unchecked.
 
 ::::
 
@@ -121,9 +126,12 @@ g = pg.Grove(64)
 with lock:
     g.insert_sorted("chr1", pg.GenomicCoordinate('+', 100, 200), "feat")
 
-# Reader
+# Reader: finish with the result while the lock is held (the Key objects in it
+# become invalid if another thread calls compact())
 with lock:
     hits = g.intersect(pg.GenomicCoordinate('+', 100, 200), "chr1")
+    for key in hits:
+        print(key.value)       # use the key here, before the lock ends
 ```
 
 Alternatively, build one `Grove` per thread and combine the results downstream. Already covered:

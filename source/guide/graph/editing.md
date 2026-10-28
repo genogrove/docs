@@ -55,7 +55,7 @@ if g.remove_edge(gene1, gene3):    # drop the low-confidence edge
     print("removed")
 ```
 
-With parallel edges, `remove_edge` removes the first matching `source → target` edge only. C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
+With parallel edges, `remove_edge` removes the first matching `source → target` edge only. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ::::
 

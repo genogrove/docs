@@ -132,7 +132,7 @@ pygenogrove has one **universal** `Grove` (and the point groves `NumericGrove` /
 whose keys and edges carry any JSON value — their edges are *labelled* — and the **typed**
 `BedGrove` / `GffGrove`, whose edges carry nothing (*unlabelled*). The guide uses those four words
 throughout. On the universal `Grove` every edge carries a JSON {term}`payload`; the 2-argument
-`add_edge` attaches `None`. C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
+`add_edge` attaches `None`. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ```python
 g = pg.Grove(100)

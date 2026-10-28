@@ -48,7 +48,7 @@ add_edge(source: Key, target: Key)            # payload None
 add_edge(source: Key, target: Key, data)      # JSON payload (labelled groves only)
 ```
 
-`data` is the {term}`edge metadata`, any JSON value. C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
+`data` is the {term}`edge metadata`, any JSON value. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ```python
 g = pg.Grove(100)

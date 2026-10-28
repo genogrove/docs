@@ -46,7 +46,7 @@ import pygenogrove as pg
 r = pg.Registry.instance()
 ```
 
-There is one pool per process. Already covered: the separate C++ pools are available as key prefixes (see "Separate pools" below).
+There is one pool, and one ID space, per process. Already covered: key prefixes keep unrelated names apart inside that one pool (see "Separate pools" below).
 
 ::::
 
@@ -126,12 +126,12 @@ Store the id in a grove payload instead of the string:
 ```python
 # continuing from above: pg and r
 g = pg.Grove(100)
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": r.intern("SampleA_liver")})
+g.insert("chr1", pg.GenomicCoordinate(".", 100, 200), {"sample": r.intern("SampleA_liver")})
 ```
 
-C++ stores the bare ID as the payload; Python stores the payload as a JSON value, so the example wraps
-the ID in a dict. The C++ example uses an `interval`; Python has no `interval` class, so it uses a
-`GenomicCoordinate`.
+C++ stores the bare ID as the payload; the Python example stores a dict that labels the ID (storing the
+bare integer works as well). The C++ example uses an unstranded `interval`; Python has no `interval`
+class, so the example uses the unstranded `GenomicCoordinate('.', start, end)`.
 
 `"chr1"` is the {term}`index` (the chromosome tree) and `100` the tree {term}`order`.
 
@@ -217,9 +217,10 @@ Each `(Key, Tag, Payload)` triple is its own singleton with its own ID space. Th
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Python has the one process-wide `Registry`, and separate pools are already covered by the keys
-themselves: keep unrelated pools apart by prefixing keys (`"tx:ENST00000001"`, `"src:HAVANA"`) or by
-keeping the ids in separate payload fields.
+Python has the one process-wide `Registry` with one ID space. The C++ tags that give each pool its own
+ID space have no Python counterpart. What the prefixes give you is separate *names*, not separate IDs:
+prefix the keys (`"tx:ENST00000001"`, `"src:HAVANA"`) so that two kinds of name cannot collide, and
+remember that all IDs still come from the same sequence.
 
 ::::
 

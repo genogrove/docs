@@ -54,8 +54,8 @@ hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also
 `"chr1"` is the {term}`index` (the chromosome tree) and the dict the payload. `intersect` returns a
 {term}`QueryResult`, hence the `list(...)`.
 
-The two tabs differ on purpose in two places. C++ stores the `GeneInfo` record as it is; Python
-stores the payload as a JSON value, so the example wraps it in a dict. The C++ example uses an
+The two tabs differ on purpose in two places. C++ stores the `GeneInfo` record as it is; the
+Python example stores a dict that labels the fields (any JSON value works as a payload). The C++ example uses an
 `interval`; Python has no `interval` class, so the example uses a `GenomicCoordinate` (the C++
 `genomic_coordinate`).
 

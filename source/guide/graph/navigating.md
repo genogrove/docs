@@ -63,7 +63,7 @@ g.get_in_neighbors(gene)        # [enh1, enh2]  — what regulates Gene1, no mir
 g.has_edge(enh1, gene)          # True
 ```
 
-C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict. Results are in edge-insertion order; a parallel edge yields a repeated entry. The returned `Key`
+C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well). Results are in edge-insertion order; a parallel edge yields a repeated entry. The returned `Key`
 objects are ordinary {term}`key handles <key>`. Available on every grove, including `BedGrove` /
 `GffGrove`.
 
