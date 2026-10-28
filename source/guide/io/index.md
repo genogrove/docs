@@ -3,12 +3,14 @@
 {term}`genogrove` reads the common genomic text and binary formats through a family of **readers**.
 Every reader opens one file, yields one parsed record at a time, and is used the same way: construct
 it with a path (and optional options), then iterate. Plain and gzip/BGZF-compressed inputs are
-detected automatically.
+detected automatically. (BGZF, or "bgzip", is a gzip variant that allows seeking to a position inside
+the compressed file.)
 
 Before you start, install genogrove or {term}`pygenogrove` — {doc}`/guide/installation`
 also shows how to compile and link the C++ examples. The file names in the snippets
 (`data.bed.gz`, `peaks.bed`, `reads.bam`, …) stand for any file of that format; substitute your
-own.
+own. Each format page below starts with a sample file of two or three lines that you can save and
+use (the BAM page uses `samtools view` to make a small file from your own data).
 
 | Format | Records | Native coordinates | Page |
 |---|---|---|---|
@@ -50,10 +52,10 @@ for (const auto& entry : reader) {
 }
 ```
 
-Readers own htslib handles (htslib is the samtools library genogrove reads files with), so they
-are **non-copyable but movable**: pass them by reference or `std::move` them. Call `begin()` at most
-once per reader — it reads the first record immediately so that `*it` (the record the iterator
-points at) is valid, and a second call on a non-empty file would skip a record.
+Readers own htslib handles (htslib is the samtools library genogrove reads files with), so you
+cannot copy a reader. Pass it by reference, or hand it over with `std::move`. A range-`for` loop as
+above needs nothing more. If you call `begin()` yourself, call it once per reader: it reads the first
+record at once, and a second call on a non-empty file would skip a record.
 
 ::::
 
@@ -71,7 +73,7 @@ for entry in pg.BedReader("data.bed.gz"):      # .gz handled automatically
 
 Readers are **single-pass**: each owns an htslib handle (htslib is the samtools library genogrove
 reads files with) and cannot be restarted or iterated twice — construct a new one to read again.
-They are not {term}`thread-safe`; a call from another thread while `__next__` is running raises
+They are not {term}`thread-safe`; a call from another thread while `__next__` (the method that `for` calls to get the next record) is running raises
 `RuntimeError` (see {doc}`/guide/thread_safety`).
 
 ::::
@@ -93,15 +95,19 @@ Readers keep each format's **native** convention. Grove {term}`keys <key>` are
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Fragments: `grove` is a `gst::grove<gdt::interval, std::string>`, `entry` the record from a
-reader loop and `data` the {term}`payload` to store ({doc}`bed` has the complete program).
+Fragments: `g` is a `gst::grove<gdt::interval, std::string>` (a grove with interval keys and string
+payloads; see {doc}`/guide/grove/index`), `entry` the record from a reader loop and `data` the
+{term}`payload` to store ({doc}`bed` has the complete program, with the alias lines below).
 
 ```cpp
+namespace gdt = genogrove::data_type;            // alias for the key types
+namespace gst = genogrove::structure;            // alias for the grove
+
 // BED / BAM / VCF: subtract 1 from end
-grove.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), data);
+g.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), data);
 
 // GFF / GTF: subtract 1 from both
-grove.insert_data(entry.seqid, gdt::interval(entry.start - 1, entry.end - 1), data);
+g.insert_data(entry.seqid, gdt::interval(entry.start - 1, entry.end - 1), data);
 ```
 
 ::::
@@ -136,8 +142,7 @@ Converting by hand: `pg.GenomicCoordinate(strand, e.start, e.end - 1)` for BED/B
 ## Compression and file types
 
 The readers open **plain** and **gzip / BGZF** (`.gz`) files; nothing else is decompressed. Both
-`bgzip` output and plain `gzip` output work under the `.gz` extension (htslib's `bgzf_open` reads
-both), so files distributed as plain gzip — ENCODE GTFs, GENCODE annotations — need no
+`bgzip` output and plain `gzip` output work under the `.gz` extension (htslib reads both), so files distributed as plain gzip — ENCODE GTFs, GENCODE annotations — need no
 recompression. Only BGZF supports the random-access seeks that {doc}`region_access` needs.
 
 A separate detector recognises a file's format and compression from its extension and

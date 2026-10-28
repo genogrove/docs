@@ -1,15 +1,31 @@
 # SAM / BAM Files
 
-SAM, BAM and CRAM files hold sequence alignments. One reader opens all three and detects which it
-has been given (CRAM needs its reference genome available); decompression is done by htslib, the
-samtools library. Positions come out **0-based half-open** `[start, end)`: SAM's 1-based POS is
+SAM, BAM and CRAM files hold sequence alignments: where each sequencing read maps on the genome.
+(BAM and CRAM are compressed forms of SAM.) One C++ reader opens all three and detects which it has
+been given; CRAM needs its reference genome available to htslib. CRAM is not yet exposed in
+Python. Decompression is done by htslib, the samtools library. Positions come out **0-based half-open** `[start, end)`: SAM's 1-based POS is
 converted, and `end` is where the alignment stops on the chromosome, computed from the CIGAR
-operations that consume reference bases (those that advance along the chromosome). Convert with
+operations that consume reference bases (those that advance along the chromosome). The CIGAR is
+the string that lists how a read lines up with the reference, such as `50M` for 50 matching bases. Convert with
 `end - 1` for a {term}`grove` {term}`key` (see {doc}`index`). Filtering by SAM FLAG — unmapped,
 **secondary** (an alternative placement of a read), **supplementary** (a further piece of a split
-read), **QC-fail**, **duplicate** — and by MAPQ happens while reading.
+read), **QC-fail** (the sequencer marked the read as low quality), **duplicate** — and by MAPQ (the
+mapping quality, a number from 0 to 255 where a higher value means a more certain placement)
+happens while reading. The FLAG is the number column of a SAM record that stores these yes/no
+properties.
 
-The snippets read `alignments.bam`; substitute any SAM, BAM or CRAM file. Installation and how to
+The snippets read `alignments.bam`; substitute any SAM, BAM or CRAM file. If you have none, save the
+lines below (tab-separated) as `tiny.sam`, use that name, or make a BAM with `samtools view -b tiny.sam
+-o alignments.bam`:
+
+```text
+@HD	VN:1.6	SO:coordinate
+@SQ	SN:chr1	LN:1000
+read1	0	chr1	101	60	10M	*	0	0	ACGTACGTAC	IIIIIIIIII
+read2	16	chr1	201	60	10M	*	0	0	ACGTACGTAC	IIIIIIIIII
+```
+
+Installation and how to
 compile the C++ examples: {doc}`/guide/installation`.
 
 ## Reading alignments
@@ -161,7 +177,7 @@ for aln in strict:                                                        # iter
 | `cigar` | `std::vector<cigar_element>` — a list of operations, each with `op`, `length`, `to_char()`, `consumes_reference()`, `consumes_query()` |
 | `sequence`, `quality` | `std::string` |
 | `mate` | `std::optional<mate_info>` (`chrom`, `position`, `insert_size`) — may be absent |
-| `tags` | `std::unordered_map<std::string, sam_tag_value>` — tag name → value; the value is a `std::variant` (one of) `char`, `int64_t`, `float`, `std::string` and typed vectors |
+| `tags` | `std::unordered_map<std::string, sam_tag_value>` — tag name → value; the value is a `std::variant` (one of) `char`, `int64_t`, `float`, `std::string` and typed vectors; an `NH:i:1` tag holds the integer 1 |
 
 Helpers: `get_strand()` (`'+'` / `'-'`, `'.'` for an unmapped read), `is_primary()`,
 `is_mapped()`, `consumes_reference()`, `cigar_string_repr()`.
@@ -239,9 +255,9 @@ reference sequence), `@RG` (read groups) and `@PG` (programs that produced the f
 Fragments continuing the first program (`gio` alias, inside `main()`):
 
 ```cpp
-gio::bam_reader reader("alignments.bam");
-const std::string& header = reader.get_header();                    // full @HD/@SQ/@RG/@PG text
-const std::vector<std::string>& refs = reader.get_reference_names(); // list of @SQ names
+gio::bam_reader header_reader("alignments.bam");
+const std::string& header = header_reader.get_header();                    // full @HD/@SQ/@RG/@PG text
+const std::vector<std::string>& refs = header_reader.get_reference_names(); // list of @SQ names
 ```
 
 ::::
@@ -293,9 +309,10 @@ int main() {
 }
 ```
 
-`gst::sorted` ({term}`sorted insert`) is a promise that the file is coordinate-sorted (as
-`samtools sort` leaves it); that path does not check, so drop the tag for an unsorted BAM (see
-{doc}`/guide/grove/inserting`). `sam_entry` has no `serialize` / `deserialize`, so a grove holding
+`gst::sorted` ({term}`sorted insert`) is a promise that the records are sorted by start and then by
+end. A BAM that `samtools sort` has sorted is sorted by start only: reads with the same start can
+have any order of ends. For that reason, drop the tag unless you know the ends are ordered too. The
+path does not check, and a wrong order silently breaks the tree (see {doc}`/guide/grove/inserting`). `sam_entry` has no `serialize` / `deserialize`, so a grove holding
 whole records cannot be saved to disk — this example stores the read name instead.
 
 ::::
@@ -317,8 +334,9 @@ for aln in pg.BamReader("alignments.bam"):
         g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
 ```
 
-`insert` finds the right place itself, so the BAM need not be sorted; `insert_sorted` is the
-unchecked fast path for a coordinate-sorted file (see {doc}`/guide/grove/inserting`).
+`insert` finds the right place itself, so the BAM need not be sorted. `insert_sorted` is the
+unchecked fast path; use it only when the records are sorted by start and then by end, which
+`samtools sort` does not guarantee (see {doc}`/guide/grove/inserting`).
 
 ::::
 

@@ -1,13 +1,17 @@
 # FASTA / FASTQ Files
 
 Two tools cover sequence files: a **streaming reader** that yields every record of a FASTA or FASTQ
-file in order, and an **index** that fetches one region or one whole sequence from a FASTA file
-without scanning it. The index relies on a `.fai` file — the same small lookup table
-`samtools faidx` writes — created next to the FASTA on first use. Sequences are named records, not
+file in order (reading one record at a time, never the whole file at once), and an **index** that
+fetches one region or one whole sequence from a FASTA file without reading the rest. The index relies
+on a `.fai` file — the same small lookup table `samtools faidx` writes — created next to the FASTA on
+first use. FASTA files hold named sequences; FASTQ files hold named sequences plus a quality string,
+one character of base-call quality for each base. Sequences are named records, not
 intervals, so neither feeds a {term}`grove` directly; the index is what you reach for once a grove
 query (see {doc}`/guide/grove/querying`) has given you coordinates.
 
 The snippets read `reads.fq.gz` (streaming) and `genome.fa` (index); substitute your own files.
+Any FASTA or FASTQ file works for the streaming snippets; the index snippets need a FASTA file that
+has a sequence named `chr1`.
 Installation and how to compile the C++ examples: {doc}`/guide/installation`.
 
 ## Streaming records
@@ -42,7 +46,8 @@ int main() {
 The constructor's signature and options (a declaration, not runnable code):
 
 ```cpp
-fasta_reader(const std::string& path, fasta_reader_options options = {});   // = {}: defaults
+explicit fasta_reader(const std::filesystem::path& path);                                // default options
+fasta_reader(const std::filesystem::path& path, const fasta_reader_options& options);
 struct fasta_reader_options { bool skip_empty_sequences = false; };
 ```
 
@@ -157,8 +162,8 @@ int main() {
 `fetch`, `sequence_name` and `sequence_length` throw a `std::out_of_range` {term}`exception` for an
 unknown name, a number out of range, or an invalid region (`start >= end`, or beyond htslib's
 coordinate limit); `std::runtime_error` means the htslib fetch itself failed. `fasta_index` is
-non-copyable and movable: you can hand it to another owner but not duplicate it. It has no internal
-locking; share one between threads only with your own synchronization (see
+non-copyable and movable: you can hand it to another owner but not duplicate it. Do not share one
+`fasta_index` between threads unless you protect it with your own lock (see
 {doc}`/guide/thread_safety`).
 
 ::::
@@ -176,12 +181,12 @@ print(fa.fetch("chrM"))                  # whole sequence
 
 for name in fa.names():
     print(name, fa.sequence_length(name))
-print("chrUn" in fa, len(fa))            # has_sequence / sequence_count
+print("chrUn" in fa, len(fa))            # is the name present? / number of sequences
 ```
 
 Unknown names and invalid regions raise `IndexError`. One handle is safe to use from several
-threads at once: `fetch` calls on it run one at a time behind a per-handle lock while the
-{term}`GIL` is released, and the metadata getters need no lock (see {doc}`/guide/thread_safety`).
+threads at once: `fetch` calls on it take turns while the {term}`GIL` is released, and the metadata
+getters need no lock (see {doc}`/guide/thread_safety`).
 
 ::::
 
@@ -192,18 +197,23 @@ threads at once: `fetch` calls on it run one at a time behind a per-handle lock 
 Grove keys are **{term}`0-based closed`** and GFF records are **1-based closed**, while `fetch` is
 0-based half-open — so the end (and for GFF the start) shifts by one. In the snippets `key` is the
 {term}`key handle <key>` a grove query returns (see {doc}`/guide/grove/querying`) and `entry` a GFF
-record ({doc}`gff`). The chromosome is not part of the key's value; pass the grove {term}`index`
-name (the chromosome) you queried.
+record ({doc}`gff`). The chromosome is not part of the key's value; pass the chromosome name you
+queried (the grove {term}`index` name, which is a different thing from the FASTA `.fai` index).
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Fragments: `fasta` is the index from above, `key` the key handle — a {term}`pointer`, hence `->`
-— and `chrom` the index name you queried.
+Fragments: `fasta` is the index from above, `g` a grove you filled earlier (see
+{doc}`/guide/grove/loading_data`), `key` one of its hits — a {term}`pointer`, hence `->` — and
+`chrom` the chromosome you queried.
 
 ```cpp
+std::string chrom = "chr1";
+auto hits = g.intersect(gdt::interval{100, 200}, chrom);
+auto* key = hits.get_keys().front();             // assumes at least one hit
+
 // From a grove key (0-based closed [start, end]) — add 1 to end
 std::string seq = fasta.fetch(chrom, key->get_value().get_start(), key->get_value().get_end() + 1);
 
@@ -218,13 +228,17 @@ The chromosome is not part of an `interval`, so it has to come from your query.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Fragments: `fa` is the index from above and `key.value` the stored `GenomicCoordinate` of the key
-handle.
+Fragments: `fa` is the index from above, `g` a grove you filled earlier (see
+{doc}`/guide/grove/loading_data`) and `key` one of its hits; `key.value` is the stored
+`GenomicCoordinate`.
 
 ```python
+chrom = "chr1"
+key = list(g.intersect(pg.GenomicCoordinate("*", 100, 200), chrom))[0]   # assumes at least one hit
+
 # From a grove key (0-based closed [start, end]) — add 1 to end
 gc = key.value
-seq = fa.fetch("chr1", gc.start, gc.end + 1)
+seq = fa.fetch(chrom, gc.start, gc.end + 1)
 
 # From a GFF record (1-based closed) — shift start down by one
 seq2 = fa.fetch(entry.seqid, entry.start - 1, entry.end)

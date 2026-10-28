@@ -6,8 +6,16 @@ fields absent (nothing carries over from the previous record). Plain and gzip/bg
 (`.gz`) files are detected automatically. Coordinates are **0-based half-open** `[start, end)`;
 convert with `end - 1` for a {term}`grove` {term}`key` (see {doc}`index`).
 
-The snippets read `genes.bed.gz`; substitute any BED file. Installation and how to compile the C++
-examples: {doc}`/guide/installation`.
+The snippets read `genes.bed.gz`; substitute any BED file. If you have none, save these three tab-separated
+lines as `genes.bed` and use that name:
+
+```text
+chr1	100	200	geneA	0	+
+chr1	300	400	geneB	0	-
+chr2	50	150	geneC	0	+
+```
+
+Installation and how to compile the C++ examples: {doc}`/guide/installation`.
 
 ## Reading a BED file
 
@@ -45,7 +53,8 @@ int main() {
 The constructor's signature and options (a declaration, not runnable code):
 
 ```cpp
-bed_reader(const std::string& path, bed_reader_options options = {});   // = {}: defaults
+explicit bed_reader(const std::filesystem::path& path);                              // default options
+bed_reader(const std::filesystem::path& path, const bed_reader_options& options);
 struct bed_reader_options {
     bool skip_invalid_lines = false;   // skip malformed lines instead of throwing
     std::string region = "";           // tabix region, see below
@@ -139,6 +148,10 @@ Otherwise the fields are the record: there is no coordinate helper, so build the
 | `item_rgb` | `Optional[RgbColor]` (`red`, `green`, `blue`, 0–255) | 9 |
 | `blocks` | `Optional[BlockInfo]` (`count`, `sizes`, `starts`) | 10–12 |
 
+`Optional[str]` means "a `str`, or `None` when the column is absent": test it with `if entry.name:`
+or `is not None`. Whole records saved in a `BedGrove` go to disk with `serialize` (see
+{doc}`/guide/serialization/index`).
+
 Constructors: `BedEntry()` and `BedEntry(chrom, start, end)`; set the optional attributes
 afterwards. `repr(entry)` shows the record. Assigning an empty or multi-character `strand` raises
 `ValueError`, `None` clears it. List fields (`blocks.sizes`, `blocks.starts`) are returned and
@@ -159,6 +172,7 @@ from the record, which becomes the payload (see {doc}`/guide/grove/loading_data`
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
+The grove, its {term}`order` (the `100`) and `insert_data` are explained in {doc}`/guide/grove/index`.
 Convert the half-open end:
 
 ```cpp
@@ -182,10 +196,11 @@ int main() {
 }
 ```
 
-If you know the file is position-sorted, add `gst::sorted` as the last argument for the
-constant-time ({term}`O(1) <O(log n), O(n)>`) append path — but only then; the
-{term}`sorted insert` does not check (see {doc}`/guide/grove/inserting`). For large files collect
-per chromosome and {term}`bulk-insert <bulk insert>` — see {doc}`/guide/grove/loading_data`.
+If the file is sorted by start and then by end, add `gst::sorted` as the last argument for the
+faster append path. Sorting by start alone is not enough: two records with the same start must come
+in order of their end. Use this tag only when you know the file has that order. The
+{term}`sorted insert` does not check, and a wrong order silently breaks the tree (see
+{doc}`/guide/grove/inserting`). For large files collect per chromosome and {term}`bulk-insert <bulk insert>` — see {doc}`/guide/grove/loading_data`.
 
 ::::
 
@@ -202,13 +217,17 @@ g = pg.BedGrove(100)                                     # 100 = tree order, a g
 for e in pg.BedReader("genes.bed.gz"):
     g.insert(e.chrom, e)
 
-# or per chromosome in bulk
+# Alternative to the loop above: bulk insert into a NEW grove, one chromosome at a time
+g = pg.BedGrove(100)
 g.insert_bulk("chr1", [e for e in pg.BedReader("genes.bed.gz") if e.chrom == "chr1"])
 ```
 
 Sortedness: `insert` finds the right place itself, so the file need not be sorted.
-`insert_bulk(index, entries)` sorts the list for you; pass `presorted=True` only when the list is
-already in ascending order — like C++ `gst::sorted`, that path does not check. The single-record
+`insert_bulk(index, entries)` sorts the list you give it, but it only appends to the index. If the
+index already holds keys, every new key must be greater than all existing keys, whatever the value of
+`presorted`. The code does not check this, and a wrong order silently breaks the tree. So use
+`insert_bulk` on an empty index, such as the `chr1` index of a new grove. Pass `presorted=True` only
+when the list is already ordered by start and then end; that path skips the sort. The single-record
 fast path `insert_sorted(index, coord, data)` takes an explicit coordinate and payload, not a bare
 entry. See {doc}`/guide/grove/loading_data` for the typed groves.
 

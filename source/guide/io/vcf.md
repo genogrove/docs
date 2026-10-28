@@ -1,12 +1,27 @@
 # VCF / BCF Files
 
-VCF and BCF files hold variant calls. One reader handles plain VCF, block-compressed (`bgzip`) VCF
+VCF and BCF files hold variant calls: positions where a sample differs from the reference genome.
+Each record has fixed columns: `POS` (1-based position), `REF` (the reference bases), `ALT` (the
+alternative bases), `QUAL` (confidence), `FILTER` (`PASS` or the reason a call failed) and `INFO`
+(extra facts about the site). Optional per-sample columns (`FORMAT` and one column per sample) hold
+each sample's genotype, such as `0/1`. A SNP is a change of one base. One reader handles plain VCF, block-compressed (`bgzip`) VCF
 and binary BCF, and tells them apart itself. Coordinates are **0-based half-open**:
 `start = POS - 1` and `end = start + len(REF)`, so a SNP spans one base. Convert with `end - 1`
 for a {term}`grove` {term}`key` — the same rule as BED and BAM, not the GFF one (see
 {doc}`index`).
 
-The snippets read `calls.vcf.gz`; substitute any VCF or BCF file. Installation and how to compile
+The snippets read `calls.vcf.gz`; substitute any VCF or BCF file. If you have none, save these lines
+(the columns are tab-separated) as `calls.vcf` and use that name:
+
+```text
+##fileformat=VCFv4.2
+##contig=<ID=chr1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample1
+chr1	100	rs1	A	G	50	PASS	DP=12	GT	0/1
+chr1	200	.	AT	A	40	PASS	DP=8	GT	1/1
+```
+
+Installation and how to compile
 the C++ examples: {doc}`/guide/installation`.
 
 ## Reading variants
@@ -45,11 +60,12 @@ int main() {
 The constructor's signature and options (a declaration, not runnable code):
 
 ```cpp
-vcf_reader(const std::string& path, vcf_reader_options options = {});   // = {}: defaults
+explicit vcf_reader(const std::filesystem::path& path);                              // default options
+vcf_reader(const std::filesystem::path& path, const vcf_reader_options& options);
 struct vcf_reader_options {
     bool parse_info    = true;    // parse the INFO column into `info` (false: leave it empty)
     bool parse_samples = true;    // decode the per-sample FORMAT columns into `samples`
-    bool skip_filtered = false;   // drop records that did not pass FILTER
+    bool skip_filtered = false;   // drop records whose FILTER is neither PASS nor "."
     std::string region = "";      // tabix/CSI region, see below
 };
 ```
@@ -85,7 +101,7 @@ VcfReader(path, parse_info=True, parse_samples=True, skip_filtered=False, region
 
 `parse_info=False` leaves `info` empty; `parse_samples=False` skips the per-sample FORMAT columns
 (the equivalent of the C++ `sites_only()` preset — there are no presets in Python);
-`skip_filtered=True` drops records that did not pass FILTER; `region` restricts reading to one
+`skip_filtered=True` drops records whose FILTER is neither `PASS` nor `.`; `region` restricts reading to one
 locus of an indexed file — see {doc}`region_access`.
 
 ::::
@@ -110,7 +126,7 @@ locus of an indexed file — see {doc}`region_access`.
 | `alt` | `std::vector<std::string>` (a list); empty for `ALT=.`; symbolic alleles (`<*>`, `<NON_REF>`, `*`) kept verbatim |
 | `qual`, `qual_missing` | `float`, and `true` when QUAL is `.` |
 | `filter` | `std::vector<std::string>`; `{"PASS"}` when passed, empty for `.` |
-| `info` | `vcf_info` = `std::unordered_map<std::string, vcf_info_value>` (INFO key → value); the value is a `std::variant<bool, std::vector<int32_t>, std::vector<float>, std::string>`, i.e. one of Flag, Integer, Float, String — numeric fields are always lists, even for a single value |
+| `info` | `vcf_info` = `std::unordered_map<std::string, vcf_info_value>` (INFO key → value); the value is a `std::variant<bool, std::vector<int32_t>, std::vector<float>, std::string>`, i.e. one of Flag, Integer, Float, String — numeric fields are always lists, even for a single value (`DP=12` holds the list `{12}`) |
 | `format` | `std::vector<std::string>` FORMAT keys in column order |
 | `samples` | `std::vector<sample_genotype>`, parallel to `get_sample_names()` |
 
@@ -132,13 +148,12 @@ There is no coordinate helper on the C++ record; build the grove key with
 Reading one INFO field, with `v` from the reading loop above:
 
 ```cpp
-// find() returns an iterator: a position in the map, or end() when the key is absent.
-// `if (init; cond)` runs the lookup and the test in one statement.
-if (auto it = v.info.find("DP"); it != v.info.end()) {
-    // std::get_if asks the variant for its integer-list alternative: a pointer to it,
-    // or null if DP holds another type. `&it->second` is the address of the value.
-    if (auto* dp = std::get_if<std::vector<int32_t>>(&it->second); dp && !dp->empty()) {
-        std::cout << "depth " << (*dp)[0] << "\n";   // *dp: the list itself; [0]: its first value
+auto it = v.info.find("DP");                     // the map position of "DP", or end() if absent
+if (it != v.info.end()) {
+    // std::get_if returns a pointer to the integer list if DP holds one, otherwise a null pointer
+    auto* depth = std::get_if<std::vector<int32_t>>(&it->second);
+    if (depth != nullptr && !depth->empty()) {
+        std::cout << "depth " << (*depth)[0] << "\n";   // the first value of the list
     }
 }
 ```
@@ -205,8 +220,8 @@ Each element of `samples` decodes one sample's FORMAT column.
 index, `-1` = missing), `phased` (`|` separator), `has_gt`, `fields`
 (`std::unordered_map<std::string, vcf_format_value>`: FORMAT key → value for everything except GT;
 `vcf_format_value` is a `std::variant<std::vector<int32_t>, std::vector<float>, std::string>`,
-i.e. one of an integer list, a float list or a string). Ragged numeric fields (a different number
-of values per sample) are trimmed of the padding htslib adds to make them equal length.
+i.e. one of an integer list, a float list or a string). Numeric fields can have a different
+number of values per sample; htslib pads them to equal length, and the reader removes that padding.
 
 Methods:
 
@@ -248,11 +263,11 @@ Methods:
 Fragments continuing the first program (`gio` alias, inside `main()`):
 
 ```cpp
-gio::vcf_reader reader("calls.vcf.gz");
-const std::string& header            = reader.get_header();
-const std::vector<std::string>& names = reader.get_sample_names();   // parallel to v.samples
-const std::vector<std::string>& ctgs  = reader.get_contigs();        // ##contig lines
-size_t line = reader.get_current_line();   // 1-based record index (counts skipped records);
+gio::vcf_reader header_reader("calls.vcf.gz");
+const std::string& header            = header_reader.get_header();
+const std::vector<std::string>& names = header_reader.get_sample_names();   // parallel to v.samples
+const std::vector<std::string>& ctgs  = header_reader.get_contigs();        // ##contig lines
+size_t line = header_reader.get_current_line();   // 1-based record index (counts skipped records);
                                            // 0 before the first read
 ```
 
@@ -305,8 +320,11 @@ int main() {
 
 The payload here is `v.id`, which is the empty string for records whose ID column is `.`; pick
 another field (or build a string from several) if your file has no IDs. `gst::sorted`
-({term}`sorted insert`) is a promise that the file is position-sorted, as VCFs normally are; that
-path does not check, so drop the tag if yours is not (see {doc}`/guide/grove/inserting`).
+({term}`sorted insert`) is a promise that the records are sorted by start and then by end. A
+position-sorted VCF is sorted by start only: two records at the same position (for example an SNP and
+a deletion) can come with their ends in any order. So drop the tag unless you know the ends are
+ordered too. The path does not check, and a wrong order silently breaks the tree (see
+{doc}`/guide/grove/inserting`).
 
 ::::
 
@@ -326,8 +344,9 @@ for v in pg.VcfReader("calls.vcf.gz", skip_filtered=True):
     g.insert(v.chrom, v.to_coordinate(), v.to_dict())
 ```
 
-`insert` finds the right place itself, so the file need not be sorted; `insert_sorted` is the
-unchecked fast path for a position-sorted file (see {doc}`/guide/grove/inserting`).
+`insert` finds the right place itself, so the file need not be sorted. `insert_sorted` is the
+unchecked fast path; use it only when the records are sorted by start and then by end (see
+{doc}`/guide/grove/inserting`).
 
 ::::
 
