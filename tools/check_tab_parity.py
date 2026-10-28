@@ -20,6 +20,7 @@ from pathlib import Path
 # Pages already converted to "## heading outside, one tab-set per section". Add pages here as
 # they are converted; rule 2 only applies to these.
 CONVERTED = {
+    "guide/quickstart.md",
     "guide/grove/index.md",
     "guide/grove/inserting.md",
     "guide/grove/querying.md",

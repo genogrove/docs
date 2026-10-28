@@ -18,15 +18,18 @@ Before starting, ensure you have:
 
 ## Guide Contents
 
-Start with {doc}`guide/installation` and {doc}`guide/grove/index` (create a grove, insert, query),
-then {doc}`guide/grove/loading_data` to fill it from a file and {doc}`guide/graph/index` to link keys. {doc}`guide/examples` has complete
-programs. The remaining pages are reference-style and can be read as needed. Unfamiliar words —
-"index", "key handle", "0-based closed", "GIL" — are defined in the {doc}`guide/glossary`.
+Start with {doc}`guide/installation`, then run the twenty-line program in {doc}`guide/quickstart`.
+{doc}`guide/grove/index` explains what that program did (create a grove, insert, query);
+{doc}`guide/grove/loading_data` fills a grove from a file and {doc}`guide/graph/index` links keys.
+{doc}`guide/examples` has complete programs. The remaining pages are reference-style and can be
+read as needed. Unfamiliar words — "index", "key handle", "0-based closed", "GIL" — are defined in
+the {doc}`guide/glossary`.
 
 ```{toctree}
 :maxdepth: 3
 
 guide/installation
+guide/quickstart
 guide/grove/index
 guide/graph/index
 guide/examples
