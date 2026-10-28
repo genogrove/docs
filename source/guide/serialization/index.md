@@ -3,7 +3,8 @@
 A grove can be written to disk and loaded back later, so you parse and insert your data once
 instead of on every run. For large datasets this is much faster than rebuilding the grove from the
 source files. The file is a zlib-compressed binary stream; by project convention it carries the
-`.gg` extension, and the genogrove CLI reads and writes the same format.
+`.gg` extension, and the genogrove CLI writes the same stream behind a small
+{doc}`file header <format>`.
 
 This page covers saving and loading a whole grove. The subpages cover the two more specialised
 topics:
@@ -55,15 +56,17 @@ int main() {
 
 Always open streams with `std::ios::binary` to avoid platform-specific newline translation.
 
-The file extension does not matter to the library — a `grove.bin` and the CLI's `.gg` are the same
-stream format. `.gg` is the project convention and is what the CLI's `isec -i` expects.
+The file extension does not matter to the library — `grove.bin` would be read just the same. `.gg`
+is the project convention. Note that the CLI's own `.gg` files carry a 12-byte header in front of
+the grove stream, so `isec -i` does not accept a file written by `serialize` directly — see
+{doc}`format`.
 
 `deserialize` returns the grove **by value**. `grove` is move-only (copying is deleted), and the
 return relies on copy elision or an implicit move, so simply assign the result to a local variable
 as shown above. The template arguments must match those the grove was written with; the stream does
 not record them.
 
-`serialize()` (and the supporting `grove_to_sif()` and `node::serialize()`) are
+`serialize()` (and the supporting `grove_to_sif()` and `node::serialize_block()`) are
 **`const`-qualified**, so code that holds a `const grove&` — for example a read-only query layer —
 can serialize without a `const_cast`:
 
@@ -101,9 +104,11 @@ Load a file with the grove class that wrote it: a `BedGrove` file with `BedGrove
 `NumericGrove` file with `NumericGrove.deserialize`, and so on. The file does not record which
 class wrote it.
 
-**Reading a Python `.gg` from C++ (and vice versa).** A universal `Grove` stores each payload as
-JSON text, so its file is readable by a C++ `grove<genomic_coordinate, std::string>`; with
-labelled edges the matching C++ type is `grove<genomic_coordinate, std::string, std::string>`.
+**Reading a Python `.gg` from C++ (and vice versa).** A universal `Grove` stores each payload and
+each edge's metadata as JSON text, so its file is readable by a C++
+`grove<genomic_coordinate, std::string, std::string>`. Only a file with **no edges at all** can be
+read by the two-parameter `grove<genomic_coordinate, std::string>`: every edge writes metadata
+(JSON `null` for an unlabelled one), which a void-edge reader cannot skip.
 The typed `BedGrove` / `GffGrove` files round-trip the structured `BedEntry` / `GffEntry`
 payloads with a C++ `grove<genomic_coordinate, bed_entry>` / `grove<genomic_coordinate, gff_entry>`.
 
@@ -130,8 +135,9 @@ types are serialized automatically:
 - **`std::string`** — length-prefixed
 - **`gio::bed_entry`** (with its nested `gio::block_info`) and **`gio::gff_entry`** — member
   `serialize` / `deserialize` provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted
-  directly. The `.gg` files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and
-  `gio::thick_info` are trivially copyable and serialize automatically.
+  directly (the CLI's `idx` indexes are groves of this kind with a `std::string` edge type — see
+  {doc}`format`). `gio::rgb_color` and `gio::thick_info` are trivially copyable and serialize
+  automatically.
 
 Any other key or data type needs a small amount of code — see [Custom key types](#custom-key-types)
 and [Custom data types](#custom-data-types) below.
@@ -371,10 +377,12 @@ source — it seeks to individual block offsets — which is why `grove_view::op
 rather than an arbitrary stream.
 ```
 
-**Errors.** Every `deserialize` (`node::deserialize`, `grove::deserialize`, `registry::deserialize`,
-`serialization_traits<std::string>::deserialize`) throws `std::runtime_error` on a corrupt or
-truncated stream, and on a stream that is not a format 0.3 grove (bad magic). `node::deserialize`
-additionally validates the B+ tree invariants (`num_keys < order`, `num_children <= order`). All
+**Errors.** Every `deserialize` (`grove::deserialize`, `node::deserialize_block`,
+`registry::deserialize`, `serialization_traits<std::string>::deserialize`) throws
+`std::runtime_error` on a corrupt or truncated stream, and on a stream of a different format than
+the build reads (bad magic; see {doc}`format` for which build reads which format).
+`node::deserialize_block` additionally validates the B+ tree invariants (`num_keys < order`,
+`num_children <= order`). All
 `deserialize` methods are `[[nodiscard]]`, so accidentally discarding the result is a compiler
 warning.
 

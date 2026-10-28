@@ -100,7 +100,7 @@ auto all  = view.intersect(gdt::interval{100, 200});
 
 // Nearest non-overlapping neighbours on either side
 auto fl = view.flanking(gdt::interval{100, 200}, "chr1");
-if (fl.predecessor) { /* ... */ }
+if (fl.get_predecessor()) { /* ... */ }   // nullptr if there is none
 
 // Predicate-filtered flanking, applied at leaf candidates only
 auto same_side = view.flanking(gdt::interval{100, 200}, "chr1",
@@ -159,7 +159,8 @@ for (auto* k : hits.get_keys()) {
     auto n_in  = view.in_degree(k);
 }
 
-// Edge-carrying views only (edge_data_type != void)
+// Edge-carrying views only (edge_data_type != void), e.g. cli_view from "Opening a view"
+auto cli_hits = cli_view.intersect(gdt::interval{100, 200}, "chr1");
 for (auto* k : cli_hits.get_keys()) {
     auto labels = cli_view.get_edges(k);                              // std::vector<std::string>
     auto pairs  = cli_view.get_edge_list(k);                          // {target key*, label}
@@ -263,7 +264,8 @@ Methods:
 - `intersect(const key_type& query, std::string_view index)` /
   `intersect(const key_type& query)` → `query_result`
 - `flanking(const key_type& query, std::string_view index)` /
-  `flanking(query, index, Pred is_compatible)` → `flanking_query_result` (predecessor / successor)
+  `flanking(query, index, Pred is_compatible)` → `flanking_query_result` (`get_predecessor()` /
+  `get_successor()`, each a key pointer or `nullptr`)
 - `get_neighbors(const key* source)` / `get_in_neighbors(const key* target)` →
   `std::vector<key*>`; throw `std::invalid_argument` on null
 - `out_degree(const key* source)` / `in_degree(const key* target)` → `std::size_t`; `0` for null
@@ -336,10 +338,10 @@ All raise `TypeError` on `None`.
 - **The block cache never evicts** — memory grows with the set of blocks touched, bounded by the
   query footprint.
 - **Not thread-safe** — a query mutates the block cache and holds the GIL, so concurrent Python
-  threads serialize on view I/O; use **one view per thread**.
+  threads take turns on view I/O; use **one view per thread**.
 - **Keys** a view returns point into its own storage and are valid only while the view is alive.
   A `Key` keeps its view alive for as long as you hold it.
-- Requires a **format 0.3** `.gg` (genogrove v0.26.x, pygenogrove 0.8.0+; see {doc}`format`).
+- Requires a **format 0.3** `.gg` (genogrove v0.26.1+, pygenogrove 0.8.0+; see {doc}`format`).
   Match the view class to the grove class that wrote the file; the file does not record it.
 
 ::::

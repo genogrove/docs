@@ -62,11 +62,11 @@ The stream format is versioned as `format_major.format_minor` (the numbers appea
 | Format | genogrove | Payload |
 |---|---|---|
 | 0.1 | < 0.25.0 | Whole file a single zlib stream |
-| 0.2 | 0.25.x | Block-structured (per-node blocks, external-key chunks); edges recorded under their source only |
-| 0.3 | 0.26.0+ | Block-structured; each key records its outgoing **and** incoming edge lists, enabling reverse traversal in a view |
+| 0.2 | 0.25.0 – 0.26.0 | Block-structured (per-node blocks, external-key chunks); edges recorded under their source only |
+| 0.3 | 0.26.1+ | Block-structured; each key records its outgoing **and** incoming edge lists, enabling reverse traversal in a view |
 
 :::{warning}
-**No serialization back-compat.** A build reads exactly one format: v0.26.0+ rejects 0.1 and 0.2
+**No serialization back-compat.** A build reads exactly one format: v0.26.1+ rejects 0.1 and 0.2
 `.gg` files, which must be regenerated (re-run `genogrove idx` or save the grove again). While
 `format_major == 0` the format is still evolving and may break again.
 :::
@@ -86,7 +86,8 @@ genogrove version that wrote them.
 
 The public signatures — `serialize(std::ostream&)` / `deserialize(std::istream&)` — have not
 changed across these versions. A stream of the wrong format fails in `deserialize` with
-`std::runtime_error` (`"bad magic (not a format 0.3 grove stream)"`).
+`std::runtime_error` (`"Failed to deserialize grove: bad magic (not a format 0.3 grove stream)"`
+on the current build).
 
 ::::
 
@@ -125,13 +126,9 @@ has **no** such header.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The header API lives in `genogrove::io` (`genogrove/io/gg_format.hpp`):
+The header API lives in `genogrove::io` and is declared in `genogrove/io/gg_format.hpp` as:
 
 ```cpp
-#include <genogrove/io/gg_format.hpp>
-
-namespace gio = genogrove::io;
-
 enum class gg_payload_type : uint8_t { BED = 0x01, GFF = 0x02 };
 
 struct gg_header {
@@ -155,6 +152,15 @@ To read a CLI-built index from your own code, read the header first and then the
 same stream, or open a `grove_view` with `data_offset = gio::gg_header::SIZE`:
 
 ```cpp
+#include <genogrove/io/gg_format.hpp>
+#include <genogrove/io/bed_reader.hpp>
+#include <genogrove/structure/grove/grove.hpp>
+#include <fstream>
+
+namespace gdt = genogrove::data_type;
+namespace gio = genogrove::io;
+namespace gst = genogrove::structure;
+
 std::ifstream in("index.gg", std::ios::binary);
 const auto header = gio::gg_header::read(in);          // validates, leaves `in` at the grove
 if (header.payload_type == gio::gg_payload_type::BED) {
@@ -162,8 +168,8 @@ if (header.payload_type == gio::gg_payload_type::BED) {
 }
 ```
 
-The CLI's indexes use `grove<interval, bed_entry | gff_entry, std::string>` — a `std::string`
-edge type — so that `idx --links` can attach
+The CLI's indexes use `grove<interval, bed_entry, std::string>` (or `gff_entry` for GFF input) —
+a `std::string` edge type — so that `idx --links` can attach
 [per-edge metadata](../../cli.md#links-attaching-graph-edges). CLI-built indexes from before v0.25.0
 used a `void` edge type and must be regenerated, consistent with the no-back-compat policy above.
 
@@ -177,18 +183,29 @@ longer parse and must be re-indexed.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-pygenogrove has no header API: `serialize()` writes a bare grove stream, and `Grove.deserialize()`
-expects one, so it cannot open a CLI-built index directly. To query a CLI index from Python, open it
-with a view and skip the header by passing `data_offset=12`:
+pygenogrove has no header API, and **a CLI-built index cannot currently be read from Python**.
+`Grove.deserialize()` expects a bare grove stream, and although `GroveView.open()` can skip the
+header with `data_offset=12`, the CLI builds its indexes with `interval` keys and `std::string`
+edge labels whereas `BedGroveView` / `GffGroveView` expect `GenomicCoordinate` keys and unlabelled
+edges. The file does not record its types, so such an open misreads the blocks instead of failing
+cleanly. Views bound to the CLI's types are requested in
+[pygenogrove#117](https://github.com/genogrove/pygenogrove/issues/117), and a type check in the
+stream in [genogrove#593](https://github.com/genogrove/genogrove/issues/593).
+
+Until then, build the index from Python and read it with the matching view:
 
 ```python
-view = pg.BedGroveView.open("index.gg", data_offset=12)
+import pygenogrove as pg
+
+g = pg.BedGrove(100)
+g.insert_bulk("chr1", [e for e in pg.BedReader("features.bed") if e.chrom == "chr1"])
+g.serialize("features.gg")
+
+view = pg.BedGroveView.open("features.gg")
 ```
 
-Note that the CLI builds its indexes with `interval` keys and `std::string` edge labels, whereas
-`BedGroveView` / `GffGroveView` expect `GenomicCoordinate` keys and unlabelled edges, so the Python
-views and the CLI's indexes are **not** interchangeable in general. The reliable path is to build
-the index from Python (`BedGrove` + `serialize()`) and read it with `BedGroveView`.
+The header back-compat warning on the C++ tab does not affect Python files: `serialize()` never
+wrote a header, so no pygenogrove file is invalidated by it.
 
 ::::
 
