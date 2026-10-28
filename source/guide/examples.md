@@ -80,8 +80,11 @@ import pygenogrove as pg
 g = pg.BedGrove(100)
 
 # Read the BED file (handles .bed.gz automatically) and insert each entry, keyed by chromosome
-for e in pg.BedReader("data.bed.gz"):
-    g.insert(e.chrom, e)               # key derived from each entry: [start, end - 1] plus strand
+try:
+    for e in pg.BedReader("data.bed.gz"):
+        g.insert(e.chrom, e)           # key derived from each entry: [start, end - 1] plus strand
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Query for features overlapping chr1:1000-2000 on either strand
 query = pg.GenomicCoordinate("*", 1000, 2000)
@@ -197,10 +200,13 @@ import pygenogrove as pg
 annotations = pg.GffGrove(100)
 
 # Read the GFF/GTF file (handles .gz automatically); keep gene features only
-for e in pg.GffReader("annotations.gff.gz"):
-    if e.type != "gene":
-        continue
-    annotations.insert(e.seqid, e)     # key derived from the entry: [start - 1, end - 1] plus strand
+try:
+    for e in pg.GffReader("annotations.gff.gz"):
+        if e.type != "gene":
+            continue
+        annotations.insert(e.seqid, e)  # key derived from the entry: [start - 1, end - 1] plus strand
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Query for genes on the + strand in chr1:5000-10000
 query = pg.GenomicCoordinate("+", 5000, 10000)
@@ -340,11 +346,14 @@ transcripts = pg.GffGrove(100)
 # Insert every exon and remember its key handle under its transcript
 # (this time the handle is kept: edges are added between handles)
 transcript_exons = defaultdict(list)
-for e in pg.GffReader("transcripts.gtf"):
-    if e.type != "exon":
-        continue
-    key = transcripts.insert(e.seqid, e)
-    transcript_exons[e.get_transcript_id() or "unknown"].append(key)
+try:
+    for e in pg.GffReader("transcripts.gtf"):
+        if e.type != "exon":
+            continue
+        key = transcripts.insert(e.seqid, e)
+        transcript_exons[e.get_transcript_id() or "unknown"].append(key)
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Put each transcript's exons in transcription order: ascending by position on the
 # + strand, descending on the - strand (a position-sorted file lists them ascending)
@@ -358,7 +367,7 @@ for exons in transcript_exons.values():
 
 # Analyze transcript structure: get_neighbors returns the keys this exon points to
 print("Transcript analysis:")
-for transcript_id, exons in transcript_exons.items():
+for transcript_id, exons in sorted(transcript_exons.items()):   # sorted by id, like the C++ std::map
     print(f"  {transcript_id}: {len(exons)} exons")
     for exon in exons:
         downstream = transcripts.get_neighbors(exon)
@@ -438,8 +447,8 @@ streams; the Python API takes a file name. See {doc}`serialization/index` and
 import pygenogrove as pg
 
 features = pg.Grove(100)
-features.insert("chr1", pg.GenomicCoordinate("+", 1000, 1500), {"name": "gene1"})
-features.insert("chr1", pg.GenomicCoordinate("+", 1800, 2200), {"name": "gene2"})
+features.insert("chr1", pg.GenomicCoordinate("+", 1000, 1500), "gene1")
+features.insert("chr1", pg.GenomicCoordinate("+", 1800, 2200), "gene2")
 
 # Save
 features.serialize("features.gg")

@@ -58,6 +58,7 @@ k2 = g.insert("chr1", pg.GenomicCoordinate("+", 150, 250), {"name": "gene2"})
 k3 = g.insert("chr2", pg.GenomicCoordinate("+", 300, 400), {"name": "gene3"})
 ```
 
+C++ stores the name itself; Python stores it as a JSON value, so the example wraps it in a dict.
 Each returned `Key` refers to the key stored inside the grove, not to a copy of it (see
 [Key handles](#key-handles) below).
 

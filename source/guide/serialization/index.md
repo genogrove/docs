@@ -256,19 +256,18 @@ id2 = reg.intern("SampleB_brain")
 g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": id1})
 g.insert("chr1", pg.GenomicCoordinate("+", 150, 250), {"sample": id2})
 
-reg.serialize("names.gg")
+reg.serialize("names.reg")
 g.serialize("grove.gg")
 
 # Load: registry first, then the grove. reg.clear() empties the registry, as in a new program run
 reg.clear()
-reg = pg.Registry.deserialize("names.gg")
+reg = pg.Registry.deserialize("names.reg")
 g = pg.Grove.deserialize("grove.gg")
 for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
     print(reg.get(key.data["sample"]))   # "SampleA_liver" and "SampleB_brain" (both overlap)
 ```
 
-The C++ example stores the ID itself as the payload; the universal `Grove` stores a JSON value, so
-the ID sits in a dict.
+C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
 
 `Registry.deserialize` loads into the {term}`singleton` (the one registry the whole program
 shares), **replacing** its contents; see {doc}`/guide/data_types/registry` for its guarantees.

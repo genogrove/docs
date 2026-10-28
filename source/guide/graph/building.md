@@ -48,7 +48,7 @@ add_edge(source: Key, target: Key)            # payload None
 add_edge(source: Key, target: Key, data)      # JSON payload (labelled groves only)
 ```
 
-`data` is the {term}`edge metadata`, any JSON value.
+`data` is the {term}`edge metadata`, any JSON value. C++ stores the value itself; Python stores it as a JSON value, so the example wraps it in a dict.
 
 ```python
 g = pg.Grove(100)
@@ -56,7 +56,7 @@ g = pg.Grove(100)
 exon1 = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "exon1")
 exon2 = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "exon2")
 
-g.add_edge(exon1, exon2, {"weight": 0.95})    # exon1 -> exon2, weight 0.95 (wrapped in a dict)
+g.add_edge(exon1, exon2, {"weight": 0.95})    # exon1 -> exon2, weight 0.95
 ```
 
 Both keys must belong to this grove. `None` raises `TypeError`. Keys from different

@@ -165,6 +165,8 @@ list(km.intersect(pg.Kmer("ACGT"), "reads"))[0].data    # {'count': 3}
 `"reads"` is the {term}`index`: in a k-mer grove it is simply the name of one tree, not a chromosome.
 `100` is the tree {term}`order`, the dict the {term}`payload`. `intersect` returns a
 {term}`QueryResult`, hence the `list(...)`; `.data` on a {term}`Key <key handle>` is the payload.
+C++ stores the `int` itself; Python stores the payload as a JSON value, so the example wraps the
+count in a dict.
 
 `KmerGrove` has the same surface as `Grove` (payloads, graph edges, serialization) with `Kmer` keys —
 see {doc}`/guide/grove/index`.

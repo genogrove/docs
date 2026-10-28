@@ -109,9 +109,11 @@ below) can increase this number.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Continuing with `view` from above:
+Continuing with `view` from above (add `#include <iostream>` for `std::cout`):
 
 ```cpp
+#include <iostream>
+
 // Overlap query within one index, or across every index
 auto hits = view.intersect(gdt::interval{100, 200}, "chr1");
 auto all  = view.intersect(gdt::interval{100, 200});
@@ -189,9 +191,13 @@ nothing to follow.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`cli_view` is the header-skipping view from [Opening a view](#opening-a-view).
+`cli_view` is the header-skipping view from [Opening a view](#opening-a-view). The C++ tab uses it
+for the edge-carrying calls because it has string edge labels; the Python tab uses `view`, because
+a CLI-built index cannot be read from Python (see {doc}`format`).
 
 ```cpp
+#include <iostream>   // for std::cout
+
 for (auto* k : hits.get_keys()) {
     for (auto* nbr : view.get_neighbors(k))    { std::cout << "out: " << nbr->get_value().to_string() << '\n'; }
     for (auto* src : view.get_in_neighbors(k)) { std::cout << "in: "  << src->get_value().to_string() << '\n'; }
@@ -289,10 +295,10 @@ assert view.blocks_loaded() < view.block_count()     # the query was partial
 ```
 
 `get_order()` is the tree {term}`order` the grove was built with (the `100` in `Grove(100)`).
-`get_index_names()` reads nothing beyond the directory already loaded at `open()`. The eager `Grove`
-has no method that lists its indexes yet
-([pygenogrove#118](https://github.com/genogrove/pygenogrove/issues/118)). To list the indexes of a
-file, open it with a view and call `get_index_names()` on the view.
+`get_index_names()` reads nothing beyond the directory already loaded at `open()`. Already covered: to list
+the indexes of a file, open it with a view and call `get_index_names()` on the view (the eager
+`Grove` offers no such listing; see
+[pygenogrove#118](https://github.com/genogrove/pygenogrove/issues/118)).
 
 ::::
 

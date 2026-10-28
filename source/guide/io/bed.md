@@ -71,12 +71,15 @@ struct bed_reader_options {
 ```python
 import pygenogrove as pg
 
-for entry in pg.BedReader("genes.bed.gz"):
-    line = f"{entry.chrom}:{entry.start}-{entry.end}"
-    if entry.name is not None:   line += f" {entry.name}"          # BED4+
-    if entry.strand is not None: line += f" {entry.strand}"        # BED6+
-    if entry.blocks is not None: line += f" ({entry.blocks.count} blocks)"   # BED12
-    print(line)
+try:
+    for entry in pg.BedReader("genes.bed.gz"):
+        line = f"{entry.chrom}:{entry.start}-{entry.end}"
+        if entry.name is not None:   line += f" {entry.name}"          # BED4+
+        if entry.strand is not None: line += f" {entry.strand}"        # BED6+
+        if entry.blocks is not None: line += f" ({entry.blocks.count} blocks)"   # BED12
+        print(line)
+except RuntimeError as e:                         # the exception a bad line raises
+    print("Parse error:", e)
 ```
 
 The constructor's signature (not runnable code):

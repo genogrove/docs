@@ -51,7 +51,7 @@ GenomicCoordinate(strand: str, start: int, end: int)
 
 Raises a `ValueError` {term}`exception` if `start > end` or the strand is not one of `'+'`, `'-'`,
 `'.'`, `'*'`, and `TypeError` for a negative coordinate. `GenomicCoordinate()` with no arguments is the real value
-`'.'`, `[0, 0]`.
+`'.'`, `[0, 0]`. Already covered: the C++ `interval` line is `GenomicCoordinate('.', 100, 200)`.
 
 ::::
 
@@ -95,6 +95,7 @@ a call in `std::cout << std::boolalpha << ... << '\n';` to see it.
 In a grove the same rule applies (see {doc}`/guide/grove/querying`):
 
 ```cpp
+// continuing from above: gdt, plus and minus
 #include <genogrove/structure/grove/grove.hpp>
 
 namespace gst = genogrove::structure;
@@ -178,7 +179,8 @@ container key, unless you write a hash of your own.
 :sync: py
 
 Python has no separate interval class: a region without strand is already covered by
-`GenomicCoordinate('.', start, end)`. `Grove`, `BedGrove` and `GffGrove` are all keyed by
+`GenomicCoordinate('.', start, end)`. Already covered: `interval::overlaps` is
+`GenomicCoordinate.overlaps(GenomicCoordinate('.', 100, 200), GenomicCoordinate('.', 150, 250))`, which is `True`. `Grove`, `BedGrove` and `GffGrove` are all keyed by
 `GenomicCoordinate`.
 
 ::::

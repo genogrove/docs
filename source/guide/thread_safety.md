@@ -91,8 +91,9 @@ operations: no other access to the grove being (de)serialized while they run.
 
 ### Verifying your own concurrency
 
-Build genogrove with `-DENABLE_THREAD_SANITIZER=ON` and run your multithreaded code under
-ThreadSanitizer to catch races in how you share groves.
+The project's `-DENABLE_SANITIZER=ON` CMake option turns on AddressSanitizer and
+UndefinedBehaviorSanitizer only; it does not detect data races. To catch races in how you share
+groves, compile your own multithreaded code with the compiler flag `-fsanitize=thread` and run it.
 
 ::::
 
@@ -126,8 +127,7 @@ with lock:
 ```
 
 Alternatively, build one `Grove` per thread and combine the results downstream. Already covered:
-the ThreadSanitizer build option belongs to the C++ library; Python code is checked by running the
-one-object-per-thread pattern below.
+race checking with ThreadSanitizer is described in the C++ tab.
 
 ### GIL released — overlaps other threads' work
 

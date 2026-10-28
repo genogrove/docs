@@ -115,6 +115,7 @@ for key in results:
 ```
 
 The first argument of `insert` and the last of `intersect` is the {term}`index` — the chromosome.
+C++ stores the name itself; Python stores it as a JSON value, so the example wraps it in a dict.
 Unlike the C++ `interval`, a Python coordinate always carries a {term}`strand`: the inserts use
 `"+"`, and the query uses the wildcard `"*"` so it matches features on either strand. `insert`
 returns a {term}`Key handle <key>`, which this program does not need. `intersect` returns a

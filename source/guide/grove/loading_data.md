@@ -295,8 +295,9 @@ print(f"Loaded {g.indexed_vertex_count()} reads")
 For files with more than about 10,000 records, the {term}`sorted insert` and the
 {term}`bulk insert` of {doc}`inserting` are much faster than plain inserts. The
 {doc}`performance guide </guide/performance>` measures bulk insertion at about 10 to 20 times faster.
-Both rely on the data being in key order, and **neither checks it**. On data in the wrong order they
-give wrong query results and report no error. The key order is:
+The sorted insert, and the bulk insert in its sorted form (`gst::sorted, gst::bulk` in C++,
+`presorted=True` in Python), rely on the data being in key order, and **neither checks it**. On data
+in the wrong order they give wrong query results and report no error. The key order is:
 
 - **C++ `interval` keys:** start, then end.
 - **Python `GenomicCoordinate` keys** (`BedGrove`, `GffGrove`, `insert_sorted`, `insert_bulk` with
@@ -312,19 +313,21 @@ sort -k1,1 -k2,2n -k3,3n genes.bed > genes.sorted.bed
 ```
 
 Appending to an index that already holds keys also requires every new key to be strictly greater
-than all existing ones. If you do not know whether the order is right, use the plain insert. In
-Python, `insert_bulk` without `presorted` sorts the list for you and handles the strand, so it is the
-safe choice there. The examples below read `.bed.gz` files. To compress the sorted file, run
-`bgzip genes.sorted.bed`, which writes `genes.sorted.bed.gz`, and read that name in the example.
+than all existing ones. If you do not know whether the order is right, use the plain insert, or the
+bulk insert without the sorted promise: C++ `gst::bulk` alone and Python `insert_bulk` without
+`presorted` both sort the list for you. The examples below read `.bed.gz` files and use that safe
+form. To compress a sorted file, run `bgzip genes.sorted.bed`, which writes
+`genes.sorted.bed.gz`.
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Collect the records per chromosome, then insert each chromosome in one call with `gst::sorted` and
-`gst::bulk`. This example needs `large_dataset.bed.gz` to be sorted as described above, and the
-grove must be empty (a new grove, as here):
+Collect the records per chromosome, then insert each chromosome in one call with `gst::bulk`, which
+sorts the list first. If `large_dataset.bed.gz` is already sorted as described above, pass
+`gst::sorted, gst::bulk` instead to skip the sort. Use an empty index (a new grove, as here): the
+new keys must be strictly greater than all keys already in the index.
 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
@@ -357,10 +360,10 @@ int main() {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
-    // Bulk insert per chromosome (the lists must be sorted by start, then end, with no duplicates).
+    // Bulk insert per chromosome; gst::bulk sorts each list first.
     // Each map entry is a (name, list) pair; [chrom, chrom_data] gives both parts a name.
     for (auto& [chrom, chrom_data] : data) {
-        my_grove.insert_data(chrom, chrom_data, gst::sorted, gst::bulk);
+        my_grove.insert_data(chrom, chrom_data, gst::bulk);
     }
 
     std::cout << "Loaded " << my_grove.indexed_vertex_count() << " intervals using bulk insertion\n";
@@ -375,9 +378,9 @@ int main() {
 :sync: py
 
 Group the (coordinate, name) pairs per chromosome, then call `insert_bulk` once for each, as in
-C++. Unlike the C++ call, `insert_bulk` sorts each list for you, by start, end and strand, so no
-sorted file is needed. Use it on an empty index: the new keys
-must be strictly greater than all keys already in the index, whatever the value of `presorted`.
+C++. Like `gst::bulk`, `insert_bulk` sorts each list for you, by start, end and strand, so no
+sorted file is needed. Use it on an empty index: the new keys must be strictly greater than all keys
+already in the index, whatever the value of `presorted`.
 Pass `presorted=True` only when you know the list is already in key order (then the promise above
 applies, with the strand):
 
@@ -401,7 +404,7 @@ for chrom, pairs in by_chrom.items():
 print(f"Loaded {g.indexed_vertex_count()} intervals using bulk insertion")
 ```
 
-For a single key on the sorted path, `insert_sorted(index, interval, data)` takes an explicit
+For a single key on the sorted path, `insert_sorted(index, coordinate, data)` takes an explicit
 coordinate and record, with the same precondition and no check.
 
 ::::
@@ -429,7 +432,7 @@ the insert goes **inside** the loop. This is the BED example with the record as 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
-#include <genogrove/data_type/interval.hpp>
+#include <genogrove/data_type/genomic_coordinate.hpp>
 #include <fstream>
 #include <iostream>
 
@@ -438,13 +441,16 @@ namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 int main() {
-    gst::grove<gdt::interval, gio::bed_entry> records(100);   // before the loop
+    // genomic_coordinate keys, as in Python's BedGrove, so both write the same kind of file
+    gst::grove<gdt::genomic_coordinate, gio::bed_entry> records(100);   // before the loop
 
     try {
         gio::bed_reader reader("genes.bed.gz");
         for (const auto& entry : reader) {
             // inside the loop: one insert for each record
-            records.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), entry);
+            // the strand column is optional in BED: '.' when absent
+            gdt::genomic_coordinate key{entry.strand.value_or('.'), entry.start, entry.end - 1};
+            records.insert_data(entry.chrom, key, entry);
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
@@ -458,14 +464,15 @@ int main() {
         records.serialize(out);
     }
     std::ifstream in("records.gg", std::ios::binary);
-    auto reloaded = gst::grove<gdt::interval, gio::bed_entry>::deserialize(in);
+    auto reloaded = gst::grove<gdt::genomic_coordinate, gio::bed_entry>::deserialize(in);
     std::cout << "Reloaded " << reloaded.indexed_vertex_count() << " records\n";
     return 0;
 }
 ```
 
-In C++ the key is always the interval you pass to `insert_data`, so choosing the key yourself, as
-the last Python example does, is already covered by the loop above. The notes on `BedGrove` and
+Because this grove uses the same key type as `BedGrove`, Python can load the file with
+`BedGrove.deserialize`. In C++ the key is always the coordinate you pass to `insert_data`, so
+choosing the key yourself, as the last Python example does, is already covered by the loop above. The notes on `BedGrove` and
 `GffGrove` in the Python tab (live records, unlabelled edges) describe those Python classes only.
 
 ::::
@@ -499,8 +506,11 @@ import pygenogrove as pg
 
 g = pg.BedGrove(100)
 
-for e in pg.BedReader("genes.bed.gz"):
-    g.insert(e.chrom, e)
+try:
+    for e in pg.BedReader("genes.bed.gz"):
+        g.insert(e.chrom, e)
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 print(f"Loaded {g.indexed_vertex_count()} records")
 
@@ -509,7 +519,7 @@ reloaded = pg.BedGrove.deserialize("records.gg")   # the BedEntry records are pr
 print(f"Reloaded {reloaded.indexed_vertex_count()} records")
 ```
 
-You can also build the record yourself and choose the key. The key's strand is up to you here; use
+Continuing from the grove `g` above, you can also build the record yourself and choose the key. The key's strand is up to you here; use
 the record's strand so that strand-aware queries behave:
 
 ```python

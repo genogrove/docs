@@ -82,14 +82,17 @@ reading to one locus of an indexed file — see {doc}`region_access`.
 ```python
 import pygenogrove as pg
 
-for v in pg.VcfReader("calls.vcf.gz"):
-    line = f"{v.chrom}:{v.start}-{v.end} REF={v.ref}"
-    if not v.qual_missing: line += f" QUAL={v.qual}"
-    if v.is_snp():      line += " SNP"
-    elif v.is_indel():  line += " indel"
-    # one genotype per sample, e.g. "0/1" — see "Sample genotypes" below
-    for s in v.samples: line += " " + s.gt_string()
-    print(line)
+try:
+    for v in pg.VcfReader("calls.vcf.gz"):
+        line = f"{v.chrom}:{v.start}-{v.end} REF={v.ref}"
+        if not v.qual_missing: line += f" QUAL={v.qual:g}"       # 50, not 50.0
+        if v.is_snp():      line += " SNP"
+        elif v.is_indel():  line += " indel"
+        # one genotype per sample, e.g. "0/1" — see "Sample genotypes" below
+        for s in v.samples: line += " " + s.gt_string()
+        print(line)
+except RuntimeError as e:
+    print("Read error:", e)
 ```
 
 The constructor's signature (not runnable code):
@@ -341,18 +344,17 @@ a deletion) can come with their ends in any order. A wrong order silently breaks
 There is no typed VCF grove (`VcfEntry` cannot be saved to disk, so it cannot be a typed-grove
 payload); load into the universal `Grove` — the schemaless grove whose payload can be any
 JSON-like value — with the record's `to_coordinate()` (an unstranded coordinate, strand `'.'`) and
-`to_dict()` (see {doc}`/guide/grove/loading_data`):
+the ID column as payload, as in C++ (see {doc}`/guide/grove/loading_data`):
 
 ```python
 import pygenogrove as pg
 
 g = pg.Grove(100)                                        # 100 = tree order, a good default
 for v in pg.VcfReader("calls.vcf.gz", skip_filtered=True):
-    g.insert(v.chrom, v.to_coordinate(), v.to_dict())
+    g.insert(v.chrom, v.to_coordinate(), v.id)
 ```
 
-The C++ example stores the ID column as payload; here the payload is the `to_dict()` dict, which
-keeps the core fields of the record.
+`to_dict()` stores the core fields of the record as payload instead.
 
 `insert` finds the right place itself, so the file need not be sorted. `insert_sorted` is the
 unchecked fast path; use it only when the keys are sorted by start, then end (and strand), which a

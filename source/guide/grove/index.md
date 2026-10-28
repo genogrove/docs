@@ -203,9 +203,10 @@ g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1")   # chr1 only
 g.intersect(pg.GenomicCoordinate("*", 150, 160))           # every index
 ```
 
-Indices cannot be created by hand; they appear on first insertion. `Grove` does not expose a list
-of its indices; keep track of the names you insert. (The on-disk reader `GroveView` does, via
-`get_index_names()` — see {doc}`/guide/serialization/partial_reading`.)
+Indices cannot be created by hand; they appear on first insertion. Already covered:
+the C++ index listing is `get_index_names()` on the on-disk reader `GroveView` in Python (see
+{doc}`/guide/serialization/partial_reading`), and for an in-memory `Grove` you keep the names you
+insert.
 
 ::::
 

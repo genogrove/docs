@@ -67,8 +67,8 @@ locus from any tabix-indexed file, with the same index requirements and error be
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The failure is a `RuntimeError` from the constructor. The underlying tabix iterator is not exposed
-separately in Python.
+The failure is a `RuntimeError` from the constructor. Already covered: the region option of the readers
+is the Python route to the tabix iterator; use the C++ tab to stream raw lines.
 
 ::::
 
@@ -117,13 +117,13 @@ import pygenogrove as pg
 
 # Only records overlapping one locus on chr7
 for e in pg.GffReader("genes.gff3.gz", region="chr7:55000000-55300000"):
-    print(e.type, e.start, e.end)
+    print(f"{e.type} {e.start}-{e.end}")
 
 # Same option on the other two readers
 for p in pg.BedReader("peaks.bed.gz", region="chr1:1-1000000"):
-    print(p.chrom, p.start, p.end)
+    print(f"{p.chrom}:{p.start}-{p.end}")
 for v in pg.VcfReader("calls.vcf.gz", region="chr1:1-1000000"):
-    print(v.chrom, v.start, v.ref)
+    print(f"{v.chrom}:{v.start} {v.ref}")
 ```
 
 An empty `region=""` (the default) streams the whole file.

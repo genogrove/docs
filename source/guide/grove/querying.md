@@ -67,7 +67,7 @@ g.insert("chr2", pg.GenomicCoordinate("+", 100, 200), "gene4")
 
 # One index (chromosome) — the usual, faster form
 for key in g.intersect(pg.GenomicCoordinate("*", 175, 225), "chr1"):
-    print(key.data, key.value)
+    print(f"{key.data} at [{key.value.start},{key.value.end}]")
 # gene1, gene2 (gene3 does not overlap; gene4 is on chr2)
 
 # Every index

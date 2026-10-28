@@ -46,7 +46,7 @@ import pygenogrove as pg
 r = pg.Registry.instance()
 ```
 
-There is one pool per process. Multiple independent registries are not exposed in Python.
+There is one pool per process. Already covered: the separate C++ pools are available as key prefixes (see "Separate pools" below).
 
 ::::
 
@@ -128,6 +128,10 @@ Store the id in a grove payload instead of the string:
 g = pg.Grove(100)
 g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": r.intern("SampleA_liver")})
 ```
+
+C++ stores the bare ID as the payload; Python stores the payload as a JSON value, so the example wraps
+the ID in a dict. The C++ example uses an `interval`; Python has no `interval` class, so it uses a
+`GenomicCoordinate`.
 
 `"chr1"` is the {term}`index` (the chromosome tree) and `100` the tree {term}`order`.
 
@@ -241,8 +245,9 @@ both `operator==` and a `std::hash` specialisation.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Keys are strings: any `str` works, and string keys cover the Python use cases (names and IDs); other
-key types are a C++ feature.
+Keys are strings: any `str` works, and string keys cover the Python use cases (names and IDs). Already covered: the C++
+non-string keys (`genomic_coordinate`, `numeric`, `kmer`) work in Python through their text form,
+for example `r.intern(str(pg.GenomicCoordinate("+", 100, 200)))`.
 
 ::::
 
