@@ -1,13 +1,16 @@
 # Complete Examples
 
 End-to-end programs that combine what the guide covers one topic at a time: reading a file into a
-grove, querying it, linking keys with the graph overlay, and saving the result to disk. Each
-section is one complete program in both languages. The file names are placeholders; point them at
-your own data.
+grove, querying it, linking keys with the {term}`graph overlay`, and saving the result to disk.
+Each section is one complete program in both languages; build and run them exactly as in step 3
+of the {doc}`quickstart`. The file names are placeholders: point them at your own data, and each
+section says what the file must contain for the query to find something.
 
 ## Processing BED files
 
 Read a BED file into a grove keyed by chromosome and report the features overlapping one region.
+The program prints `Found N features overlapping region` and then one line per hit; for a non-zero
+`N`, `data.bed.gz` must have features on `chr1` between positions 1000 and 2000.
 
 :::::{tab-set}
 
@@ -100,7 +103,10 @@ for hit in hits:
 ## Processing GFF/GTF files
 
 Read an annotation file, keep only `gene` features, and look up one attribute per hit. GFF/GTF
-coordinates are 1-based closed, so both ends shift down by one.
+coordinates are 1-based closed, so both ends shift down by one. The program prints `Found N genes`
+and one line per hit; for a non-zero `N`, `annotations.gff.gz` needs `gene` lines on the `+`
+strand of `chr1` between positions 5000 and 10000. The C++ version copies three fields into its
+own payload record; the Python version stores the whole `GffEntry`.
 
 :::::{tab-set}
 
@@ -136,12 +142,11 @@ int main() {
             if (entry.type != "gene") continue;
 
             // Create genomic coordinate with strand (GFF is 1-based inclusive;
-            // shift to the grove's 0-based closed keys)
-            gdt::genomic_coordinate coord{
-                entry.strand.value_or('.'),
-                entry.start - 1,
-                entry.end - 1
-            };
+            // shift to the grove's 0-based closed keys). GFF allows '?' for an
+            // unknown strand; the coordinate type does not, so treat it as '.'.
+            char strand = entry.strand.value_or('.');
+            if (strand == '?') strand = '.';
+            gdt::genomic_coordinate coord{strand, entry.start - 1, entry.end - 1};
 
             // Extract annotation info
             GeneAnnotation annot{
@@ -162,7 +167,7 @@ int main() {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
-    // Query for genes in a region
+    // Query for genes on the + strand in a region ('*' would match either strand)
     gdt::genomic_coordinate query{'+', 5000, 10000};
     auto results = annotations.intersect(query, "chr1");
 
@@ -176,6 +181,10 @@ int main() {
     return 0;
 }
 ```
+
+`get_gene_id()`, `get_gene_name()` and the other named attribute helpers return a
+`std::optional`, empty when the attribute is absent, hence `value_or`. `get_attribute(key)` reads
+any other attribute. See {doc}`io/gff`.
 
 ::::
 
@@ -214,8 +223,15 @@ attribute is absent; `get_attribute(key)` reads any other one. See {doc}`io/gff`
 
 ## Building transcript graphs
 
-Read the exons of a GFF file, group them by transcript, and chain consecutive exons of each
-transcript with directed edges, so the graph overlay can answer "which exon comes next?".
+Read the exons of a GTF file, group them by transcript, and chain consecutive exons of each
+transcript with directed {term}`edges <edge>` in transcription order, so the graph overlay can
+answer "which exon comes next?". The program prints one line per transcript and one per exon that
+has a downstream neighbour.
+
+The input must be **GTF**: the example groups exons by `get_transcript_id()`, which reads the GTF
+`transcript_id` attribute. GFF3 exons name their transcript in `Parent` instead, so on a GFF3 file
+every exon would land under `"unknown"`; use `get_attribute("Parent")` there (the helpers are to
+become format-aware, see [genogrove#594](https://github.com/genogrove/genogrove/issues/594)).
 
 :::::{tab-set}
 
@@ -227,6 +243,7 @@ transcript with directed edges, so the graph overlay can answer "which exon come
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
 #include <genogrove/data_type/key.hpp>
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <string>
@@ -237,15 +254,15 @@ namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 int main() {
-    // Grove with no edge metadata
+    // Grove whose edges carry no metadata (the default)
     gst::grove<gdt::interval, std::string> transcripts(100);
 
-    // Map to track exons per transcript
-    std::map<std::string, std::vector<gdt::key<gdt::interval, std::string>*>>
-        transcript_exons;
+    // transcript id -> the key handles of its exons, and the transcript's strand
+    std::map<std::string, std::vector<gdt::key<gdt::interval, std::string>*>> transcript_exons;
+    std::map<std::string, char> transcript_strand;
 
-    // Read GFF file
-    gio::gff_reader reader("transcripts.gff");
+    // Read GTF file
+    gio::gff_reader reader("transcripts.gtf");
 
     try {
         for (const auto& entry : reader) {
@@ -253,7 +270,8 @@ int main() {
 
             auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-            // Insert exon (GFF is 1-based inclusive; shift to 0-based closed)
+            // Insert exon (GTF is 1-based inclusive; shift to 0-based closed).
+            // This time the returned key handle is kept: edges are added between handles.
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
                 gdt::interval(entry.start - 1, entry.end - 1),
@@ -261,14 +279,23 @@ int main() {
                 gst::sorted
             );
 
-            // Track exon for this transcript
             transcript_exons[transcript_id].push_back(exon_key);
+            transcript_strand[transcript_id] = entry.strand.value_or('+');
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
-    // Build graph by connecting consecutive exons in each transcript
+    // Put each transcript's exons in transcription order: ascending by position on the
+    // + strand, descending on the - strand (a position-sorted file lists them ascending).
+    for (auto& [transcript_id, exons] : transcript_exons) {
+        std::sort(exons.begin(), exons.end(), [](auto* a, auto* b) {
+            return a->get_value().get_start() < b->get_value().get_start();
+        });
+        if (transcript_strand[transcript_id] == '-') std::reverse(exons.begin(), exons.end());
+    }
+
+    // Build graph by connecting each exon to the next one of the same transcript
     for (auto& [transcript_id, exons] : transcript_exons) {
         for (size_t i = 0; i + 1 < exons.size(); ++i) {
             transcripts.add_edge(exons[i], exons[i + 1]);
@@ -281,7 +308,7 @@ int main() {
         std::cout << "  " << transcript_id << ": "
                   << exons.size() << " exons\n";
 
-        // Show connectivity
+        // Show connectivity: get_neighbors returns the keys this exon points to
         for (auto* exon : exons) {
             auto neighbors = transcripts.get_neighbors(exon);
             if (!neighbors.empty()) {
@@ -297,6 +324,9 @@ int main() {
 }
 ```
 
+`interval` keys carry no strand, so the transcript's strand is remembered separately from the GTF
+line. Edges and `get_neighbors` are explained in {doc}`graph/building` and {doc}`graph/navigating`.
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -308,20 +338,26 @@ from collections import defaultdict
 
 transcripts = pg.GffGrove(100)
 
-# Insert every exon and remember its key under its transcript
+# Insert every exon and remember its key handle under its transcript
+# (this time the handle is kept: edges are added between handles)
 transcript_exons = defaultdict(list)
-for e in pg.GffReader("transcripts.gff"):
+for e in pg.GffReader("transcripts.gtf"):
     if e.type != "exon":
         continue
     key = transcripts.insert(e.seqid, e)
     transcript_exons[e.get_transcript_id() or "unknown"].append(key)
 
-# Chain consecutive exons of each transcript with directed edges
+# Put each transcript's exons in transcription order: ascending by position on the
+# + strand, descending on the - strand (a position-sorted file lists them ascending)
+for exons in transcript_exons.values():
+    exons.sort(key=lambda k: k.value.start, reverse=(exons[0].value.strand == "-"))
+
+# Connect each exon to the next one of the same transcript with a directed edge
 for exons in transcript_exons.values():
     for a, b in zip(exons, exons[1:]):
         transcripts.add_edge(a, b)
 
-# Analyze transcript structure
+# Analyze transcript structure: get_neighbors returns the keys this exon points to
 print("Transcript analysis:")
 for transcript_id, exons in transcript_exons.items():
     print(f"  {transcript_id}: {len(exons)} exons")
@@ -332,9 +368,9 @@ for transcript_id, exons in transcript_exons.items():
                   f"{len(downstream)} downstream exon(s)")
 ```
 
-The exons of one transcript are inserted in file order, so chaining them in list order gives
-transcription order for a sorted file. `GffGrove` edges carry no metadata; use the universal
-`Grove` when an edge needs a label (see {doc}`graph/building`).
+The key's coordinate carries the strand, so each transcript's direction is read from its first
+exon. `GffGrove` edges carry no metadata; use the universal `Grove` when an edge needs a label
+(see {doc}`graph/building`).
 
 ::::
 
@@ -342,8 +378,9 @@ transcription order for a sorted file. `GffGrove` edges carry no metadata; use t
 
 ## Saving and reloading
 
-Build a grove once, save it, and load it back in a later run — or query the file on disk without
-loading all of it. Continues from the BED example above.
+Build a grove once, save it, and load it back in a later run — or query the file on disk through a
+{term}`view` without loading all of it. Both programs are self-contained: two hand-inserted
+intervals, so each prints `2` twice.
 
 :::::{tab-set}
 
@@ -365,7 +402,7 @@ int main() {
     features.insert_data("chr1", gdt::interval{1000, 1500}, "gene1");
     features.insert_data("chr1", gdt::interval{1800, 2200}, "gene2");
 
-    // Save
+    // Save: open the file for writing in binary mode; the closing brace closes it
     {
         std::ofstream out("features.gg", std::ios::binary);
         features.serialize(out);
@@ -388,8 +425,10 @@ int main() {
 }
 ```
 
-The template arguments of `deserialize` and `grove_view::open` must match the grove that wrote the
-file. See {doc}`serialization/index` and {doc}`serialization/partial_reading`.
+The `<gdt::interval, std::string>` part of `deserialize` and `grove_view::open` (the
+{term}`template` arguments) must be the same as when the file was saved. C++ reads and writes
+streams; the Python API takes a file name. See {doc}`serialization/index` and
+{doc}`serialization/partial_reading`.
 
 ::::
 
@@ -399,26 +438,27 @@ file. See {doc}`serialization/index` and {doc}`serialization/partial_reading`.
 ```python
 import pygenogrove as pg
 
-g = pg.BedGrove(100)
-for e in pg.BedReader("data.bed.gz"):
-    g.insert(e.chrom, e)
+features = pg.Grove(100)
+features.insert("chr1", pg.GenomicCoordinate("+", 1000, 1500), {"name": "gene1"})
+features.insert("chr1", pg.GenomicCoordinate("+", 1800, 2200), {"name": "gene2"})
 
 # Save
-g.serialize("features.gg")
+features.serialize("features.gg")
 
 # Reload the whole grove (a later run would start here)
-reloaded = pg.BedGrove.deserialize("features.gg")
+reloaded = pg.Grove.deserialize("features.gg")
 hits = reloaded.intersect(pg.GenomicCoordinate("*", 1000, 2000), "chr1")
-print(len(hits), "hits after reload")
+print(len(hits), "hits after reload")          # 2
 
 # Or query the file in place, loading only the blocks the query touches
-view = pg.BedGroveView.open("features.gg")
+view = pg.GroveView.open("features.gg")
 hits = view.intersect(pg.GenomicCoordinate("*", 1000, 2000), "chr1")
-print(len(hits), "hits from the view")
+print(len(hits), "hits from the view")         # 2
 ```
 
-Load a file with the grove class that wrote it (`BedGrove.deserialize` / `BedGroveView.open` for a
-`BedGrove` file). See {doc}`serialization/index` and {doc}`serialization/partial_reading`.
+Load a file with the grove class that wrote it: `Grove.deserialize` / `GroveView.open` here,
+`BedGrove.deserialize` / `BedGroveView.open` for a `BedGrove` such as the one in the BED example.
+See {doc}`serialization/index` and {doc}`serialization/partial_reading`.
 
 ::::
 
