@@ -1,8 +1,10 @@
 # Building a Graph
 
-Edges are created between **key handles**, so building a graph is a matter of getting hold of the
-right handles — from inserts, bulk inserts, queries or previous navigation — and calling `add_edge`
-for each pair, or `link_if` for a whole chain at once.
+{term}`Edges <edge>` are created between **{term}`key handles <key>`**, so building a graph is a
+matter of getting hold of the right handles — from inserts, {term}`bulk inserts <bulk insert>`,
+queries or previous navigation — and calling `add_edge` for each pair, or `link_if` for a whole chain
+at once. The C++ snippets use the `gdt::` / `gst::` shorthands and the Python snippets the `pg`
+import from the first example in {doc}`index`.
 
 ## Adding an edge
 
@@ -16,6 +18,8 @@ void add_edge(key* source, key* target);                  // plain edge
 void add_edge(key* source, key* target, M&& metadata);    // when edge_data_type != void
 ```
 
+`M` stands for the grove's {term}`edge metadata` type, its third {term}`template` argument.
+
 ```cpp
 gst::grove<gdt::interval, std::string, double> g(100);
 
@@ -25,8 +29,8 @@ auto* exon2 = g.insert_data("chr1", gdt::interval{300, 400}, "exon2");
 g.add_edge(exon1, exon2, 0.95);     // exon1 -> exon2, weight 0.95
 ```
 
-Both handles must belong to this grove. A null pointer throws `std::invalid_argument`. Keys from
-different indices (chromosomes) can be linked.
+Both handles must belong to this grove. A {term}`null pointer <pointer>` throws
+`std::invalid_argument`. Keys from different {term}`indices <index>` (chromosomes) can be linked.
 
 ::::
 
@@ -38,6 +42,8 @@ add_edge(source: Key, target: Key)            # payload None
 add_edge(source: Key, target: Key, data)      # JSON payload (labelled groves only)
 ```
 
+`data` is the {term}`edge metadata`, any JSON value.
+
 ```python
 g = pg.Grove(100)
 
@@ -47,8 +53,8 @@ exon2 = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "exon2")
 g.add_edge(exon1, exon2, {"weight": 0.95})    # exon1 -> exon2
 ```
 
-Both keys must belong to this grove. `None` raises `TypeError`. Keys from different indices
-(chromosomes) can be linked.
+Both keys must belong to this grove. `None` raises `TypeError`. Keys from different
+{term}`indices <index>` (chromosomes) can be linked.
 
 ::::
 
@@ -84,6 +90,9 @@ for (size_t i = 0; i < hits.size(); ++i) {
 }
 ```
 
+`get_keys()` returns the matching handles (the C++ counterpart of Python's {term}`QueryResult`);
+`const auto&` names that list without copying it (see {term}`const`).
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -102,6 +111,9 @@ for i, a in enumerate(hits):
         g.add_edge(a, b)
 ```
 
+`intersect` returns a {term}`QueryResult`, which can be looped over but not sliced; `list(...)`
+turns it into a plain list so `hits[i + 1:]` works.
+
 ::::
 
 :::::
@@ -109,8 +121,8 @@ for i, a in enumerate(hits):
 ## Linking consecutive keys
 
 Given keys in order — typically the list a bulk insert returned — `link_if` adds an edge between
-each adjacent pair `(keys[i], keys[i+1])` for which a predicate says yes. This is the idiom for
-chaining exons into transcripts.
+each adjacent pair `(keys[i], keys[i+1])` for which a {term}`predicate` (a function that answers
+yes or no for a pair) says yes. This is the idiom for chaining exons into transcripts.
 
 :::::{tab-set}
 
@@ -118,11 +130,14 @@ chaining exons into transcripts.
 :sync: cpp
 
 One function, two predicate shapes. Returning `bool` adds a plain edge; returning
-`std::optional<edge_data_type>` adds an edge **with** that metadata when the optional holds a value
-and skips the pair when it is empty:
+`std::optional<edge_data_type>` (a value that may be empty) adds an edge **with** that metadata when
+the optional holds a value and skips the pair when it is empty. The predicates below are
+{term}`lambdas <lambda>` — unnamed functions written inline — that receive the two key handles:
 
 ```cpp
 // Plain edges: link exons that belong to the same transcript
+// ExonInfo: your own struct with a transcript_id field;
+// exon_data: a std::vector<std::pair<gdt::interval, ExonInfo>> sorted by start
 gst::grove<gdt::interval, ExonInfo> g(100);
 auto exons = g.insert_data("chr1", exon_data, gst::sorted, gst::bulk);
 
@@ -131,6 +146,7 @@ g.link_if(exons, [](auto* k1, auto* k2) {
 });
 
 // Labelled edges: store the intron length, skip implausibly long gaps
+// data: a std::vector<std::pair<gdt::interval, std::string>> sorted by start
 gst::grove<gdt::interval, std::string, double> w(100);
 auto keys = w.insert_data("chr1", data, gst::sorted, gst::bulk);
 
@@ -145,18 +161,24 @@ w.link_if(keys, [](auto* k1, auto* k2) -> std::optional<double> {
 ```
 
 `link_if` works on any `std::vector<key*>`, including one you assembled by hand or took from a
-query result. The predicate must satisfy `std::invocable<Predicate, key*, key*>`.
+query result. The predicate must satisfy `std::invocable<Predicate, key*, key*>`, i.e. it must be
+callable with two `key*` arguments. See {doc}`editing` for the rules that apply to all predicate
+callbacks.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Two methods: `link_if` for plain edges, `link_with` for labelled ones (universal `Grove` and point
-groves only).
+Two methods: `link_if` for plain edges, `link_with` for labelled ones (universal `Grove` and the
+point groves `NumericGrove` / `KmerGrove` only). The predicate can be a {term}`lambda` (an unnamed
+one-line function) or an ordinary `def` function:
 
 ```python
+g = pg.Grove(100)
+
 # Plain edges: link exons that belong to the same transcript
+# items: list of (GenomicCoordinate, data) tuples, data being a dict with a "tx" entry
 exons = g.insert_bulk("chr1", items)      # list[Key], in input order
 g.link_if(exons, lambda k1, k2: k1.data["tx"] == k2.data["tx"])
 
@@ -173,8 +195,9 @@ link_if(keys: list[Key], predicate: (Key, Key) -> bool)
 link_with(keys: list[Key], predicate: (Key, Key) -> object | None)
 ```
 
-A `None` element in `keys` raises `TypeError`. Both methods call back into Python for every pair
-and hold the GIL; see {doc}`editing` for the rules that apply to all predicate callbacks.
+Both work on any list of keys, including one you assembled by hand or took from a query result. A
+`None` element in `keys` raises `TypeError`. Both methods call back into Python for every pair and
+{term}`hold the GIL <GIL>`; see {doc}`editing` for the rules that apply to all predicate callbacks.
 
 ::::
 
@@ -183,9 +206,9 @@ and hold the GIL; see {doc}`editing` for the rules that apply to all predicate c
 ## External (graph-only) keys
 
 Some nodes belong in the graph but not in the tree: a transcription factor that regulates genes, a
-transcript that groups exons, a sample identifier. An **external key** participates in edges exactly
-like an indexed key but is never returned by `intersect` or `flanking`, and it is owned, serialized
-and restored with the grove.
+transcript that groups exons, a sample identifier. An **{term}`external key`** participates in edges
+exactly like an indexed key but is never returned by `intersect` or `flanking`, and it is owned,
+serialized and restored with the grove.
 
 :::::{tab-set}
 
@@ -218,8 +241,8 @@ g.external_vertex_count();   // 1
 g.vertex_count();            // 3
 ```
 
-External keys mix freely with indexed keys in `link_if` vectors and in every graph accessor. Their
-handles survive `compact()` (see {doc}`/guide/grove/removing`).
+External keys mix freely with indexed keys in `link_if` vectors and in every graph accessor. Unlike
+indexed keys, their handles survive {term}`compact() <compact>` (see {doc}`/guide/grove/removing`).
 
 ::::
 
@@ -250,7 +273,7 @@ g.indexed_vertex_count(), g.external_vertex_count(), g.vertex_count()   # 2, 1, 
 ```
 
 External keys mix freely with indexed keys in `link_if` / `link_with` lists and in every graph
-accessor. Unlike indexed keys, they are **not** invalidated by `compact()` (see
+accessor. Unlike indexed keys, they are **not** invalidated by {term}`compact() <compact>` (see
 {doc}`/guide/grove/removing`).
 
 ::::
