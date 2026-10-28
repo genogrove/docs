@@ -1,8 +1,10 @@
 # Editing a Graph
 
-Edges can be removed one at a time, in bulk by endpoint, by predicate, or all at once. Removing
-edges never removes keys. Conversely, removing a key (see {doc}`/guide/grove/removing`) drops all of
-its edges automatically.
+{term}`Edges <edge>` can be removed one at a time, in bulk by endpoint, by {term}`predicate` (a
+function you supply that says yes or no for each edge), or all at once. Removing edges never removes
+{term}`keys <key>`. Conversely, removing a key (see {doc}`/guide/grove/removing`) drops all of its
+edges automatically. The C++ snippets use the `gdt::` / `gst::` shorthands and the Python snippets
+the `pg` import from the first example in {doc}`index`.
 
 ## Removing one edge
 
@@ -16,6 +18,11 @@ bool remove_edge(key* source, key* target);   // true if an edge was found and r
 ```
 
 ```cpp
+gst::grove<gdt::interval, std::string, double> g(100);
+auto* gene1 = g.insert_data("chr1", gdt::interval{1000, 2000}, "GeneA");
+auto* gene2 = g.insert_data("chr1", gdt::interval{3000, 4000}, "GeneB");
+auto* gene3 = g.insert_data("chr1", gdt::interval{5000, 6000}, "GeneC");
+
 g.add_edge(gene1, gene2, 0.95);
 g.add_edge(gene1, gene3, 0.45);
 
@@ -36,6 +43,11 @@ remove_edge(source: Key, target: Key) -> bool   # True if an edge was found and 
 ```
 
 ```python
+g = pg.Grove(100)
+gene1 = g.insert("chr1", pg.GenomicCoordinate("+", 1000, 2000), "GeneA")
+gene2 = g.insert("chr1", pg.GenomicCoordinate("+", 3000, 4000), "GeneB")
+gene3 = g.insert("chr1", pg.GenomicCoordinate("+", 5000, 6000), "GeneC")
+
 g.add_edge(gene1, gene2, {"weight": 0.95})
 g.add_edge(gene1, gene3, {"weight": 0.45})
 
@@ -50,9 +62,12 @@ With parallel edges, `remove_edge` removes the first matching `source → target
 
 ## Removing many edges
 
-Each of these returns the number of edges removed. Every edge is indexed under both of its
-endpoints in one per-key bucket, so removing by endpoint costs O(in-degree + out-degree of that
-key) — the bucket is scanned once — not a scan of the whole graph.
+Each of these returns the number of edges removed. Removing by endpoint only has to look at the
+edges touching that key, not at the whole graph; `remove_edges_if` has to look at every edge.
+Deleting an edge then also updates the list kept for its *other* endpoint, so each deletion costs
+extra in proportion to how many edges that other key has. Clearing a hub connected to many
+high-degree keys, or removing most edges of a large graph with `remove_edges_if`, therefore takes
+noticeably longer than the candidate scan alone.
 
 :::::{tab-set}
 
@@ -60,21 +75,27 @@ key) — the bucket is scanned once — not a scan of the whole graph.
 :sync: cpp
 
 ```cpp
-size_t remove_edges_from(key* source);   // all outgoing edges of source   — O(degree of source)
-size_t remove_edges_to(key* target);     // all incoming edges of target   — O(degree of target)
-size_t remove_all_edges(key* key);       // both directions                — O(degree of key)
-size_t remove_edges_if(Predicate p);     // every edge e with p(const edge& e) == true — O(E)
+size_t remove_edges_from(key* source);   // all outgoing edges of source
+size_t remove_edges_to(key* target);     // all incoming edges of target
+size_t remove_all_edges(key* key);       // both directions
+size_t remove_edges_if(Predicate p);     // every edge e with p(const edge& e) == true
 ```
+
+Continuing from the grove above, after putting the removed edge back and adding one more:
 
 ```cpp
-size_t pruned = g.remove_all_edges(hub);           // retire a hub key's connections
+g.add_edge(gene1, gene3, 0.45);
+g.add_edge(gene2, gene3, 0.80);
 
-auto dropped = g.remove_edges_if(                  // threshold on metadata
-    [](const auto& e) { return e.metadata < 0.5; });
+auto dropped = g.remove_edges_if(                  // threshold on metadata: drops gene1 -> gene3
+    [](const auto& e) { return e.metadata < 0.5; });   // 1
+
+size_t pruned = g.remove_all_edges(gene2);         // gene1 -> gene2 and gene2 -> gene3: 2
 ```
 
-The `remove_edges_if` predicate receives the full `edge` struct (`source`, `target`, `metadata`) and
-must satisfy `std::predicate<Predicate, const edge&>`.
+The `remove_edges_if` predicate (here a {term}`lambda`, an unnamed function written inline)
+receives the full `edge` struct (`source`, `target`, `metadata`) and must satisfy
+`std::predicate<Predicate, const edge&>`, i.e. be callable with one `const edge&` and return `bool`.
 
 ::::
 
@@ -82,24 +103,30 @@ must satisfy `std::predicate<Predicate, const edge&>`.
 :sync: py
 
 ```python
-remove_edges_from(source: Key) -> int    # all outgoing edges of source   — O(degree of source)
-remove_edges_to(target: Key) -> int      # all incoming edges of target   — O(degree of target)
-remove_all_edges(key: Key) -> int        # both directions                — O(degree of key)
-remove_edges_if(predicate) -> int        # every edge the predicate accepts — O(E)
+remove_edges_from(source: Key) -> int    # all outgoing edges of source
+remove_edges_to(target: Key) -> int      # all incoming edges of target
+remove_all_edges(key: Key) -> int        # both directions
+remove_edges_if(predicate) -> int        # every edge the predicate accepts
 ```
+
+Continuing from the grove above, after putting the removed edge back and adding one more:
 
 ```python
-pruned = g.remove_all_edges(hub)                   # retire a hub key's connections
+g.add_edge(gene1, gene3, {"weight": 0.45})
+g.add_edge(gene2, gene3, {"weight": 0.80})
 
 # Universal / Numeric / Kmer grove: predicate(target, metadata) -> bool
-dropped = g.remove_edges_if(lambda target, meta: meta is not None and meta["weight"] < 0.5)
+dropped = g.remove_edges_if(lambda target, meta: meta is not None and meta["weight"] < 0.5)   # 1
+
+pruned = g.remove_all_edges(gene2)                 # gene1 -> gene2 and gene2 -> gene3: 2
 
 # BedGrove / GffGrove (unlabelled edges): predicate(target) -> bool
-bed.remove_edges_if(lambda target: target.value.start > 1_000_000)
+pg.BedGrove(100).remove_edges_if(lambda target: target.value.start > 1_000_000)   # 0 on an empty grove
 ```
 
-The predicate signature depends on the grove: labelled groves pass `(target, metadata)`, the typed
-`BedGrove` / `GffGrove` pass `(target)` only.
+The predicates above are {term}`lambdas <lambda>`, unnamed one-line functions. The predicate
+signature depends on the grove: labelled groves pass `(target, metadata)`, the typed `BedGrove` /
+`GffGrove` pass `(target)` only.
 
 ::::
 
@@ -116,8 +143,8 @@ its occurrence index.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`find_edge` and `edge_end` live on `graph_overlay`, not on `grove`; reach them through
-`grove::graph()`:
+`find_edge` and `edge_end` live on `graph_overlay` (the class that implements the
+{term}`graph overlay`), not on `grove`; reach them through `grove::graph()`:
 
 ```cpp
 using edge_iterator = std::list<edge>::iterator;        // graph_overlay::edge_iterator
@@ -125,6 +152,9 @@ using edge_iterator = std::list<edge>::iterator;        // graph_overlay::edge_i
 edge_iterator find_edge(const key* source, const key* target, std::size_t occurrence = 0);
 edge_iterator edge_end();                                // returned when no match exists
 ```
+
+`find_edge` returns an {term}`iterator <iterator / iterable>` — a position inside the edge list,
+read through with `->` — and `edge_end()` is the "not found" position to compare against:
 
 ```cpp
 gst::grove<gdt::interval, std::string, std::string> g(100);
@@ -152,8 +182,11 @@ Not exposed. To pick one of several parallel edges, read them all with
 `get_edge_list(source)` and select by position or payload:
 
 ```python
+g = pg.Grove(100)
+exon1 = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "exon1")
+exon2 = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "exon2")
 g.add_edge(exon1, exon2, {"tx": "tx1"})
-g.add_edge(exon1, exon2, {"tx": "tx2"})
+g.add_edge(exon1, exon2, {"tx": "tx2"})                 # parallel edge
 
 edges = g.get_edge_list(exon1)                    # [(exon2, {'tx': 'tx1'}), (exon2, {'tx': 'tx2'})]
 second = edges[1]
@@ -175,6 +208,8 @@ void clear_graph();          // remove every edge; keys and their tree positions
 bool graph_empty() const;    // true when there are no edges
 ```
 
+Continuing from the exon grove above:
+
 ```cpp
 g.clear_graph();
 g.graph_empty();                                       // true
@@ -182,7 +217,7 @@ g.intersect(gdt::interval{50, 150}, "chr1");           // keys are still there
 ```
 
 A common pattern is to clear and rebuild with a different linking rule (e.g. a stricter
-threshold in `link_if`).
+threshold in `link_if`, see {doc}`building`).
 
 ::::
 
@@ -194,6 +229,8 @@ clear_graph() -> None        # remove every edge; keys and their tree positions 
 graph_empty() -> bool        # True when there are no edges
 ```
 
+Continuing from the exon grove above:
+
 ```python
 g.clear_graph()
 g.graph_empty()                                              # True
@@ -201,7 +238,7 @@ len(g.intersect(pg.GenomicCoordinate("*", 50, 150), "chr1"))  # keys are still t
 ```
 
 A common pattern is to clear and rebuild with a different linking rule (e.g. a stricter
-threshold in `link_with`).
+threshold in `link_with`, see {doc}`building`).
 
 ::::
 
@@ -213,10 +250,11 @@ threshold in `link_with`).
 predicate **while iterating the graph**. Two rules follow:
 
 - **Do not mutate the graph from inside the predicate.** Calling `add_edge`, any `remove_edges_*`,
-  `clear_graph` or `link_*` on the same grove while a predicate runs is undefined behaviour. Keep
-  the predicate a pure inspector and mutate after the call returns.
-- **Effects are applied as the iteration proceeds.** If the predicate throws part-way, the edges
-  already added or removed stay added or removed; there is no rollback.
+  `clear_graph` or `link_*` on the same grove while a predicate runs is undefined behaviour — anything
+  may happen, including a crash or silently wrong results. Keep the predicate a pure inspector and
+  mutate after the call returns.
+- **Effects are applied as the iteration proceeds.** If the predicate throws an {term}`exception`
+  part-way, the edges already added or removed stay added or removed; there is no rollback.
 
 :::::{tab-set}
 
@@ -233,8 +271,8 @@ Predicates receive `key*` pairs (`link_if`), `const edge_data_type&` (`get_neigh
 
 Predicates receive `Key` pairs (`link_if` / `link_with`), the decoded payload
 (`get_neighbors_if`; `None` for an edge added without one), or `(target, metadata)` /
-`(target)` (`remove_edges_if`). Exceptions propagate to the caller. All of these hold the GIL for
-the duration of the call.
+`(target)` (`remove_edges_if`). Exceptions propagate to the caller. All of these
+{term}`hold the GIL <GIL>` for the duration of the call.
 
 ::::
 

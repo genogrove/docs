@@ -2,6 +2,18 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-10-28
+
+### Added
+- Glossary: `O(1)`, `O(log n)` and `O(n)` are separate term names (the single `O(log n), O(n)` entry could not be targeted by `{term}`); `leaf` and `internal node` stacked under `node`; new entries `half-open`, `parallel edge`, `block`, `htslib`, `bgzip` / `tabix`, `concept`, `move-only`, `std::optional`, `trivially copyable` and `hash`, each linking the page that explains it ([#270](https://github.com/genogrove/docs/pull/270), refs [#258](https://github.com/genogrove/docs/issues/258))
+
+### Changed
+- Graph guide (`guide/graph/{index,building,navigating,editing}.md`): glossary terms linked at first use in both tabs; plain-language leads before the C++-heavy passages (`std::monostate`, `std::variant`, `std::invocable`, `std::predicate`, by-value returns, dereferencing); one sentence on `index.md` defines universal / point / typed groves and labelled / unlabelled edges; signature blocks labelled; the bulk-insert and edge-removal examples now carry literal data and continue from a named grove instead of placeholders (`exon_data`, `items`, `hub`, `bed`); tab symmetry restored where one tab explained availability, callback rules or `remove_key` and the other did not ([#265](https://github.com/genogrove/docs/pull/265), refs [#258](https://github.com/genogrove/docs/issues/258))
+
+### Fixed
+- Glossary: automatic payload serialization requires a trivially copyable **and** default-constructible type; a raw-pointer member passes that check but would be saved as an address, so such types need custom `serialize` / `deserialize` like `std::string` holders do — the entry had called pointer holders non-trivially-copyable ([#270](https://github.com/genogrove/docs/pull/270))
+- Graph guide: edge removal costs are no longer stated as O(degree) / O(E) — each deletion also updates the other endpoint's edge list, so clearing a hub or removing most edges with `remove_edges_if` costs more than the candidate scan; `M` in `add_edge` is a deduced parameter accepting anything convertible to the edge type, not the edge type itself; `results`, not `get_keys()`, is the C++ counterpart of Python's `QueryResult` ([#265](https://github.com/genogrove/docs/pull/265))
+
 ## 2026-10-27
 
 ### Added
