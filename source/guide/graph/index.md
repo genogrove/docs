@@ -138,8 +138,8 @@ throughout. On the universal `Grove` every edge carries a JSON {term}`payload`; 
 g = pg.Grove()
 a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "A")
 b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "B")
-g.add_edge(a, b, {"type": "regulates", "weight": 0.95})
-g.get_edges(a)                          # [{'type': 'regulates', 'weight': 0.95}]
+g.add_edge(a, b, {"weight": 0.95})      # a -> b with weight 0.95, wrapped in a dict
+g.get_edges(a)                          # [{'weight': 0.95}]
 ```
 
 Edge payloads must be finite JSON (`float('nan')` / `float('inf')` raise `ValueError`). The typed

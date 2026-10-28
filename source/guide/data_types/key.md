@@ -26,7 +26,7 @@ namespace gdt = genogrove::data_type;
 struct GeneInfo { std::string name; double expression; };   // a plain record type for the payload
 
 gdt::key<gdt::interval, GeneInfo> gene{gdt::interval{100, 200}, GeneInfo{"BRCA1", 45.3}};
-gdt::key<gdt::interval>           bare{gdt::interval{100, 200}};     // no payload
+gdt::key<gdt::interval>           bare{gdt::interval{300, 400}};     // no payload
 ```
 
 A grove creates keys for you on insert and returns a {term}`pointer` to the stored key (its
@@ -46,7 +46,8 @@ key. You never construct a `Key` yourself: `insert` returns one, queries yield t
 import pygenogrove as pg
 
 g = pg.Grove()
-k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})   # "chr1" is the index
+k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "BRCA1", "expression": 45.3})   # "chr1" is the index
+bare = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))   # no payload (the payload is optional)
 hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also a Key
 ```
 
@@ -104,8 +105,9 @@ Methods:
 ```python
 # continuing from above: k is the Key returned by insert in the first block
 k.value          # GenomicCoordinate('+', 100, 200) — a copy
-k.data           # {'gene': 'FOO'}
-str(k)           # "+:100-200"
+k.data["name"]   # "BRCA1"       — the payload (a decoded copy)
+k.data["expression"] = 50.0   # no effect: each access decodes a fresh copy, so edits do not stick
+str(k)           # "+:100-200"   — delegates to the value
 repr(k)          # "Key(+:100-200)"
 ```
 
@@ -173,10 +175,15 @@ std::size_t h = std::hash<gdt::genomic_coordinate>{}(k.get_value());   // hash o
 :sync: py
 
 ```python
-# continuing from above: g and k from the first block
-hits = list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"))
-unique_coords = set(hits)      # one entry per distinct coordinate — payloads ignored
-hits[0] == k                   # True if same coordinate, whatever the payloads
+# continuing from above: pg
+g = pg.Grove(100)
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "gene1"})
+b = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "gene2"})
+c = g.insert("chr1", pg.GenomicCoordinate("+", 100, 300), {"name": "gene1"})
+
+a == b    # True  — same coordinate, payload ignored
+a != c    # True  — derived from ==
+a <  c    # True  — ordered by the coordinate
 ```
 
 `==`, `<`, `>` and `hash()` (the integer that `set` and `dict` use to place and find a value) all delegate to

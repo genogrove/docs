@@ -104,6 +104,31 @@ method that holds the GIL runs one at a time across threads, so multithreading b
 where the binding releases it — and wherever it is released, the GIL provides **no** protection for
 a shared object. Which methods do what is listed below.
 
+### Coordinating concurrent mutation
+
+A `threading.Lock` around a shared `Grove` mirrors the C++ `std::shared_mutex` example (a plain
+`Lock` serializes readers too, which is the simple, safe choice):
+
+```python
+import threading
+import pygenogrove as pg
+
+lock = threading.Lock()
+g = pg.Grove(64)
+
+# Writer
+with lock:
+    g.insert_sorted("chr1", pg.GenomicCoordinate('+', 100, 200), "feat")
+
+# Reader
+with lock:
+    hits = g.intersect(pg.GenomicCoordinate('+', 100, 200), "chr1")
+```
+
+Alternatively, build one `Grove` per thread and combine the results downstream. Already covered:
+the ThreadSanitizer build option belongs to the C++ library; Python code is checked by running the
+one-object-per-thread pattern below.
+
 ### GIL released — overlaps other threads' work
 
 These methods drop the GIL around their native work, so a long-running call on one thread does not
@@ -122,6 +147,7 @@ freeze others:
 
 These keep the GIL for the duration, so concurrent calls run one at a time:
 
+- single `insert` and `insert_sorted` (short operations; only `insert_bulk` releases the GIL)
 - `get_neighbors` and the other graph accessors
 - every predicate-callback method — `link_if` / `link_with`, `get_neighbors_if` /
   `get_in_neighbors_if`, `remove_edges_if`, and the predicate overload

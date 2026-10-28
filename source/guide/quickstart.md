@@ -111,7 +111,7 @@ features.insert("chr1", pg.GenomicCoordinate("+", 500, 600), {"name": "gene3"})
 results = features.intersect(pg.GenomicCoordinate("*", 150, 350), "chr1")
 
 for key in results:
-    print(key.value.start, key.value.end, key.data["name"])
+    print(f"[{key.value.start},{key.value.end}] {key.data['name']}")
 ```
 
 The first argument of `insert` and the last of `intersect` is the {term}`index` — the chromosome.
@@ -169,8 +169,8 @@ python first_grove.py         # python3 on systems where "python" is Python 2 or
 Expected output:
 
 ```text
-100 200 gene1
-300 400 gene2
+[100,200] gene1
+[300,400] gene2
 ```
 
 `gene3` at `[500, 600]` does not overlap `[150, 350]`, so it is not reported. If you see

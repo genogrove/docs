@@ -261,13 +261,15 @@ filter on whatever your key type exposes.
 ```python
 import pygenogrove as pg
 
-g = pg.Grove()
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
-g.insert("chr1", pg.GenomicCoordinate("-", 300, 400))   # opposite strand, but nearer
+g = pg.Grove(100)
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "A")
+g.insert("chr1", pg.GenomicCoordinate("-", 300, 400), "B")   # opposite strand, but nearer
 
 q = pg.GenomicCoordinate("+", 500, 510)
-r = g.flanking(q, "chr1", lambda cand, query: cand.strand == query.strand)
-r.predecessor.value     # GenomicCoordinate('+', 100, 200) — the '-' key was skipped
+r = g.flanking(q, "chr1",
+               lambda cand, query: query.strand == "*" or cand.strand == "*"
+                                   or cand.strand == query.strand)
+r.predecessor.data      # 'A' at 100-200: the '-' key "B" was skipped
 ```
 
 The predicate — here a `lambda`, an unnamed function written inline — receives the two **key

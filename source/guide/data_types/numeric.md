@@ -24,6 +24,7 @@ n1 < n2;                                          // true — ordinary integer o
 gdt::numeric::overlaps(n1, gdt::numeric{100});    // true  — equal values
 gdt::numeric::overlaps(n1, n2);                   // false
 gdt::numeric::aggregate(n1, n2);                  // numeric{200} — the larger of the two
+n1.get_value();                                  // 100
 n1.to_string();                                   // "100"
 ```
 
@@ -52,7 +53,7 @@ n1.value, str(n1)                            # 100, "100"
 ```
 
 The comments show what each line evaluates to; in an interactive Python session each line prints its
-result. Signature (for reference, not to paste):
+result. The C++ `aggregate` line has no Python call; the tree uses it internally. Signature (for reference, not to paste):
 
 ```python
 Numeric(value: int)      # -2**31 <= value <= 2**31 - 1

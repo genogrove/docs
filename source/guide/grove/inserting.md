@@ -51,11 +51,11 @@ import pygenogrove as pg
 g = pg.Grove(100)
 
 # insert(index, key, data=None) -> Key
-k1 = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
-k2 = g.insert("chr1", pg.GenomicCoordinate(".", 300, 400))      # no payload -> data is None
+k1 = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "gene1"})
+k2 = g.insert("chr1", pg.GenomicCoordinate("+", 150, 250), {"name": "gene2"})
 
 # A different index (chromosome) gets its own tree
-k3 = g.insert("chr2", pg.GenomicCoordinate("+", 300, 400), {"gene": "BAR"})
+k3 = g.insert("chr2", pg.GenomicCoordinate("+", 300, 400), {"name": "gene3"})
 ```
 
 Each returned `Key` refers to the key stored inside the grove, not to a copy of it (see
@@ -100,7 +100,7 @@ auto* key4 = my_grove.insert_data("chr1", gdt::interval{500, 600}, "gene4", gst:
 Use `insert_sorted` instead of `insert`. Continuing from above:
 
 ```python
-k4 = g.insert_sorted("chr1", pg.GenomicCoordinate("+", 500, 600), {"gene": "BAZ"})
+k4 = g.insert_sorted("chr1", pg.GenomicCoordinate("+", 500, 600), {"name": "gene4"})
 ```
 
 ::::
@@ -170,11 +170,14 @@ import pygenogrove as pg
 
 g = pg.Grove(100)
 
-# builds one million (coordinate, name) pairs, already in ascending order
-items = [(pg.GenomicCoordinate("+", i * 100, i * 100 + 50), f"feature{i}")
-         for i in range(1_000_000)]
+# (coordinate, data) pairs, already in ascending order
+items = [
+    (pg.GenomicCoordinate("+", 100, 200), {"name": "gene1"}),
+    (pg.GenomicCoordinate("+", 300, 400), {"name": "gene2"}),
+    (pg.GenomicCoordinate("+", 500, 600), {"name": "gene3"}),
+]
 
-keys = g.insert_bulk("chr1", items, presorted=True)   # list[Key], one per item
+keys = g.insert_bulk("chr1", items, presorted=True)   # list[Key], one per item (3 here)
 ```
 
 ```python
@@ -248,6 +251,11 @@ import pygenogrove as pg
 g = pg.Grove(100)
 k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200))
 k.data        # None
+
+hits = g.intersect(pg.GenomicCoordinate("*", 150, 175), "chr1")   # queries work as usual
+
+enhancer = g.add_external_key(pg.GenomicCoordinate("+", 5000, 5500))
+g.add_edge(k, enhancer)       # link the two keys with a directed edge
 ```
 
 The typed `BedGrove` / `GffGrove` always carry a record payload (see {doc}`loading_data`).
@@ -295,13 +303,14 @@ cannot disturb the tree; `key.data` returns the payload (a freshly decoded copy 
 this page:
 
 ```python
-k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
-k.value       # GenomicCoordinate('+', 100, 200)
-k.data        # {'gene': 'FOO'}
-repr(k)       # 'Key(+:100-200)'
+k1.value                  # GenomicCoordinate('+', 100, 200)
+k1.data                   # {'name': 'gene1'}
+repr(k1)                  # 'Key(+:100-200)'
+k1.data["name"] = "renamed"
+k1.data                   # {'name': 'gene1'} -- the edit changed a copy only
 ```
 
-Because `k.data` is a fresh copy on the universal `Grove`, changing it (`k.data["gene"] = "BAR"`)
+Because `k1.data` is a fresh copy on the universal `Grove`, changing it (`k1.data["name"] = "renamed"`)
 does **not** change what is stored. To change a payload, remove the key with `remove_key` and insert
 a new key with the new value. `insert` always adds a key; it does not replace an existing key that
 has the same coordinate. `remove_key` also removes all graph edges of that key, so add them again.

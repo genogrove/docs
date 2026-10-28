@@ -190,6 +190,7 @@ g.add_edge(exon1, exon2, {"tx": "tx2"})                 # parallel edge
 
 edges = g.get_edge_list(exon1)                    # [(exon2, {'tx': 'tx1'}), (exon2, {'tx': 'tx2'})]
 second = edges[1]
+print(second[1]["tx"])                            # tx2
 ```
 
 ::::

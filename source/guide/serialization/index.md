@@ -102,12 +102,15 @@ and returns a new grove. Both take a file path rather than a stream, and both
 import pygenogrove as pg
 
 g = pg.Grove(100)
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "gene1"})
-g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), {"gene": "gene2"})
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "gene1")
+g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "gene2")
 
 g.serialize("grove.gg")
-reloaded = pg.Grove.deserialize("grove.gg")
+reloaded = pg.Grove.deserialize("grove.gg")     # a fully functional grove with all data restored
 ```
+
+The universal `Grove` takes a `GenomicCoordinate` (a strand plus start and end) as key where the C++ example
+uses a plain `interval`; the intervals and payloads are the same.
 
 ```python
 serialize(path: str) -> None
@@ -188,6 +191,7 @@ the name:
 #include <genogrove/data_type/interval.hpp>
 #include <genogrove/data_type/registry.hpp>
 #include <fstream>
+#include <iostream>
 
 namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
@@ -219,7 +223,8 @@ int main() {
         // Registry IDs in the grove still resolve correctly
         auto results = loaded.intersect(gdt::interval{100, 200}, "chr1");
         for (auto* key : results.get_keys()) {
-            const auto& name = restored.get(key->get_data());  // "SampleA_liver"
+            const auto& name = restored.get(key->get_data());
+            std::cout << name << "\n";        // "SampleA_liver" and "SampleB_brain" (both overlap)
         }
     }
 
@@ -247,17 +252,23 @@ reg = pg.Registry.instance()
 g = pg.Grove(100)
 
 id1 = reg.intern("SampleA_liver")
+id2 = reg.intern("SampleB_brain")
 g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": id1})
+g.insert("chr1", pg.GenomicCoordinate("+", 150, 250), {"sample": id2})
 
 reg.serialize("names.gg")
 g.serialize("grove.gg")
 
-# Later (this part can be a new run of your script): load the registry first, then the grove
+# Load: registry first, then the grove. reg.clear() empties the registry, as in a new program run
+reg.clear()
 reg = pg.Registry.deserialize("names.gg")
 g = pg.Grove.deserialize("grove.gg")
 for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
-    reg.get(key.data["sample"])          # "SampleA_liver"
+    print(reg.get(key.data["sample"]))   # "SampleA_liver" and "SampleB_brain" (both overlap)
 ```
+
+The C++ example stores the ID itself as the payload; the universal `Grove` stores a JSON value, so
+the ID sits in a dict.
 
 `Registry.deserialize` loads into the {term}`singleton` (the one registry the whole program
 shares), **replacing** its contents; see {doc}`/guide/data_types/registry` for its guarantees.
@@ -426,8 +437,8 @@ than the ID's integer type can number) and streams containing duplicate keys —
 :sync: py
 
 **Files only.** `serialize` / `deserialize` take a path and open the file themselves; there is no
-stream {term}`overload`, so the concatenated-payload pattern of the C++ tab (several objects in one
-file) is not available. Use one file per object.
+stream {term}`overload`. Where the C++ tab puts several objects in one file, a Python program uses
+one file per object.
 
 **Errors.** `Grove.deserialize` raises `RuntimeError` (an {term}`exception`) if the file cannot be
 opened, is not a format 0.3 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if

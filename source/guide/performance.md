@@ -284,7 +284,60 @@ g.insert_sorted("chr2", pg.GenomicCoordinate('+', 100, 200), "feat")
 - `insert_bulk` is **per-index** — call it once per chromosome / contig.
 - Pass `presorted=True` only when `items` is already sorted; otherwise leave it
   `False` and the call sorts for you.
-- Both `insert_bulk` and `insert_sorted` release the GIL around the native build.
+- `insert_bulk` releases the GIL around the native build. A single `insert` or
+  `insert_sorted` keeps it (see below).
+- Python `insert_bulk` sorts by default; C++ bulk insertion needs sorted input. Pass
+  `presorted=True` for input that is already sorted.
+
+### Tree Order, Chromosome Indexes and Queries
+
+The tree order is the constructor argument, and the same size guidance as the C++ tab applies:
+`pg.Grove(500)` for a large dataset. Use the chromosome name as the index, and pass it to
+`intersect` so only that tree is searched. Query results are read by looping over them once:
+
+```python
+g = pg.Grove(500)
+g.insert_sorted("chr1", pg.GenomicCoordinate('+', 100, 200), "feat")
+
+hits = list(g.intersect(pg.GenomicCoordinate('*', 100, 200), "chr1"))   # chr1 only
+all_hits = g.intersect(pg.GenomicCoordinate('*', 100, 200))             # every chromosome
+```
+
+Already covered: sorted versus unsorted insertion is `insert_sorted` versus `insert` above, and
+the timing and node-utilisation figures in the C++ tab hold for the same native build.
+
+### Compression, Memory, Graph and Serialization
+
+Readers detect plain and gzip/BGZF files themselves, so `pg.BedReader("data.bed.gz")` and
+`pg.BedReader("data.bed")` both work. Keys are held in stable storage that lives as long as the
+grove. Clear the graph when you no longer need its edges, and save or load a grove for faster startup:
+
+```python
+g.clear_graph()                          # frees edge memory, keeps keys
+g.serialize("grove_data.gg")             # tree, keys, order, external keys and edges
+loaded = pg.Grove.deserialize("grove_data.gg")
+```
+
+### Benchmarking
+
+The C++ benchmark inserts 1,000,000 sorted intervals one by one. The Python version does the same
+with `insert_sorted` and times it:
+
+```python
+import time
+
+g = pg.Grove(100)
+N = 1_000_000
+start = time.perf_counter()
+for i in range(N):
+    g.insert_sorted("chr1", pg.GenomicCoordinate('+', i * 100, i * 100 + 50), f"feature{i}")
+seconds = time.perf_counter() - start
+print(f"Inserted {N} intervals in {seconds * 1000:.0f} ms")
+print(f"Rate: {N / seconds:.0f} insertions/second")
+```
+
+The best-practice summary at the end of the C++ tab applies unchanged; for Python, the bulk,
+chromosome and GIL guidance above is the short form.
 
 ### Threading & the GIL
 

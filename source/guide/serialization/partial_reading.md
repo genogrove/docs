@@ -120,9 +120,12 @@ auto all  = view.intersect(gdt::interval{100, 200});
 auto fl = view.flanking(gdt::interval{100, 200}, "chr1");
 if (fl.get_predecessor()) { std::cout << "predecessor found\n"; }   // nullptr if there is none
 
-// Predicate-filtered flanking, applied at leaf candidates only
-auto same_side = view.flanking(gdt::interval{100, 200}, "chr1",
-    [](const gdt::interval& candidate, const gdt::interval& query) { return true; });
+// Predicate-filtered flanking, applied at leaf candidates only: left-hand neighbours only
+auto left_only = view.flanking(gdt::interval{100, 200}, "chr1",
+    [](const gdt::interval& candidate, const gdt::interval& query) {
+        return candidate.get_end() < query.get_start();
+    });
+if (left_only.get_predecessor()) { std::cout << "left neighbour found\n"; }
 ```
 
 The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`)
@@ -147,11 +150,15 @@ all_hits = view.intersect(pg.GenomicCoordinate("*", 100, 200))
 
 # Nearest non-overlapping neighbours on either side
 fl = view.flanking(pg.GenomicCoordinate("*", 100, 200), "chr1")
-fl.predecessor, fl.successor          # each a Key or None
+if fl.predecessor is not None:        # fl.predecessor, fl.successor: each a Key or None
+    print("predecessor found")
 
-# Same-strand neighbours only; the predicate sees key values, not Keys
-fl = view.flanking(pg.GenomicCoordinate("+", 100, 200), "chr1",
-                   lambda cand, q: cand.strand == q.strand)
+# Predicate-filtered flanking, applied at leaf candidates only: left-hand neighbours only.
+# The predicate sees key values, not Keys.
+left_only = view.flanking(pg.GenomicCoordinate("*", 100, 200), "chr1",
+                          lambda cand, q: cand.end < q.start)
+if left_only.predecessor is not None:
+    print("left neighbour found")
 ```
 
 The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`) that
@@ -198,6 +205,7 @@ for (auto* k : cli_hits.get_keys()) {
     auto pairs  = cli_view.get_edge_list(k);                          // {target key*, label}
     auto strong = cli_view.get_neighbors_if(k,
         [](const std::string& label) { return label == "activates"; });
+    std::cout << "activating: " << strong.size() << '\n';
 }
 ```
 
@@ -211,8 +219,8 @@ an empty vector and `out_degree` / `in_degree` return `0` instead — the same s
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The `m["weight"] > 5` filter assumes edges whose metadata is a dict with a `weight` entry, as built
-in {doc}`/guide/graph/building`.
+The `m == "activates"` filter assumes edges whose metadata is a string label, as in the C++ tab
+(see {doc}`/guide/graph/building` for adding labelled edges).
 
 ```python
 for key in hits:
@@ -223,9 +231,10 @@ for key in hits:
     print(view.out_degree(key), view.in_degree(key))
 
     # Edge-carrying views only (GroveView, NumericGroveView, KmerGroveView)
-    view.get_edges(key)                      # metadata, parallel to get_neighbors(key)
-    view.get_edge_list(key)                  # [(target Key, metadata), ...]
-    view.get_neighbors_if(key, lambda m: m is not None and m["weight"] > 5)
+    labels = view.get_edges(key)             # labels, parallel to get_neighbors(key)
+    pairs = view.get_edge_list(key)          # [(target Key, label), ...]
+    strong = view.get_neighbors_if(key, lambda m: m == "activates")
+    print("activating:", len(strong))
 ```
 
 Keys passed in must be ones this view produced. Every accessor raises `TypeError` if the key is

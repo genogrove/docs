@@ -114,10 +114,11 @@ r.get(a)                      # "chr1"
 r.size(), len(r)              # 2, 2
 r.empty()                     # False
 r.contains(a)                 # True
+r.contains(999)               # False
 ```
 
 The comments show what each line evaluates to; in an interactive Python session each line prints its
-result. IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved.
+result. `len(r)` is the Python spelling of `size()`. IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved.
 `get(id)` with an unknown id raises an `IndexError` {term}`exception`.
 
 Store the id in a grove payload instead of the string:
@@ -170,9 +171,9 @@ The payload is any JSON-serializable value; the two-argument `intern(key, payloa
 
 ```python
 # continuing from above: r
-gid = r.intern("ENSG001", {"name": "BRCA2", "biotype": "protein_coding"})
-r.intern("ENSG001", {"name": "placeholder"})      # same id; payload kept from the first call
-r.get(gid)                                          # {'name': 'BRCA2', 'biotype': 'protein_coding'}
+id1 = r.intern("ENSG001", {"gene_name": "FOO", "gene_biotype": "protein_coding"})
+id2 = r.intern("ENSG001", {"gene_name": "placeholder", "gene_biotype": ""})   # id1 == id2; payload kept from the first call
+r.get(id1)                                          # {'gene_name': 'FOO', 'gene_biotype': 'protein_coding'}
 ```
 
 The one-argument `intern(value)` stores the string as its own payload. Payloads must be **finite**
@@ -300,11 +301,11 @@ hold registry IDs, write the registry **first** and read it back **first**, so t
 // continuing from above: gdt and reg
 
 {
-    std::ofstream out("names.bin", std::ios::binary);           // a file stream, opened for bytes
+    std::ofstream out("names.reg", std::ios::binary);           // a file stream, opened for bytes
     reg.serialize(out);
 }                                                               // the closing brace closes and flushes the file
 
-std::ifstream in("names.bin", std::ios::binary);
+std::ifstream in("names.reg", std::ios::binary);
 auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the singleton's contents
 ```
 

@@ -118,18 +118,22 @@ g++ -std=c++20 -I/path/to/genogrove/include main.cpp \
 
 ### Verify Installation
 
-Create a simple test program:
+Create a simple test program. It stores one named interval and finds it again with a query:
 
 ```cpp
+#include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
 #include <iostream>
 
 namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
 
 int main() {
-    gdt::interval iv{100, 200};
-    std::cout << "Genogrove is working! Interval: "
-              << iv.to_string() << std::endl;
+    gst::grove<gdt::interval, std::string> g(100);
+    g.insert_data("chr1", gdt::interval{100, 200}, "FOO");
+
+    auto hits = g.intersect(gdt::interval{150, 160}, "chr1");
+    std::cout << hits.get_keys().size() << " " << hits.get_keys()[0]->get_data() << "\n";
     return 0;
 }
 ```
@@ -142,7 +146,7 @@ Compile and run, using the same include path and libraries as in
 g++ -std=c++20 -I/path/to/genogrove/include test.cpp \
     -L/path/to/genogrove/build -lgenogrove -lhts -lz -lpthread -o test   # drop -lpthread on macOS
 ./test
-# Output: Genogrove is working! Interval: [100, 200]
+# Output: 1 FOO
 ```
 
 If the compiler reports `genogrove/data_type/interval.hpp: No such file or directory`, the `-I`
@@ -232,11 +236,11 @@ cmake --build build
 ```python
 import pygenogrove as pg
 
-g = pg.Grove()
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
+g = pg.Grove(100)
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "FOO")
 
 hits = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))
-print(len(hits), hits[0].data)      # 1 {'gene': 'FOO'}
+print(len(hits), hits[0].data)      # 1 FOO
 ```
 
 ### Checking your version

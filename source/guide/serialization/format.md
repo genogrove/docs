@@ -283,7 +283,7 @@ my_grove.grove_to_sif(out);   // writes every indexed tree
 {doc}`saving example <index>`:
 
 ```python
-g.to_sif("graph.sif")
+g.to_sif("grove.sif")
 ```
 
 ::::

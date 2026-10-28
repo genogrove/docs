@@ -148,6 +148,7 @@ int main() {
 
     std::string promoter = fasta.fetch("chr1", 1000, 2000);   // bases [1000, 2000)
     std::string chrM     = fasta.fetch("chrM");                // whole sequence
+    std::cout << promoter << "\n" << chrM << "\n";
 
     // sequences are numbered 0 .. sequence_count() - 1
     for (size_t i = 0; i < fasta.sequence_count(); ++i) {
@@ -155,6 +156,7 @@ int main() {
         std::cout << name << ": " << fasta.sequence_length(name) << " bp\n";
     }
     std::cout << fasta.has_sequence("chrUn") << "\n";          // 0 (false)
+    std::cout << fasta.sequence_count() << " sequences\n";
     return 0;
 }
 ```
@@ -181,7 +183,8 @@ print(fa.fetch("chrM"))                  # whole sequence
 
 for name in fa.names():
     print(name, fa.sequence_length(name))
-print("chrUn" in fa, len(fa))            # is the name present? / number of sequences
+print("chrUn" in fa)                     # False: is the name present?
+print(len(fa), "sequences")              # number of sequences
 ```
 
 Unknown names and invalid regions raise `IndexError`. One handle is safe to use from several

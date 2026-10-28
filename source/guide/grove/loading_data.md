@@ -83,6 +83,9 @@ int main() {
     // Query the loaded data: all keys on chr1 that overlap [1000, 2000]
     auto results = my_grove.intersect(gdt::interval{1000, 2000}, "chr1");
     std::cout << "Found " << results.get_keys().size() << " overlapping intervals\n";
+    for (auto* key : results.get_keys()) {
+        std::cout << "  " << key->get_data() << " " << key->get_value().to_string() << "\n";
+    }
 
     return 0;
 }
@@ -93,7 +96,8 @@ int main() {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Python reads BED files into `BedGrove`, a grove whose keys carry the whole BED record. Inserting
+The C++ example stores the name as the payload; Python reads BED files into `BedGrove`, a grove
+whose keys carry the whole BED record. Inserting
 a bare record derives the key for you: the interval `[start, end - 1]` and the strand from the
 record's strand column (`'.'` when it is absent).
 
@@ -108,11 +112,13 @@ try:
 except (RuntimeError, ValueError) as err:
     print("Error:", err)
 
+print(f"Loaded {g.indexed_vertex_count()} intervals")
+
 # "*" means any strand; (1000, 2000) is the closed range to search on chr1
 hits = g.intersect(pg.GenomicCoordinate("*", 1000, 2000), "chr1")
 print(f"Found {len(hits)} overlapping intervals")
 for hit in hits:                         # hit.data is the BED record, hit.value the key
-    print(hit.data.name, hit.value.start, hit.value.end)
+    print(f"  {hit.data.name or 'unknown'} [{hit.value.start},{hit.value.end}]")
 ```
 
 A file that cannot be opened raises `RuntimeError` when the reader is created. A line that cannot
@@ -123,7 +129,7 @@ as the payload, use the universal `Grove` and build the key yourself (`e.strand 
 
 ```python
 g = pg.Grove(100)
-g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1), e.name)
+g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1), e.name or "unknown")
 ```
 
 ::::
@@ -183,18 +189,22 @@ int main() {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-`GffGrove` is the same typed grove with a `GffEntry` record per key. Inserting a bare record shifts
-the 1-based `[start, end]` to `[start - 1, end - 1]` for you.
+The C++ example stores the gene ID as the payload; `GffGrove` is the same typed grove with a
+`GffEntry` record per key. Inserting a bare record shifts the 1-based `[start, end]` to
+`[start - 1, end - 1]` for you.
 
 ```python
 import pygenogrove as pg
 
 g = pg.GffGrove(100)
 
-for e in pg.GffReader("annotations.gff.gz"):
-    gene_id = e.get_gene_id() or e.get_attribute("ID")   # GTF: gene_id, GFF3: ID; None if absent
-    if e.type == "gene" and gene_id:
-        g.insert(e.seqid, e)
+try:
+    for e in pg.GffReader("annotations.gff.gz"):
+        gene_id = e.get_gene_id() or e.get_attribute("ID")   # GTF: gene_id, GFF3: ID; None if absent
+        if e.type == "gene" and gene_id:
+            g.insert(e.seqid, e)
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 print(f"Loaded {g.indexed_vertex_count()} features")
 ```
@@ -256,19 +266,22 @@ int main() {
 :sync: py
 
 There is no typed BAM grove (`SamEntry` is not serializable). Load into the universal `Grove` with
-the record's `to_coordinate()` (the key, already converted to a closed range) and `to_dict()` (the
-record as a dictionary, used as the payload). `consumes_reference()` skips records that cover no
-reference bases. The reader takes the same filters as the C++ options, for example
-`pg.BamReader("alignments.bam", skip_secondary=True, min_mapq=20)`; see {doc}`/guide/io/bam`. A BAM
-file is binary: to look at it, use `samtools view`.
+the record's `to_coordinate()` (the key, already converted to a closed range) and `qname` (the read
+name, used as the payload, as in C++; `to_dict()` gives the whole record as a dictionary instead).
+`consumes_reference()` skips records that cover no reference bases. `skip_secondary=True,
+skip_supplementary=True` and `min_mapq=20` match the C++ `primary_only()` and `min_mapq = 20`; see
+{doc}`/guide/io/bam`. A BAM file is binary: to look at it, use `samtools view`.
 
 ```python
 import pygenogrove as pg
 
 g = pg.Grove(100)
-for aln in pg.BamReader("alignments.bam"):
-    if aln.consumes_reference():
-        g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
+try:
+    for aln in pg.BamReader("alignments.bam", skip_secondary=True, skip_supplementary=True, min_mapq=20):
+        if aln.consumes_reference():
+            g.insert(aln.chrom, aln.to_coordinate(), aln.qname)
+except RuntimeError as err:
+    print("Error:", err)
 
 print(f"Loaded {g.indexed_vertex_count()} reads")
 ```
@@ -361,8 +374,9 @@ int main() {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Group the records per chromosome, then call `insert_bulk` once for each. It sorts each list for
-you, by start, end and strand, so no sorted file is needed. Use it on an empty index: the new keys
+Group the (coordinate, name) pairs per chromosome, then call `insert_bulk` once for each, as in
+C++. Unlike the C++ call, `insert_bulk` sorts each list for you, by start, end and strand, so no
+sorted file is needed. Use it on an empty index: the new keys
 must be strictly greater than all keys already in the index, whatever the value of `presorted`.
 Pass `presorted=True` only when you know the list is already in key order (then the promise above
 applies, with the strand):
@@ -370,13 +384,19 @@ applies, with the strand):
 ```python
 import pygenogrove as pg
 
-by_chrom = {}
-for e in pg.BedReader("large_dataset.bed.gz"):
-    by_chrom.setdefault(e.chrom, []).append(e)       # one list of records per chromosome
+g = pg.Grove(100)
 
-g = pg.BedGrove(100)
-for chrom, entries in by_chrom.items():
-    g.insert_bulk(chrom, entries)
+# Group entries by chromosome: one list of (coordinate, name) pairs per chromosome name
+by_chrom = {}
+try:
+    for e in pg.BedReader("large_dataset.bed.gz"):
+        coord = pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1)
+        by_chrom.setdefault(e.chrom, []).append((coord, e.name or "unknown"))
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
+
+for chrom, pairs in by_chrom.items():
+    g.insert_bulk(chrom, pairs)
 
 print(f"Loaded {g.indexed_vertex_count()} intervals using bulk insertion")
 ```
@@ -391,7 +411,8 @@ coordinate and record, with the same precondition and no check.
 (loading-typed-groves)=
 ## Keeping the whole record: typed groves
 
-The examples above store one field per key in C++ (a name or an ID) and a whole record in Python.
+The examples above store one field per key (a name or an ID) in C++, and in Python for BAM, the
+bulk example and the `Grove` alternative; the Python BED and GFF examples store a whole record.
 Both languages can do either. In Python, the *typed* groves `BedGrove` and `GffGrove` keep the whole
 file record. The *universal* `Grove` keeps any JSON value that you choose.
 
@@ -409,6 +430,7 @@ the insert goes **inside** the loop. This is the BED example with the record as 
 #include <genogrove/io/bed_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <fstream>
 #include <iostream>
 
 namespace gio = genogrove::io;
@@ -429,12 +451,21 @@ int main() {
     }
 
     std::cout << "Loaded " << records.indexed_vertex_count() << " records\n";
+
+    // Save to a .gg file and load it back (binary streams, see the serialization guide)
+    {
+        std::ofstream out("records.gg", std::ios::binary);
+        records.serialize(out);
+    }
+    std::ifstream in("records.gg", std::ios::binary);
+    auto reloaded = gst::grove<gdt::interval, gio::bed_entry>::deserialize(in);
+    std::cout << "Reloaded " << reloaded.indexed_vertex_count() << " records\n";
     return 0;
 }
 ```
 
-To save the grove, write it to a binary stream (`std::ofstream out("records.gg", std::ios::binary);
-records.serialize(out);`) as described in the serialization guide. The notes on `BedGrove` and
+In C++ the key is always the interval you pass to `insert_data`, so choosing the key yourself, as
+the last Python example does, is already covered by the loop above. The notes on `BedGrove` and
 `GffGrove` in the Python tab (live records, unlabelled edges) describe those Python classes only.
 
 ::::
@@ -460,23 +491,34 @@ differences:
   work; only the methods that read or write edge metadata are absent. See
   {doc}`/guide/graph/index`.
 
-You can also build the record yourself and choose the key. The key's strand is up to you here; use
-the record's strand so that strand-aware queries behave:
+The same example in Python reads `genes.bed.gz` and stores each record; `insert(index, entry)`
+derives the key:
 
 ```python
 import pygenogrove as pg
 
 g = pg.BedGrove(100)
 
+for e in pg.BedReader("genes.bed.gz"):
+    g.insert(e.chrom, e)
+
+print(f"Loaded {g.indexed_vertex_count()} records")
+
+g.serialize("records.gg")
+reloaded = pg.BedGrove.deserialize("records.gg")   # the BedEntry records are preserved
+print(f"Reloaded {reloaded.indexed_vertex_count()} records")
+```
+
+You can also build the record yourself and choose the key. The key's strand is up to you here; use
+the record's strand so that strand-aware queries behave:
+
+```python
 entry = pg.BedEntry("chr1", 1000, 2000)       # BED coordinates: 0-based, half-open
 entry.name = "BRCA1"
 entry.strand = "+"
 key = g.insert("chr1", pg.GenomicCoordinate("+", 1000, 1999), entry)
 
 print(key.value.start, key.data.name)         # 1000 BRCA1
-
-g.serialize("genes.gg")
-reloaded = pg.BedGrove.deserialize("genes.gg")  # the BedEntry records are preserved
 ```
 
 For a `GffEntry` the coordinates are 1-based, so the key is `[start - 1, end - 1]`. The fields of both
