@@ -20,15 +20,15 @@ It returns `true` if the key was found and removed, `false` otherwise (unknown i
 
 ```cpp
 gst::grove<gdt::interval, std::string> my_grove(100);
-auto* k = my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1", gst::sorted);
+auto* k = my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1");
 
 bool removed = my_grove.remove_key("chr1", k);   // true
 
-// Typical use: prune by a property of the payload
-// (coverage_of() and min_coverage stand for your own function and threshold)
+// Typical use: prune by a property of the payload (here: drop every key named "gene2")
+my_grove.insert_data("chr1", gdt::interval{300, 400}, "gene2");
 auto results = my_grove.intersect(gdt::interval{0, 1000000}, "chr1");
 for (auto* key : results.get_keys()) {
-    if (coverage_of(key) < min_coverage) {
+    if (key->get_data() == "gene2") {
         my_grove.remove_key("chr1", key);
     }
 }
@@ -56,13 +56,14 @@ that index's tree).
 import pygenogrove as pg
 
 g = pg.Grove(100)
-k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"coverage": 3})
+k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "gene1")
 
 g.remove_key("chr1", k)        # True
 
-# Typical use: prune by a property of the payload
-for key in g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"):
-    if key.data["coverage"] < 5:
+# Typical use: prune by a property of the payload (here: drop every key named "gene2")
+g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "gene2")
+for key in g.intersect(pg.GenomicCoordinate("*", 0, 1000000), "chr1"):
+    if key.data == "gene2":
         g.remove_key("chr1", key)
 ```
 
@@ -103,9 +104,10 @@ removal example, after many inserts and removals):
 std::cout << "Live indexed keys: " << my_grove.indexed_vertex_count() << "\n";
 std::cout << "Storage slots:     " << my_grove.key_storage_size()     << "\n";
 
-if (my_grove.key_storage_size() > 2 * my_grove.indexed_vertex_count()) {
-    my_grove.compact();   // all key pointers from before this line are now dangling (invalid)
-}
+my_grove.compact();   // all key pointers from before this line are now dangling (invalid)
+
+// rediscover keys with a fresh query
+auto fresh = my_grove.intersect(gdt::interval{0, 1000000}, "chr1");
 ```
 
 `key_storage_size()` also counts the internal separator keys a {term}`B+ tree` needs (the signpost
@@ -119,18 +121,19 @@ keys the trees hold.)
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
+Continuing from above (`g` is the grove from the removal example, after many inserts and
+removals):
+
 ```python
-import pygenogrove as pg
+# ... many insert / remove cycles ...
 
-g = pg.Grove()
-k = g.insert("chr1", pg.GenomicCoordinate(".", 100, 200))
-g.remove_key("chr1", k)        # True — edges to/from k are also removed
-g.key_storage_size()           # still counts the dead slot
+print("Live indexed keys:", g.indexed_vertex_count())
+print("Storage slots:    ", g.key_storage_size())
 
-g.compact()                    # reclaims it; k and every other indexed Key are now invalid
+g.compact()                    # all Keys from before this line are now invalid
 
-for key in g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"):
-    ...                        # fresh, valid handles
+# rediscover keys with a fresh query
+fresh = g.intersect(pg.GenomicCoordinate("*", 0, 1000000), "chr1")
 ```
 
 `key_storage_size()` also counts the internal separator keys a B+ tree needs (the signpost keys in

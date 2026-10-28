@@ -62,10 +62,13 @@ lenient mode: a truncated quality string or an I/O error throws.
 ```python
 import pygenogrove as pg
 
-for rec in pg.FastaReader("reads.fq.gz"):
-    print(rec.name, len(rec), "bp")           # len(rec): the sequence length
-    if rec.is_fastq():                        # True when a quality string is present
-        print(" ", rec.quality)
+try:
+    for rec in pg.FastaReader("reads.fq.gz"):
+        print(rec.name, len(rec), "bp")       # len(rec): the sequence length
+        if rec.is_fastq():                    # True when a quality string is present
+            print(" ", rec.quality)
+except RuntimeError as e:                     # the exception a read failure raises
+    print("Parse error:", e)
 ```
 
 The constructor's signature (not runnable code):
@@ -148,13 +151,15 @@ int main() {
 
     std::string promoter = fasta.fetch("chr1", 1000, 2000);   // bases [1000, 2000)
     std::string chrM     = fasta.fetch("chrM");                // whole sequence
+    std::cout << promoter << "\n" << chrM << "\n";
 
     // sequences are numbered 0 .. sequence_count() - 1
     for (size_t i = 0; i < fasta.sequence_count(); ++i) {
         auto name = fasta.sequence_name(i);                    // auto: the compiler picks the type
         std::cout << name << ": " << fasta.sequence_length(name) << " bp\n";
     }
-    std::cout << fasta.has_sequence("chrUn") << "\n";          // 0 (false)
+    std::cout << std::boolalpha << fasta.has_sequence("chrUn") << "\n";   // false
+    std::cout << fasta.sequence_count() << " sequences\n";
     return 0;
 }
 ```
@@ -181,7 +186,8 @@ print(fa.fetch("chrM"))                  # whole sequence
 
 for name in fa.names():
     print(name, fa.sequence_length(name))
-print("chrUn" in fa, len(fa))            # is the name present? / number of sequences
+print(str("chrUn" in fa).lower())        # false: is the name present?
+print(len(fa), "sequences")              # number of sequences
 ```
 
 Unknown names and invalid regions raise `IndexError`. One handle is safe to use from several

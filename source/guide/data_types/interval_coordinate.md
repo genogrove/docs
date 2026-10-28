@@ -51,7 +51,7 @@ GenomicCoordinate(strand: str, start: int, end: int)
 
 Raises a `ValueError` {term}`exception` if `start > end` or the strand is not one of `'+'`, `'-'`,
 `'.'`, `'*'`, and `TypeError` for a negative coordinate. `GenomicCoordinate()` with no arguments is the real value
-`'.'`, `[0, 0]`.
+`'.'`, `[0, 0]`. Already covered: the C++ `interval` line is `GenomicCoordinate('.', 100, 200)`.
 
 ::::
 
@@ -90,9 +90,25 @@ gdt::interval::overlaps({100, 200}, {150, 250});  // true  — intervals have no
 ```
 
 The comments show what each call returns; the lines compute the value without printing it, so wrap
-a call in `std::cout << std::boolalpha << ... << '\n';` to see it. In a grove the same rule applies:
-after inserting `plus` and `minus`, a query with strand `'+'` finds only `plus` and a query with
-`'*'` finds both (see {doc}`/guide/grove/querying`).
+a call in `std::cout << std::boolalpha << ... << '\n';` to see it.
+
+In a grove the same rule applies (see {doc}`/guide/grove/querying`):
+
+```cpp
+// continuing from above: gdt, plus and minus
+#include <genogrove/structure/grove/grove.hpp>
+
+namespace gst = genogrove::structure;
+
+gst::grove<gdt::genomic_coordinate> g(100);              // no payload
+g.insert("chr1", gdt::key<gdt::genomic_coordinate>{plus});   // "chr1" is the index
+g.insert("chr1", gdt::key<gdt::genomic_coordinate>{minus});
+g.intersect(gdt::genomic_coordinate{'+', 150, 160}, "chr1").get_keys().size();   // 1
+g.intersect(gdt::genomic_coordinate{'*', 150, 160}, "chr1").get_keys().size();   // 2
+```
+
+`"chr1"` is the {term}`index` — the chromosome tree a key goes into — and `100` the tree
+{term}`order`.
 
 ::::
 
@@ -163,7 +179,8 @@ container key, unless you write a hash of your own.
 :sync: py
 
 Python has no separate interval class: a region without strand is already covered by
-`GenomicCoordinate('.', start, end)`. `Grove`, `BedGrove` and `GffGrove` are all keyed by
+`GenomicCoordinate('.', start, end)`. Already covered: `interval::overlaps` is
+`GenomicCoordinate.overlaps(GenomicCoordinate('.', 100, 200), GenomicCoordinate('.', 150, 250))`, which is `True`. `Grove`, `BedGrove` and `GffGrove` are all keyed by
 `GenomicCoordinate`.
 
 ::::

@@ -52,10 +52,12 @@ genogrove::structure::grove<gdt::interval, std::string> g(64);
     g.insert_data("chr1", {100, 200}, "feat", gst::sorted);
 }
 
-// Reader
+// Reader: finish with the result while the lock is held (the key handles in it
+// become invalid if another thread calls compact())
 {
     std::shared_lock lock(mtx);
     auto hits = g.intersect(gdt::interval{100, 200}, "chr1");
+    for (auto* k : hits.get_keys()) { /* use *k here, before the lock ends */ }
 }
 ```
 
@@ -91,8 +93,12 @@ operations: no other access to the grove being (de)serialized while they run.
 
 ### Verifying your own concurrency
 
-Build genogrove with `-DENABLE_THREAD_SANITIZER=ON` and run your multithreaded code under
-ThreadSanitizer to catch races in how you share groves.
+The project's `-DENABLE_SANITIZER=ON` CMake option turns on AddressSanitizer and
+UndefinedBehaviorSanitizer only; it does not detect data races. To catch races in how you share
+groves, build your own multithreaded code **and** genogrove with the compiler flag `-fsanitize=thread`
+(for example `-DCMAKE_CXX_FLAGS=-fsanitize=thread` when you configure both), and run it. A
+ThreadSanitizer build of only your program leaves the code inside an already-built `libgenogrove`
+unchecked.
 
 ::::
 
@@ -103,6 +109,33 @@ In pygenogrove, concurrency is governed by CPython's **GIL** plus a couple of na
 method that holds the GIL runs one at a time across threads, so multithreading buys parallelism only
 where the binding releases it — and wherever it is released, the GIL provides **no** protection for
 a shared object. Which methods do what is listed below.
+
+### Coordinating concurrent mutation
+
+A `threading.Lock` around a shared `Grove` mirrors the C++ `std::shared_mutex` example (a plain
+`Lock` serializes readers too, which is the simple, safe choice):
+
+```python
+import threading
+import pygenogrove as pg
+
+lock = threading.Lock()
+g = pg.Grove(64)
+
+# Writer
+with lock:
+    g.insert_sorted("chr1", pg.GenomicCoordinate('+', 100, 200), "feat")
+
+# Reader: finish with the result while the lock is held (the Key objects in it
+# become invalid if another thread calls compact())
+with lock:
+    hits = g.intersect(pg.GenomicCoordinate('+', 100, 200), "chr1")
+    for key in hits:
+        print(key.value)       # use the key here, before the lock ends
+```
+
+Alternatively, build one `Grove` per thread and combine the results downstream. Already covered:
+race checking with ThreadSanitizer is described in the C++ tab.
 
 ### GIL released — overlaps other threads' work
 
@@ -122,6 +155,7 @@ freeze others:
 
 These keep the GIL for the duration, so concurrent calls run one at a time:
 
+- single `insert` and `insert_sorted` (short operations; only `insert_bulk` releases the GIL)
 - `get_neighbors` and the other graph accessors
 - every predicate-callback method — `link_if` / `link_with`, `get_neighbors_if` /
   `get_in_neighbors_if`, `remove_edges_if`, and the predicate overload

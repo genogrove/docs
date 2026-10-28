@@ -71,12 +71,15 @@ struct bed_reader_options {
 ```python
 import pygenogrove as pg
 
-for entry in pg.BedReader("genes.bed.gz"):
-    line = f"{entry.chrom}:{entry.start}-{entry.end}"
-    if entry.name is not None:   line += f" {entry.name}"          # BED4+
-    if entry.strand is not None: line += f" {entry.strand}"        # BED6+
-    if entry.blocks is not None: line += f" ({entry.blocks.count} blocks)"   # BED12
-    print(line)
+try:
+    for entry in pg.BedReader("genes.bed.gz"):
+        line = f"{entry.chrom}:{entry.start}-{entry.end}"
+        if entry.name is not None:   line += f" {entry.name}"          # BED4+
+        if entry.strand is not None: line += f" {entry.strand}"        # BED6+
+        if entry.blocks is not None: line += f" ({entry.blocks.count} blocks)"   # BED12
+        print(line)
+except RuntimeError as e:                         # the exception a bad line raises
+    print("Parse error:", e)
 ```
 
 The constructor's signature (not runnable code):
@@ -221,6 +224,10 @@ for e in pg.BedReader("genes.bed.gz"):
 g = pg.BedGrove(100)
 g.insert_bulk("chr1", [e for e in pg.BedReader("genes.bed.gz") if e.chrom == "chr1"])
 ```
+
+The C++ example stores the name column as payload; a `BedGrove` stores the whole `BedEntry`, so the
+name is still there after a query, as `hit.data.name` for each hit `hit` of the result. The bulk-insert variant above shows `chr1` only, as
+one chromosome of the loop.
 
 Sortedness: `insert` finds the right place itself, so the file need not be sorted.
 `insert_bulk(index, entries)` sorts the list you give it, but it only appends to the index. If the

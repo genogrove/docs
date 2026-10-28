@@ -125,12 +125,23 @@ bed = pg.BedGrove(100)                                  # 100 = tree order, a go
 for e in pg.BedReader("peaks.bed"):
     bed.insert(e.chrom, e)                              # key derived from the record
 
+gff = pg.GffGrove(100)
+for e in pg.GffReader("annotations.gtf.gz"):
+    gff.insert(e.seqid, e)                              # 1-based closed -> 0-based closed
+
 g = pg.Grove(100)
 for aln in pg.BamReader("reads.bam"):
     if aln.consumes_reference():                        # skip zero-length alignments
         # to_coordinate(): half-open [start, end) -> 0-based closed [start, end - 1]
-        g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
+        g.insert(aln.chrom, aln.to_coordinate(), aln.qname)
+
+vcf = pg.Grove(100)
+for v in pg.VcfReader("calls.vcf.gz"):
+    vcf.insert(v.chrom, v.to_coordinate(), v.id)        # same conversion: [start, end - 1]
 ```
+
+The C++ fragment above stores a string as payload (`data`); the BAM and VCF lines store the read name and the ID
+the same way, while the typed groves store the whole record. The key conversion is the same.
 
 Converting by hand: `pg.GenomicCoordinate(strand, e.start, e.end - 1)` for BED/BAM/VCF and
 `pg.GenomicCoordinate(strand, e.start - 1, e.end - 1)` for GFF.

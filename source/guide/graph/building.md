@@ -48,7 +48,7 @@ add_edge(source: Key, target: Key)            # payload None
 add_edge(source: Key, target: Key, data)      # JSON payload (labelled groves only)
 ```
 
-`data` is the {term}`edge metadata`, any JSON value.
+`data` is the {term}`edge metadata`, any JSON value. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ```python
 g = pg.Grove(100)
@@ -56,7 +56,7 @@ g = pg.Grove(100)
 exon1 = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "exon1")
 exon2 = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "exon2")
 
-g.add_edge(exon1, exon2, {"weight": 0.95})    # exon1 -> exon2
+g.add_edge(exon1, exon2, {"weight": 0.95})    # exon1 -> exon2, weight 0.95
 ```
 
 Both keys must belong to this grove. `None` raises `TypeError`. Keys from different
@@ -164,7 +164,7 @@ w.link_if(keys, [](auto* k1, auto* k2) -> std::optional<double> {
     size_t intron = start - end - 1;                  // bases strictly between the closed intervals
     if (intron < 100000) return static_cast<double>(intron);
     return std::nullopt;
-});
+});                                                   // stores 99.0 for both pairs
 ```
 
 The bulk insert is explained in {doc}`/guide/grove/inserting`. `link_if` works on any
@@ -192,12 +192,15 @@ items = [(pg.GenomicCoordinate("+", 100, 200), {"tx": "tx1"}),
 exons = g.insert_bulk("chr1", items)      # list[Key], in input order
 g.link_if(exons, lambda k1, k2: k1.data["tx"] == k2.data["tx"])
 
-# Labelled edges: store the intron length, skip implausibly long gaps
+# Labelled edges, on a second grove with the same exons: store the intron
+# length, skip implausibly long gaps
+w = pg.Grove(100)
+keys = w.insert_bulk("chr1", items)
 def intron(k1, k2):
     gap = k2.value.start - k1.value.end - 1               # bases strictly between the closed intervals
     return {"intron": gap} if 0 <= gap < 100_000 else None   # None = no edge (also for overlaps)
 
-g.link_with(exons, intron)
+w.link_with(keys, intron)                 # intron length 99 for both pairs, as a dict {"intron": 99}
 ```
 
 Signatures (the arrow gives the predicate's return type):
@@ -273,7 +276,7 @@ g = pg.Grove(100)
 brca1 = g.insert("chr1", pg.GenomicCoordinate("+", 10000, 15000), "BRCA1")
 tp53  = g.insert("chr1", pg.GenomicCoordinate("+", 20000, 25000), "TP53")
 
-tf = g.add_external_key(pg.GenomicCoordinate(".", 0, 0), {"name": "E2F1"})   # graph-only
+tf = g.add_external_key(pg.GenomicCoordinate(".", 0, 0), "E2F1")   # graph-only
 
 g.add_edge(tf, brca1, {"weight": 0.95})
 g.add_edge(tf, tp53, {"weight": 0.87})

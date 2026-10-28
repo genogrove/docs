@@ -132,14 +132,14 @@ pygenogrove has one **universal** `Grove` (and the point groves `NumericGrove` /
 whose keys and edges carry any JSON value — their edges are *labelled* — and the **typed**
 `BedGrove` / `GffGrove`, whose edges carry nothing (*unlabelled*). The guide uses those four words
 throughout. On the universal `Grove` every edge carries a JSON {term}`payload`; the 2-argument
-`add_edge` attaches `None`:
+`add_edge` attaches `None`. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ```python
-g = pg.Grove()
+g = pg.Grove(100)
 a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "A")
 b = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), "B")
-g.add_edge(a, b, {"type": "regulates", "weight": 0.95})
-g.get_edges(a)                          # [{'type': 'regulates', 'weight': 0.95}]
+g.add_edge(a, b, {"weight": 0.95})      # a -> b with weight 0.95
+g.get_edges(a)                          # [{'weight': 0.95}]
 ```
 
 Edge payloads must be finite JSON (`float('nan')` / `float('inf')` raise `ValueError`). The typed
@@ -222,7 +222,7 @@ Both edges are serialized. Passing `None` as either key raises a `TypeError` {te
 | Existence and degree | `has_edge`, `out_degree`, `in_degree` | same | {doc}`navigating` |
 | Counts | `edge_count`, `vertex_count_with_edges`, `graph_empty` | same | {doc}`navigating` |
 | Remove edges | `remove_edge`, `remove_edges_from/to`, `remove_all_edges`, `remove_edges_if` | same | {doc}`editing` |
-| Find one edge | `graph().find_edge` / `edge_end` | not exposed | {doc}`editing` |
+| Find one edge | `graph().find_edge` / `edge_end` | Already covered: `get_edge_list` and pick by position | {doc}`editing` |
 | Clear | `clear_graph` | same | {doc}`editing` |
 
 ```{toctree}

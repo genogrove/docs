@@ -10,7 +10,8 @@ section says what the file must contain for the query to find something.
 
 Read a BED file into a grove keyed by chromosome and report the features overlapping one region.
 The program prints `Found N features overlapping region` and then one line per hit; for a non-zero
-`N`, `data.bed.gz` must have features on `chr1` between positions 1000 and 2000.
+`N`, `data.bed.gz` must have features on `chr1` between positions 1000 and 2000. The C++ version
+stores the name as the payload; the Python version stores the whole `BedEntry`.
 
 :::::{tab-set}
 
@@ -41,8 +42,7 @@ int main() {
             features.insert_data(
                 entry.chrom,
                 gdt::interval(entry.start, entry.end - 1),
-                entry.name.value_or("unnamed"),
-                gst::sorted  // BED files are typically sorted
+                entry.name.value_or("unnamed")
             );
         }
     } catch (const std::runtime_error& e) {
@@ -65,8 +65,8 @@ int main() {
 }
 ```
 
-`gst::sorted` promises that the file is position-sorted within each chromosome; drop it for an
-unsorted file (see {doc}`grove/inserting`).
+Plain inserts accept records in any order. For a large file that is sorted by start, then end, see
+{doc}`grove/inserting` for the faster sorted and bulk inserts.
 
 ::::
 
@@ -80,8 +80,11 @@ import pygenogrove as pg
 g = pg.BedGrove(100)
 
 # Read the BED file (handles .bed.gz automatically) and insert each entry, keyed by chromosome
-for e in pg.BedReader("data.bed.gz"):
-    g.insert(e.chrom, e)               # key derived from each entry: [start, end - 1] plus strand
+try:
+    for e in pg.BedReader("data.bed.gz"):
+        g.insert(e.chrom, e)           # key derived from each entry: [start, end - 1] plus strand
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Query for features overlapping chr1:1000-2000 on either strand
 query = pg.GenomicCoordinate("*", 1000, 2000)
@@ -89,7 +92,7 @@ hits = g.intersect(query, "chr1")
 
 print(f"Found {len(hits)} features overlapping region")
 for hit in hits:
-    print("  -", hit.data.name, "at", hit.value.start, hit.value.end)
+    print(f"  - {hit.data.name or 'unnamed'} at [{hit.value.start},{hit.value.end}]")
 ```
 
 `BedGrove.insert(index, entry)` derives the key from the entry's coordinates and strand, so the
@@ -159,8 +162,7 @@ int main() {
             annotations.insert_data(
                 entry.seqid,
                 coord,
-                annot,
-                gst::sorted
+                annot
             );
         }
     } catch (const std::runtime_error& e) {
@@ -198,10 +200,13 @@ import pygenogrove as pg
 annotations = pg.GffGrove(100)
 
 # Read the GFF/GTF file (handles .gz automatically); keep gene features only
-for e in pg.GffReader("annotations.gff.gz"):
-    if e.type != "gene":
-        continue
-    annotations.insert(e.seqid, e)     # key derived from the entry: [start - 1, end - 1] plus strand
+try:
+    for e in pg.GffReader("annotations.gff.gz"):
+        if e.type != "gene":
+            continue
+        annotations.insert(e.seqid, e)  # key derived from the entry: [start - 1, end - 1] plus strand
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Query for genes on the + strand in chr1:5000-10000
 query = pg.GenomicCoordinate("+", 5000, 10000)
@@ -210,7 +215,7 @@ hits = annotations.intersect(query, "chr1")
 print(f"Found {len(hits)} genes")
 for hit in hits:
     gene = hit.data                    # the stored GffEntry
-    print("  Gene:", gene.get_gene_name() or "unknown", "(ID:", gene.get_gene_id() or "unknown", ")")
+    print(f"  Gene: {gene.get_gene_name() or 'unknown'} (ID: {gene.get_gene_id() or 'unknown'})")
 ```
 
 `GffGrove.insert(index, entry)` does the 1-based to 0-based shift for you. The named attribute
@@ -226,7 +231,8 @@ attribute is absent; `get_attribute(key)` reads any other one. See {doc}`io/gff`
 Read the exons of a GTF file, group them by transcript, and chain consecutive exons of each
 transcript with directed {term}`edges <edge>` in transcription order, so the graph overlay can
 answer "which exon comes next?". The program prints one line per transcript and one per exon that
-has a downstream neighbour.
+has a downstream neighbour. The C++ version stores the transcript id as the payload; the Python
+version stores the whole `GffEntry`.
 
 The input must be **GTF**: the example groups exons by `get_transcript_id()`, which reads the GTF
 `transcript_id` attribute. GFF3 exons name their transcript in `Parent` instead, so on a GFF3 file
@@ -275,8 +281,7 @@ int main() {
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
                 gdt::interval(entry.start - 1, entry.end - 1),
-                transcript_id,
-                gst::sorted
+                transcript_id
             );
 
             transcript_exons[transcript_id].push_back(exon_key);
@@ -341,11 +346,14 @@ transcripts = pg.GffGrove(100)
 # Insert every exon and remember its key handle under its transcript
 # (this time the handle is kept: edges are added between handles)
 transcript_exons = defaultdict(list)
-for e in pg.GffReader("transcripts.gtf"):
-    if e.type != "exon":
-        continue
-    key = transcripts.insert(e.seqid, e)
-    transcript_exons[e.get_transcript_id() or "unknown"].append(key)
+try:
+    for e in pg.GffReader("transcripts.gtf"):
+        if e.type != "exon":
+            continue
+        key = transcripts.insert(e.seqid, e)
+        transcript_exons[e.get_transcript_id() or "unknown"].append(key)
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
 # Put each transcript's exons in transcription order: ascending by position on the
 # + strand, descending on the - strand (a position-sorted file lists them ascending)
@@ -359,12 +367,12 @@ for exons in transcript_exons.values():
 
 # Analyze transcript structure: get_neighbors returns the keys this exon points to
 print("Transcript analysis:")
-for transcript_id, exons in transcript_exons.items():
+for transcript_id, exons in sorted(transcript_exons.items()):   # sorted by id, like the C++ std::map
     print(f"  {transcript_id}: {len(exons)} exons")
     for exon in exons:
         downstream = transcripts.get_neighbors(exon)
         if downstream:
-            print(f"    Exon at {exon.value.start}-{exon.value.end} connects to "
+            print(f"    Exon at [{exon.value.start},{exon.value.end}] connects to "
                   f"{len(downstream)} downstream exon(s)")
 ```
 
@@ -439,8 +447,8 @@ streams; the Python API takes a file name. See {doc}`serialization/index` and
 import pygenogrove as pg
 
 features = pg.Grove(100)
-features.insert("chr1", pg.GenomicCoordinate("+", 1000, 1500), {"name": "gene1"})
-features.insert("chr1", pg.GenomicCoordinate("+", 1800, 2200), {"name": "gene2"})
+features.insert("chr1", pg.GenomicCoordinate("+", 1000, 1500), "gene1")
+features.insert("chr1", pg.GenomicCoordinate("+", 1800, 2200), "gene2")
 
 # Save
 features.serialize("features.gg")

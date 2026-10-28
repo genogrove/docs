@@ -63,7 +63,7 @@ g.get_in_neighbors(gene)        # [enh1, enh2]  — what regulates Gene1, no mir
 g.has_edge(enh1, gene)          # True
 ```
 
-Results are in edge-insertion order; a parallel edge yields a repeated entry. The returned `Key`
+C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well). Results are in edge-insertion order; a parallel edge yields a repeated entry. The returned `Key`
 objects are ordinary {term}`key handles <key>`. Available on every grove, including `BedGrove` /
 `GffGrove`.
 
@@ -131,9 +131,9 @@ g.get_edges(enh1)                  # [{'weight': 0.9}]
 g.get_in_edges(gene)               # [{'weight': 0.9}, {'weight': 0.6}]
 
 for target, meta in g.get_edge_list(enh1):
-    print(target.data, meta["weight"])
+    print(target.data, "weight", meta["weight"])
 for source, meta in g.get_in_edge_list(gene):
-    print(source.data, "-> Gene1", meta["weight"])
+    print(source.data, "-> Gene1 weight", meta["weight"])
 ```
 
 ::::

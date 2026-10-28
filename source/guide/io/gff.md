@@ -72,9 +72,15 @@ struct gff_reader_options {
 ```python
 import pygenogrove as pg
 
-for entry in pg.GffReader("annotations.gtf.gz"):
-    tag = "GTF" if entry.is_gtf() else "GFF3"
-    print(entry.seqid, entry.type, entry.start, entry.end, entry.get_gene_id(), tag)
+try:
+    for entry in pg.GffReader("annotations.gtf.gz"):
+        line = f"{entry.seqid} {entry.type} {entry.start}-{entry.end}"
+        gene_id = entry.get_gene_id()             # None when the feature has no gene_id
+        if gene_id is not None: line += f" {gene_id}"
+        line += " [GTF]" if entry.is_gtf() else " [GFF3]"
+        print(line)
+except RuntimeError as e:                         # the exception a bad line raises
+    print("Parse error:", e)
 ```
 
 The constructor's signature (not runnable code):
@@ -212,7 +218,9 @@ if (auto it = entry.attributes.find("ID"); it != entry.attributes.end()) {
 Direct dict access, with `entry` from the reading loop above:
 
 ```python
-print(entry.attributes.get("ID"))     # entry.attributes is a copy of the dict
+value = entry.attributes.get("ID")    # entry.attributes is a copy of the dict
+if value is not None:
+    print(value)
 ```
 
 ::::

@@ -27,6 +27,7 @@ k1 == k2;                             // true
 gdt::kmer::overlaps(k1, k2);          // true — identical sequence
 k1.to_string();                       // "ACGT"
 k1.get_k();                           // 4
+k1.get_encoding();                    // 27
 gdt::kmer::is_valid("ACGN");          // false — N is not a base
 ```
 
@@ -49,7 +50,7 @@ k2 = pg.Kmer(0b00011011, 4)           # from an encoding and k — the same 4-me
 
 k1 == k2                              # True
 pg.Kmer.overlaps(k1, k2)              # True — identical sequence
-str(k1), k1.k, len(k1), k1.encoding   # "ACGT", 4, 4, 27
+str(k1), k1.k, k1.encoding            # "ACGT", 4, 27
 pg.Kmer.is_valid("ACGN")              # False — N is not a base
 ```
 
@@ -164,6 +165,8 @@ list(km.intersect(pg.Kmer("ACGT"), "reads"))[0].data    # {'count': 3}
 `"reads"` is the {term}`index`: in a k-mer grove it is simply the name of one tree, not a chromosome.
 `100` is the tree {term}`order`, the dict the {term}`payload`. `intersect` returns a
 {term}`QueryResult`, hence the `list(...)`; `.data` on a {term}`Key <key handle>` is the payload.
+C++ stores the `int` itself; the Python example stores a dict that labels the count (a bare JSON
+number works as well).
 
 `KmerGrove` has the same surface as `Grove` (payloads, graph edges, serialization) with `Kmer` keys —
 see {doc}`/guide/grove/index`.

@@ -51,10 +51,11 @@ gene3 = g.insert("chr1", pg.GenomicCoordinate("+", 5000, 6000), "GeneC")
 g.add_edge(gene1, gene2, {"weight": 0.95})
 g.add_edge(gene1, gene3, {"weight": 0.45})
 
-g.remove_edge(gene1, gene3)        # True — the low-confidence edge is gone
+if g.remove_edge(gene1, gene3):    # drop the low-confidence edge
+    print("removed")
 ```
 
-With parallel edges, `remove_edge` removes the first matching `source → target` edge only.
+With parallel edges, `remove_edge` removes the first matching `source → target` edge only. C++ stores the value itself; the Python example stores a dict that labels the value (a bare JSON number or string works as well).
 
 ::::
 
@@ -96,6 +97,8 @@ size_t pruned = g.remove_all_edges(gene2);         // gene1 -> gene2 and gene2 -
 The `remove_edges_if` predicate (here a {term}`lambda`, an unnamed function written inline)
 receives the full `edge` struct (`source`, `target`, `metadata`) and must satisfy
 `std::predicate<Predicate, const edge&>`, i.e. be callable with one `const edge&` and return `bool`.
+Already covered: the Python `BedGrove` / `GffGrove` form, where the predicate sees only `(target)`,
+is this same call on a plain-edge grove, whose `metadata` field is `std::monostate`.
 
 ::::
 
@@ -178,7 +181,7 @@ invalidate it.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Not exposed. To pick one of several parallel edges, read them all with
+Already covered by `get_edge_list`: to pick one of several parallel edges, read them all with
 `get_edge_list(source)` and select by position or payload:
 
 ```python
@@ -190,6 +193,7 @@ g.add_edge(exon1, exon2, {"tx": "tx2"})                 # parallel edge
 
 edges = g.get_edge_list(exon1)                    # [(exon2, {'tx': 'tx1'}), (exon2, {'tx': 'tx2'})]
 second = edges[1]
+print(second[1]["tx"])                            # tx2
 ```
 
 ::::

@@ -136,6 +136,9 @@ g = pg.Grove(100)       # order 100
 Grove(order: int = 3)
 ```
 
+Already covered: `Grove` keys are always strand-aware `GenomicCoordinate`s, like `grove2` in the C++
+tab, so there is no second key type to choose here.
+
 An order below 3 raises `ValueError` (with order 2, splitting a full internal node would leave its
 new sibling with zero keys, which a B+ tree forbids). `get_order()` returns the order a grove was built
 with.
@@ -156,8 +159,16 @@ than querying all of them, so pass the chromosome whenever you know it.
 :sync: cpp
 
 The index is the first argument of `insert_data` and the last argument of `intersect` (a
-`std::string_view`, so a string literal or a `std::string` both work). To see which indices exist,
-read the index map of a grove (continuing from `grove1` above; `std::cout` needs
+`std::string_view`, so a string literal or a `std::string` both work). Leave the index out of
+`intersect` to search every index. Continuing from `grove1` above:
+
+```cpp
+grove1.insert_data("chr1", gdt::interval{100, 200}, "FOO");
+grove1.intersect(gdt::interval{150, 160}, "chr1");   // chr1 only
+grove1.intersect(gdt::interval{150, 160});           // every index
+```
+
+To see which indices exist, read the index map of the grove (`std::cout` needs
 `#include <iostream>`):
 
 ```cpp
@@ -187,14 +198,15 @@ The index is the first argument of `insert` and the second argument of `intersec
 import pygenogrove as pg
 
 g = pg.Grove(100)
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), "FOO")
 g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1")   # chr1 only
 g.intersect(pg.GenomicCoordinate("*", 150, 160))           # every index
 ```
 
-Indices cannot be created by hand; they appear on first insertion. `Grove` does not expose a list
-of its indices; keep track of the names you insert. (The on-disk reader `GroveView` does, via
-`get_index_names()` — see {doc}`/guide/serialization/partial_reading`.)
+Indices cannot be created by hand; they appear on first insertion. Already covered:
+the C++ index listing is `get_index_names()` on the on-disk reader `GroveView` in Python (see
+{doc}`/guide/serialization/partial_reading`), and for an in-memory `Grove` you keep the names you
+insert.
 
 ::::
 

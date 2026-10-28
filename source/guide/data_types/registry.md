@@ -46,7 +46,7 @@ import pygenogrove as pg
 r = pg.Registry.instance()
 ```
 
-There is one pool per process. Multiple independent registries are not exposed in Python.
+There is one pool, and one ID space, per process. Already covered: key prefixes keep unrelated names apart inside that one pool (see "Separate pools" below).
 
 ::::
 
@@ -114,10 +114,11 @@ r.get(a)                      # "chr1"
 r.size(), len(r)              # 2, 2
 r.empty()                     # False
 r.contains(a)                 # True
+r.contains(999)               # False
 ```
 
 The comments show what each line evaluates to; in an interactive Python session each line prints its
-result. IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved.
+result. `len(r)` is the Python spelling of `size()`. IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved.
 `get(id)` with an unknown id raises an `IndexError` {term}`exception`.
 
 Store the id in a grove payload instead of the string:
@@ -125,8 +126,12 @@ Store the id in a grove payload instead of the string:
 ```python
 # continuing from above: pg and r
 g = pg.Grove(100)
-g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": r.intern("SampleA_liver")})
+g.insert("chr1", pg.GenomicCoordinate(".", 100, 200), {"sample": r.intern("SampleA_liver")})
 ```
+
+C++ stores the bare ID as the payload; the Python example stores a dict that labels the ID (storing the
+bare integer works as well). The C++ example uses an unstranded `interval`; Python has no `interval`
+class, so the example uses the unstranded `GenomicCoordinate('.', start, end)`.
 
 `"chr1"` is the {term}`index` (the chromosome tree) and `100` the tree {term}`order`.
 
@@ -170,9 +175,9 @@ The payload is any JSON-serializable value; the two-argument `intern(key, payloa
 
 ```python
 # continuing from above: r
-gid = r.intern("ENSG001", {"name": "BRCA2", "biotype": "protein_coding"})
-r.intern("ENSG001", {"name": "placeholder"})      # same id; payload kept from the first call
-r.get(gid)                                          # {'name': 'BRCA2', 'biotype': 'protein_coding'}
+id1 = r.intern("ENSG001", {"gene_name": "FOO", "gene_biotype": "protein_coding"})
+id2 = r.intern("ENSG001", {"gene_name": "placeholder", "gene_biotype": ""})   # id1 == id2; payload kept from the first call
+r.get(id1)                                          # {'gene_name': 'FOO', 'gene_biotype': 'protein_coding'}
 ```
 
 The one-argument `intern(value)` stores the string as its own payload. Payloads must be **finite**
@@ -212,9 +217,10 @@ Each `(Key, Tag, Payload)` triple is its own singleton with its own ID space. Th
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Python has the one process-wide `Registry`, and separate pools are already covered by the keys
-themselves: keep unrelated pools apart by prefixing keys (`"tx:ENST00000001"`, `"src:HAVANA"`) or by
-keeping the ids in separate payload fields.
+Python has the one process-wide `Registry` with one ID space. The C++ tags that give each pool its own
+ID space have no Python counterpart. What the prefixes give you is separate *names*, not separate IDs:
+prefix the keys (`"tx:ENST00000001"`, `"src:HAVANA"`) so that two kinds of name cannot collide, and
+remember that all IDs still come from the same sequence.
 
 ::::
 
@@ -240,8 +246,9 @@ both `operator==` and a `std::hash` specialisation.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Keys are strings: any `str` works, and string keys cover the Python use cases (names and IDs); other
-key types are a C++ feature.
+Keys are strings: any `str` works, and string keys cover the Python use cases (names and IDs). Already covered: the C++
+non-string keys (`genomic_coordinate`, `numeric`, `kmer`) work in Python through their text form,
+for example `r.intern(str(pg.GenomicCoordinate("+", 100, 200)))`.
 
 ::::
 
@@ -300,11 +307,11 @@ hold registry IDs, write the registry **first** and read it back **first**, so t
 // continuing from above: gdt and reg
 
 {
-    std::ofstream out("names.bin", std::ios::binary);           // a file stream, opened for bytes
+    std::ofstream out("names.reg", std::ios::binary);           // a file stream, opened for bytes
     reg.serialize(out);
 }                                                               // the closing brace closes and flushes the file
 
-std::ifstream in("names.bin", std::ios::binary);
+std::ifstream in("names.reg", std::ios::binary);
 auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the singleton's contents
 ```
 

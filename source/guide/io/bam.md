@@ -2,9 +2,9 @@
 
 SAM, BAM and CRAM files hold sequence alignments: where each sequencing read maps on the genome.
 (BAM and CRAM are compressed forms of SAM.) One C++ reader opens all three and detects which it has
-been given; CRAM needs its reference genome available to htslib. CRAM is not yet exposed in
-Python. Decompression is done by htslib, the samtools library. Positions come out **0-based half-open** `[start, end)`: SAM's 1-based POS is
-converted, and `end` is where the alignment stops on the chromosome, computed from the CIGAR
+been given; CRAM needs its reference genome available to htslib. For CRAM in Python, convert the
+file to BAM first (`samtools view -b`). Decompression is done by htslib, the samtools library.
+Positions come out **0-based half-open** `[start, end)`: SAM's 1-based POS is converted, and `end` is where the alignment stops on the chromosome, computed from the CIGAR
 operations that consume reference bases (those that advance along the chromosome). The CIGAR is
 the string that lists how a read lines up with the reference, such as `50M` for 50 matching bases. Convert with
 `end - 1` for a {term}`grove` {term}`key` (see {doc}`index`). Filtering by SAM FLAG — unmapped,
@@ -74,14 +74,15 @@ import pygenogrove as pg
 
 try:
     for aln in pg.BamReader("alignments.bam"):            # defaults: skip unmapped reads
-        print(aln.qname, aln.chrom, aln.start, aln.end, aln.get_strand(), aln.mapq, aln.cigar)
+        print(f"{aln.qname} {aln.chrom}:{aln.start}-{aln.end} {aln.get_strand()} "
+              f"MAPQ={aln.mapq} {aln.cigar}")
 except RuntimeError as e:
     print("Read error:", e)
 ```
 
 I/O errors and truncated auxiliary data (the optional tags at the end of a record) raise
-`RuntimeError`; there is no lenient mode. SAM and BAM are read by this one class; CRAM is not yet
-exposed in Python.
+`RuntimeError`; there is no lenient mode. SAM and BAM are read by this one class; for CRAM, use the C++ tab or convert to BAM with
+`samtools view -b`.
 
 ::::
 
@@ -146,10 +147,13 @@ There are no presets in Python; pass the flags directly:
 ```python
 import pygenogrove as pg
 
-everything = pg.BamReader("alignments.bam", skip_unmapped=False)       # no filtering
-# primary only:
-primary    = pg.BamReader("alignments.bam", skip_secondary=True, skip_supplementary=True)
-strict     = pg.BamReader("alignments.bam", skip_duplicates=True, min_mapq=30)
+default      = pg.BamReader("alignments.bam")                          # skip unmapped
+everything   = pg.BamReader("alignments.bam", skip_unmapped=False)     # no filtering
+primary      = pg.BamReader("alignments.bam", skip_secondary=True, skip_supplementary=True)
+high_quality = pg.BamReader("alignments.bam", skip_secondary=True, skip_supplementary=True,
+                            skip_qc_fail=True, skip_duplicates=True, min_mapq=20)   # MAPQ >= 20
+strict       = pg.BamReader("alignments.bam", skip_secondary=True, skip_supplementary=True,
+                            skip_duplicates=True, min_mapq=30)
 for aln in strict:                                                        # iterate as above
     print(aln.qname)
 ```
@@ -236,7 +240,8 @@ The individual FLAG bits live on `aln.flags`, an `AlignmentFlags`:
   `is_duplicate()`, `is_supplementary()` — one test per standard bit, e.g.
   `aln.flags.is_reverse()`
 
-CIGAR element detail, mate information and auxiliary tags are not yet exposed.
+For CIGAR element detail, mate information and auxiliary tags, use the C++ tab; in Python the
+`cigar` string carries the operations.
 
 ::::
 
@@ -258,6 +263,8 @@ Fragments continuing the first program (`gio` alias, inside `main()`):
 gio::bam_reader header_reader("alignments.bam");
 const std::string& header = header_reader.get_header();                    // full @HD/@SQ/@RG/@PG text
 const std::vector<std::string>& refs = header_reader.get_reference_names(); // list of @SQ names
+std::cout << header;                                                        // header text
+for (const auto& name : refs) std::cout << name << "\n";                    // one @SQ name per line
 ```
 
 ::::
@@ -269,8 +276,9 @@ const std::vector<std::string>& refs = header_reader.get_reference_names(); // l
 import pygenogrove as pg
 
 reader = pg.BamReader("alignments.bam")
-print(reader.get_header())              # full @HD/@SQ/@RG/@PG text
-print(reader.get_reference_names())     # list of @SQ names
+print(reader.get_header(), end="")      # full @HD/@SQ/@RG/@PG text
+for name in reader.get_reference_names():   # list of @SQ names
+    print(name)                         # one @SQ name per line
 ```
 
 ::::
@@ -303,16 +311,16 @@ int main() {
     gio::bam_reader reader("alignments.bam");
     for (const auto& aln : reader) {
         if (!aln.consumes_reference()) continue;     // skip records with end == start
-        g.insert_data(aln.chrom, gdt::interval(aln.start, aln.end - 1), aln.qname, gst::sorted);
+        g.insert_data(aln.chrom, gdt::interval(aln.start, aln.end - 1), aln.qname);
     }
     return 0;
 }
 ```
 
-`gst::sorted` ({term}`sorted insert`) is a promise that the records are sorted by start and then by
-end. A BAM that `samtools sort` has sorted is sorted by start only: reads with the same start can
-have any order of ends. For that reason, drop the tag unless you know the ends are ordered too. The
-path does not check, and a wrong order silently breaks the tree (see {doc}`/guide/grove/inserting`). `sam_entry` has no `serialize` / `deserialize`, so a grove holding
+`insert_data` finds the right place itself, so the BAM need not be sorted. The `gst::sorted`
+({term}`sorted insert`) tag is the unchecked fast path. Add it only when the records are sorted by
+start and then by end, which `samtools sort` does not guarantee: reads with the same start can have
+any order of ends. A wrong order silently breaks the tree (see {doc}`/guide/grove/inserting`). `sam_entry` has no `serialize` / `deserialize`, so a grove holding
 whole records cannot be saved to disk — this example stores the read name instead.
 
 ::::
@@ -322,8 +330,9 @@ whole records cannot be saved to disk — this example stores the read name inst
 
 There is no typed BAM grove (`SamEntry` cannot be saved to disk, so it cannot be a typed-grove
 payload); load into the universal `Grove` — the schemaless grove whose payload can be any
-JSON-like value — with the record's `to_coordinate()` and `to_dict()` (see
-{doc}`/guide/grove/loading_data`):
+JSON-like value — with the record's `to_coordinate()` and the read name as payload, as in C++
+(`to_dict()` stores the core fields instead); see
+{doc}`/guide/grove/loading_data`:
 
 ```python
 import pygenogrove as pg
@@ -331,11 +340,11 @@ import pygenogrove as pg
 g = pg.Grove(100)                                        # 100 = tree order, a good default
 for aln in pg.BamReader("alignments.bam"):
     if aln.consumes_reference():                         # skip records with end == start
-        g.insert(aln.chrom, aln.to_coordinate(), aln.to_dict())
+        g.insert(aln.chrom, aln.to_coordinate(), aln.qname)
 ```
 
 `insert` finds the right place itself, so the BAM need not be sorted. `insert_sorted` is the
-unchecked fast path; use it only when the records are sorted by start and then by end, which
+unchecked fast path; use it only when the keys are sorted by start, then end (and strand), which
 `samtools sort` does not guarantee (see {doc}`/guide/grove/inserting`).
 
 ::::

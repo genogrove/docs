@@ -82,15 +82,17 @@ reading to one locus of an indexed file — see {doc}`region_access`.
 ```python
 import pygenogrove as pg
 
-for v in pg.VcfReader("calls.vcf.gz"):
-    if v.is_snp():
-        kind = "SNP"
-    elif v.is_indel():
-        kind = "indel"
-    else:
-        kind = ""
-    genotypes = [s.gt_string() for s in v.samples]   # one per sample, e.g. "0/1" — see below
-    print(v.chrom, v.start, v.end, v.ref, v.alt, kind, genotypes)
+try:
+    for v in pg.VcfReader("calls.vcf.gz"):
+        line = f"{v.chrom}:{v.start}-{v.end} REF={v.ref}"
+        if not v.qual_missing: line += f" QUAL={v.qual:g}"       # 50, not 50.0
+        if v.is_snp():      line += " SNP"
+        elif v.is_indel():  line += " indel"
+        # one genotype per sample, e.g. "0/1" — see "Sample genotypes" below
+        for s in v.samples: line += " " + s.gt_string()
+        print(line)
+except RuntimeError as e:
+    print("Read error:", e)
 ```
 
 The constructor's signature (not runnable code):
@@ -200,7 +202,9 @@ modifying what you get back (e.g. `v.info["DP"] = [0]`) does nothing to the reco
 Reading one INFO field, with `v` from the reading loop above:
 
 ```python
-print(v.info.get("DP"))     # e.g. [37]; None when absent
+dp = v.info.get("DP")           # the list [12] for DP=12; None when absent
+if dp:
+    print("depth", dp[0])       # the first value of the list
 ```
 
 ::::
@@ -269,6 +273,10 @@ const std::vector<std::string>& names = header_reader.get_sample_names();   // p
 const std::vector<std::string>& ctgs  = header_reader.get_contigs();        // ##contig lines
 size_t line = header_reader.get_current_line();   // 1-based record index (counts skipped records);
                                            // 0 before the first read
+std::cout << header;                                         // raw header text
+for (const auto& n : names) std::cout << n << "\n";          // one sample name per line
+for (const auto& c : ctgs)  std::cout << c << "\n";          // one contig name per line
+std::cout << line << "\n";                                   // 0: nothing read yet
 ```
 
 ::::
@@ -280,9 +288,11 @@ size_t line = header_reader.get_current_line();   // 1-based record index (count
 import pygenogrove as pg
 
 reader = pg.VcfReader("calls.vcf.gz")
-print(reader.get_header())          # raw header text
-print(reader.get_sample_names())    # parallel to v.samples
-print(reader.get_contigs())         # ##contig names
+print(reader.get_header(), end="")  # raw header text
+for n in reader.get_sample_names():  # parallel to v.samples
+    print(n)                        # one sample name per line
+for c in reader.get_contigs():       # ##contig names
+    print(c)                        # one contig name per line
 print(reader.get_current_line())    # 1-based record index (counts skipped records);
                                     # 0 before the first read
 ```
@@ -312,18 +322,18 @@ int main() {
                                                      // 100 = tree order, a good default
     // {.skip_filtered = true} sets one option and leaves the rest at their defaults
     for (const auto& v : gio::vcf_reader("calls.vcf.gz", {.skip_filtered = true})) {
-        g.insert_data(v.chrom, gdt::interval(v.start, v.end - 1), v.id, gst::sorted);
+        g.insert_data(v.chrom, gdt::interval(v.start, v.end - 1), v.id);
     }
     return 0;
 }
 ```
 
 The payload here is `v.id`, which is the empty string for records whose ID column is `.`; pick
-another field (or build a string from several) if your file has no IDs. `gst::sorted`
-({term}`sorted insert`) is a promise that the records are sorted by start and then by end. A
+another field (or build a string from several) if your file has no IDs. `insert_data` finds the
+right place itself, so the VCF need not be sorted. The `gst::sorted` ({term}`sorted insert`) tag is
+the unchecked fast path. Add it only when the records are sorted by start and then by end. A
 position-sorted VCF is sorted by start only: two records at the same position (for example an SNP and
-a deletion) can come with their ends in any order. So drop the tag unless you know the ends are
-ordered too. The path does not check, and a wrong order silently breaks the tree (see
+a deletion) can come with their ends in any order. A wrong order silently breaks the tree (see
 {doc}`/guide/grove/inserting`).
 
 ::::
@@ -334,19 +344,21 @@ ordered too. The path does not check, and a wrong order silently breaks the tree
 There is no typed VCF grove (`VcfEntry` cannot be saved to disk, so it cannot be a typed-grove
 payload); load into the universal `Grove` — the schemaless grove whose payload can be any
 JSON-like value — with the record's `to_coordinate()` (an unstranded coordinate, strand `'.'`) and
-`to_dict()` (see {doc}`/guide/grove/loading_data`):
+the ID column as payload, as in C++ (see {doc}`/guide/grove/loading_data`):
 
 ```python
 import pygenogrove as pg
 
 g = pg.Grove(100)                                        # 100 = tree order, a good default
 for v in pg.VcfReader("calls.vcf.gz", skip_filtered=True):
-    g.insert(v.chrom, v.to_coordinate(), v.to_dict())
+    g.insert(v.chrom, v.to_coordinate(), v.id)
 ```
 
+`to_dict()` stores the core fields of the record as payload instead.
+
 `insert` finds the right place itself, so the file need not be sorted. `insert_sorted` is the
-unchecked fast path; use it only when the records are sorted by start and then by end (see
-{doc}`/guide/grove/inserting`).
+unchecked fast path; use it only when the keys are sorted by start, then end (and strand), which a
+position-sorted VCF does not guarantee (see {doc}`/guide/grove/inserting`).
 
 ::::
 

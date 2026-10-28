@@ -76,7 +76,7 @@ satisfied and names `key_type_base` and the missing requirement (e.g. `T::aggreg
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Not available. {term}`pygenogrove`'s groves are built for three key types — `GenomicCoordinate`
+Already covered: {term}`pygenogrove`'s groves ship the three key types most uses need — `GenomicCoordinate`
 (`Grove`, `BedGrove`, `GffGrove`), `Numeric` (`NumericGrove`) and `Kmer` (`KmerGrove`) — see
 {doc}`index`. A C++ grove built on a custom key type cannot be opened from Python, and a `.gg` it
 writes is not readable by any pygenogrove class.
@@ -112,7 +112,7 @@ function that builds a value from a {term}`stream` — see the
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Not applicable. The built-in `GenomicCoordinate`, `Numeric` and `Kmer` all hash by value (so they
+Already covered: the built-in `GenomicCoordinate`, `Numeric` and `Kmer` all hash by value (so they
 work as `set` members and `dict` keys) and are saved with the grove by `serialize` — see the
 {doc}`serialization guide </guide/serialization/index>`.
 

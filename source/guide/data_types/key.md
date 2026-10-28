@@ -26,7 +26,7 @@ namespace gdt = genogrove::data_type;
 struct GeneInfo { std::string name; double expression; };   // a plain record type for the payload
 
 gdt::key<gdt::interval, GeneInfo> gene{gdt::interval{100, 200}, GeneInfo{"BRCA1", 45.3}};
-gdt::key<gdt::interval>           bare{gdt::interval{100, 200}};     // no payload
+gdt::key<gdt::interval>           bare{gdt::interval{300, 400}};     // no payload
 ```
 
 A grove creates keys for you on insert and returns a {term}`pointer` to the stored key (its
@@ -46,12 +46,18 @@ key. You never construct a `Key` yourself: `insert` returns one, queries yield t
 import pygenogrove as pg
 
 g = pg.Grove()
-k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "FOO"})   # "chr1" is the index
+k = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "BRCA1", "expression": 45.3})   # "chr1" is the index
+bare = g.insert("chr1", pg.GenomicCoordinate("+", 300, 400))   # no payload (the payload is optional)
 hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also a Key
 ```
 
 `"chr1"` is the {term}`index` (the chromosome tree) and the dict the payload. `intersect` returns a
 {term}`QueryResult`, hence the `list(...)`.
+
+The two tabs differ on purpose in two places. C++ stores the `GeneInfo` record as it is; the
+Python example stores a dict that labels the fields (any JSON value works as a payload). The C++ example uses an
+`interval`; Python has no `interval` class, so the example uses a `GenomicCoordinate` (the C++
+`genomic_coordinate`).
 
 `BedKey` and `GffKey` are the same thing for `BedGrove` and `GffGrove`, whose payload is a `BedEntry`
 or `GffEntry` record (see {doc}`/guide/grove/loading_data`). `NumericKey` and `KmerKey` are the same
@@ -74,10 +80,10 @@ gene.get_value().to_string();        // "[100,200]"   — the coordinate
 gene.get_data().name;                // "BRCA1"       — the payload (const or mutable reference)
 gene.get_data().expression = 50.0;   // edit the payload in place
 gene.set_data(GeneInfo{"TP53", 32.1});
-gene.to_string();                    // "[100,200]"   — delegates to the value
+gene.to_string();                    // "[100,200]"   — delegates to the value (Python spells this `str(k)`)
 ```
 
-`get_data()` hands you the stored payload itself (a {term}`const` — read-only — reference on a
+C++ has no `repr`; `to_string()` is the text form. `get_data()` hands you the stored payload itself (a {term}`const` — read-only — reference on a
 read-only key, an editable one otherwise), so edits through it stick. (In Python's `Grove` the
 payload comes back as a decoded copy instead; see the Python tab.)
 
@@ -104,10 +110,14 @@ Methods:
 ```python
 # continuing from above: k is the Key returned by insert in the first block
 k.value          # GenomicCoordinate('+', 100, 200) — a copy
-k.data           # {'gene': 'FOO'}
-str(k)           # "+:100-200"
+k.data["name"]   # "BRCA1"       — the payload (a decoded copy)
+k.data["expression"] = 50.0   # no effect: each access decodes a fresh copy, so edits do not stick
+str(k)           # "+:100-200"   — delegates to the value
 repr(k)          # "Key(+:100-200)"
 ```
+
+Already covered: C++ `set_data(d)` replaces the payload in place. On `Grove` you choose the payload at
+`insert`, and the payload of a `BedKey` or `GffKey` is editable in place (see below).
 
 Attributes:
 
@@ -173,11 +183,19 @@ std::size_t h = std::hash<gdt::genomic_coordinate>{}(k.get_value());   // hash o
 :sync: py
 
 ```python
-# continuing from above: g and k from the first block
-hits = list(g.intersect(pg.GenomicCoordinate("*", 0, 10**6), "chr1"))
-unique_coords = set(hits)      # one entry per distinct coordinate — payloads ignored
-hits[0] == k                   # True if same coordinate, whatever the payloads
+# continuing from above: pg (this block builds its own grove)
+g = pg.Grove(100)
+a = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "gene1"})
+b = g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"name": "gene2"})
+c = g.insert("chr1", pg.GenomicCoordinate("+", 100, 300), {"name": "gene1"})
+
+a == b    # True  — same coordinate, payload ignored
+a != c    # True  — derived from ==
+a <  c    # True  — ordered by the coordinate
+hash(a) == hash(a.value)   # True — the hash is the coordinate's hash
 ```
+
+Already covered: the C++ `std::hash<genomic_coordinate>{}(k.get_value())` is `hash(k)` in Python.
 
 `==`, `<`, `>` and `hash()` (the integer that `set` and `dict` use to place and find a value) all delegate to
 `value`. `hash(k)` is the same number as `hash(k.value)`. (`<=` / `>=` are not defined on `Key`; they are on the
