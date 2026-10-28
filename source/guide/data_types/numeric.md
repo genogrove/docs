@@ -1,9 +1,9 @@
 # Numeric
 
-A **point** key holding one 32-bit signed integer. It has no range: two values "overlap" only when
-they are **equal**, so a grove keyed by `numeric` is a sorted dictionary of integers — `intersect`
-is an exact lookup, `flanking` gives the nearest values on either side. Use it for ids, ranks or
-positions you look up exactly.
+A **point** {term}`key type` holding one 32-bit signed integer. It has no range: two values
+"{term}`overlap`" only when they are **equal**, so a {term}`grove` keyed by `numeric` is a sorted
+dictionary of integers — `intersect` is an exact lookup, {term}`flanking` gives the nearest values on
+either side. Use it for ids, ranks or positions you look up exactly.
 
 ## Building a value
 
@@ -27,8 +27,12 @@ gdt::numeric::aggregate(n1, n2);                  // numeric{200} — the larger
 n1.to_string();                                   // "100"
 ```
 
-The constructor is `explicit`. A default-constructed `numeric` holds `INT_MIN` — the identity for
-`aggregate`, not zero — so always pass a value.
+The comments show what each line evaluates to; the lines compute the value without printing it, so
+wrap one in `std::cout << ... << '\n';` to see it. The constructor is `explicit`: write
+`gdt::numeric{100}`, a bare `100` is not converted on its own. A default-constructed `numeric`
+(`gdt::numeric{}`) holds `INT_MIN`, the smallest 32-bit value, not zero. Always pass a value.
+`INT_MIN` is also a valid key: `numeric{}` is equal to `numeric{INT_MIN}` and overlaps it, so do not
+use it to mean "missing".
 
 ::::
 
@@ -47,13 +51,17 @@ pg.Numeric.overlaps(n1, n2)                  # False
 n1.value, str(n1)                            # 100, "100"
 ```
 
+The comments show what each line evaluates to; in an interactive Python session each line prints its
+result. Signature (for reference, not to paste):
+
 ```python
 Numeric(value: int)      # -2**31 <= value <= 2**31 - 1
 ```
 
-`Numeric` wraps a C++ 32-bit `int`: a value outside `-2**31 .. 2**31 - 1` raises `TypeError` (not
-`ValueError`), from both the constructor and `set_value`. `Numeric()` with no argument is the
-sentinel `INT_MIN`, not zero — always pass a value.
+`Numeric` holds a 32-bit signed integer: a value outside `-2**31 .. 2**31 - 1` raises a `TypeError`
+{term}`exception` (not `ValueError`), from both the constructor and `set_value`. `Numeric()` with no
+argument holds `-2**31`, not zero. That value is also a valid key: `Numeric()` is equal to
+`Numeric(-2**31)`, so do not use it to mean "missing". Always pass a value.
 
 ::::
 
@@ -66,7 +74,7 @@ sentinel `INT_MIN`, not zero — always pass a value.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`gdt::numeric` — one `int`.
+`gdt::numeric` — one `int` (a 32-bit signed integer).
 
 Methods:
 
@@ -75,9 +83,10 @@ Methods:
 - `static overlaps(a, b)` — `a == b`
 - `static aggregate(a, b)` — the larger value
 - `to_string()` — the number as text
-- `serialize(os)`, `static deserialize(is)` — binary persistence
+- `serialize(os)`, `static deserialize(is)` — binary persistence ({term}`serialization`)
 - `<`, `>`, `==` — integer ordering
-- `std::hash<numeric>` — specialised, so it works in unordered containers and as a `registry` key
+- `std::hash<numeric>` — specialised (see {doc}`index`), so it works in unordered containers and as a
+  {term}`registry` key
 
 ::::
 
@@ -112,15 +121,19 @@ Methods:
 namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
-gst::grove<gdt::numeric, std::string> ids(100);
-ids.insert_data("samples", gdt::numeric{42}, "sample-42");
+gst::grove<gdt::numeric, std::string> ids(100);               // numeric keys, std::string payloads
+ids.insert_data("samples", gdt::numeric{42}, "sample-42");    // "samples" is the index
 
 auto hit = ids.intersect(gdt::numeric{42}, "samples");        // exact lookup: 1 key
 hit.get_keys().front()->get_data();                           // "sample-42"
 
 auto nb = ids.flanking(gdt::numeric{40}, "samples");          // nearest below / above 40
-nb.get_successor()->get_value().get_value();                  // 42
+nb.get_successor()->get_value().get_value();                  // 42 (key -> numeric -> int)
 ```
+
+`"samples"` is the {term}`index`: in a numeric grove it is simply the name of one tree, not a
+chromosome. `100` is the tree {term}`order`, `std::string` the {term}`payload` type. `get_keys()`
+holds {term}`key handles <key handle>` ({term}`pointers <pointer>`), hence the `->`.
 
 ::::
 
@@ -128,12 +141,18 @@ nb.get_successor()->get_value().get_value();                  // 42
 :sync: py
 
 ```python
+import pygenogrove as pg
+
 ids = pg.NumericGrove(100)
-ids.insert("samples", pg.Numeric(42), {"label": "sample-42"})
+ids.insert("samples", pg.Numeric(42), {"label": "sample-42"})    # "samples" is the index
 
 list(ids.intersect(pg.Numeric(42), "samples"))[0].data   # {'label': 'sample-42'}
 ids.flanking(pg.Numeric(40), "samples").successor.value  # Numeric(42)
 ```
+
+`"samples"` is the {term}`index`: in a numeric grove it is simply the name of one tree, not a
+chromosome. `100` is the tree {term}`order`, the dict the {term}`payload`. `intersect` returns a
+{term}`QueryResult`, hence the `list(...)`; `.data` on a {term}`Key <key handle>` is the payload.
 
 `NumericGrove` has the same surface as `Grove` (payloads, graph edges, serialization) with `Numeric`
 keys — see {doc}`/guide/grove/index`.

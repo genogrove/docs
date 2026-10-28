@@ -1,9 +1,11 @@
 # Registry
 
-A **registry** interns values: every distinct key gets one stable 4-byte ID, and interning the same
-key again returns the existing ID. Use it to collapse the thousands of repeats of the same string in
-a dataset — chromosome names, transcript or gene IDs, sample identifiers — into one small integer you
-store as a grove payload, and look the string up again when you need it.
+A {term}`registry` collapses the thousands of repeats of the same string in a dataset — chromosome
+names, transcript or gene IDs, sample identifiers — into one small integer you store as a
+{term}`grove` {term}`payload`, and gives the string back when you need it. For example, if a million
+intervals each belong to a sample called `SampleA_liver`, you store the name once and the number `0`
+a million times. This is called {term}`interning`: every distinct key gets one stable 4-byte ID, and
+interning the same key again returns the existing ID.
 
 ## Getting the registry
 
@@ -12,8 +14,9 @@ store as a grove payload, and look the string up again when you need it.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`gdt::registry<Key, Tag = void, Payload = Key>` is a **process-wide singleton per template
-instantiation**: `registry<std::string>::instance()` always returns the same object.
+`gdt::registry<Key, Tag = void, Payload = Key>` is a {term}`singleton`, one shared object per
+combination of {term}`template` arguments (**process-wide singleton per template instantiation**):
+`registry<std::string>::instance()` always returns the same object.
 
 ```cpp
 #include <genogrove/data_type/registry.hpp>
@@ -23,8 +26,10 @@ namespace gdt = genogrove::data_type;
 auto& reg = gdt::registry<std::string>::instance();
 ```
 
-- `Key` — the identity that is deduplicated; must satisfy `registry_value` (see below)
-- `Tag` — a phantom type that separates pools of the same `Key` type (see [Separate pools](#separate-pools))
+- `Key` — the identity that is deduplicated; must satisfy `registry_value` (see
+  [Requirements on the key type](#requirements-on-the-key-type))
+- `Tag` — a phantom type (a type used only as a label, holding no data) that separates pools of the
+  same `Key` type (see [Separate pools](#separate-pools))
 - `Payload` — what is stored against each ID; defaults to the key itself (see [Richer payloads](#richer-payloads))
 
 ::::
@@ -32,8 +37,8 @@ auto& reg = gdt::registry<std::string>::instance();
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-`Registry` is a **process-wide singleton** mapping a string key to a JSON payload
-(the C++ `registry<std::string, void, json_value>`):
+`Registry` is a process-wide {term}`singleton` (one shared object for the whole program) mapping a
+string key to a payload that can be any JSON value (a dict, list, string, number or `None`):
 
 ```python
 import pygenogrove as pg
@@ -55,11 +60,12 @@ There is one pool per process. Multiple independent registries are not exposed i
 :sync: cpp
 
 ```cpp
+// continuing from above: reg is the registry obtained from instance()
 auto id1 = reg.intern("chr1");          // 0 — new
 auto id2 = reg.intern("chr1");          // 0 — already present, same ID
 auto id3 = reg.intern("chr2");          // 1
 
-reg.find("chr3");                       // std::optional<id_type>, empty — not interned, nothing added
+reg.find("chr3");                       // std::optional<id_type> (holds an ID or is empty): empty — not interned, nothing added
 reg.find("chr1");                       // optional{0}
 const std::string& name = reg.get(id1); // "chr1"
 
@@ -69,22 +75,27 @@ reg.contains(id1);                      // true
 reg.contains(999);                      // false
 ```
 
-IDs are `registry::id_type` (`uint32_t`), handed out in insertion order from 0; `registry::null_id`
-(`UINT32_MAX`) is reserved and never returned. A pool can hold up to `null_id` entries; `intern`
-throws `std::runtime_error` on the entry after that. `get(id)` with an unknown ID throws
-`std::out_of_range`.
+The comments show what each line evaluates to; the lines compute the value without printing it. IDs
+are `registry::id_type` (`uint32_t`, a 32-bit unsigned integer), handed out in insertion order from
+0. `get(id)` with an unknown ID throws `std::out_of_range`.
+
+Limit: `registry::null_id` (`UINT32_MAX`) is reserved and never returned, so a pool holds up to
+`null_id` entries. `intern` throws a `std::runtime_error` {term}`exception` on the entry after that.
 
 Store the ID in the grove instead of the string:
 
 ```cpp
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+// continuing from above: gdt and reg
 
 namespace gst = genogrove::structure;
 
-gst::grove<gdt::interval, gdt::registry<std::string>::id_type> g(100);
+gst::grove<gdt::interval, gdt::registry<std::string>::id_type> g(100);   // payload type: the ID
 g.insert_data("chr1", gdt::interval{100, 200}, reg.intern("SampleA_liver"));
 ```
+
+`"chr1"` is the {term}`index` (the chromosome tree) and `100` the tree {term}`order`.
 
 ::::
 
@@ -105,15 +116,19 @@ r.empty()                     # False
 r.contains(a)                 # True
 ```
 
-IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved. `get(id)`
-with an unknown id raises `IndexError`.
+The comments show what each line evaluates to; in an interactive Python session each line prints its
+result. IDs are handed out in insertion order from 0; `Registry.null_id` (`2**32 - 1`) is reserved.
+`get(id)` with an unknown id raises an `IndexError` {term}`exception`.
 
 Store the id in a grove payload instead of the string:
 
 ```python
+# continuing from above: pg and r
 g = pg.Grove(100)
 g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": r.intern("SampleA_liver")})
 ```
+
+`"chr1"` is the {term}`index` (the chromosome tree) and `100` the tree {term}`order`.
 
 ::::
 
@@ -134,7 +149,8 @@ its ID and drops the new payload.
 Set the third template parameter and use the two-argument `intern(key, payload)`:
 
 ```cpp
-struct gene_info { std::string gene_name; std::string gene_biotype; };
+// continuing from above: gdt
+struct gene_info { std::string gene_name; std::string gene_biotype; };   // a plain record type
 using gene_reg = gdt::registry<std::string, void, gene_info>;
 
 auto id1 = gene_reg::instance().intern("ENSG001", {"FOO", "protein_coding"});
@@ -143,8 +159,7 @@ const gene_info& info = gene_reg::instance().get(id1);                    // {"F
 ```
 
 The one-argument `intern(value)` exists only when `Key == Payload` (`registry::key_is_payload`).
-This pattern avoids giving `gene_info` an `operator==` / `std::hash` that only looks at the ID, which
-would leak a partial notion of equality to everyone else holding a `gene_info`.
+With this pattern the key is the identity, so `gene_info` needs no `operator==` or `std::hash`.
 
 ::::
 
@@ -154,6 +169,7 @@ would leak a partial notion of equality to everyone else holding a `gene_info`.
 The payload is any JSON-serializable value; the two-argument `intern(key, payload)` stores it:
 
 ```python
+# continuing from above: r
 gid = r.intern("ENSG001", {"name": "BRCA2", "biotype": "protein_coding"})
 r.intern("ENSG001", {"name": "placeholder"})      # same id; payload kept from the first call
 r.get(gid)                                          # {'name': 'BRCA2', 'biotype': 'protein_coding'}
@@ -176,9 +192,11 @@ the JSON encoder with `Grove`).
 
 Two unrelated string pools in one binary — transcript IDs and annotation sources, say — would collapse
 into the single `registry<std::string>` and share an ID space. Give each its own **tag**: a phantom
-type that costs nothing at runtime and appears nowhere in storage or serialization.
+type (an empty type used only as a label) that costs nothing at runtime and appears nowhere in
+storage or serialization.
 
 ```cpp
+// continuing from above: gdt
 using transcript_registry = gdt::registry<std::string, struct transcript_tag>;
 using source_registry     = gdt::registry<std::string, struct source_tag>;
 
@@ -194,8 +212,9 @@ Each `(Key, Tag, Payload)` triple is its own singleton with its own ID space. Th
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Not available: Python has the one process-wide `Registry`. Keep unrelated pools apart by prefixing
-keys (`"tx:ENST00000001"`, `"src:HAVANA"`) or by keeping the ids in separate payload fields.
+Python has the one process-wide `Registry`, and separate pools are already covered by the keys
+themselves: keep unrelated pools apart by prefixing keys (`"tx:ENST00000001"`, `"src:HAVANA"`) or by
+keeping the ids in separate payload fields.
 
 ::::
 
@@ -208,8 +227,10 @@ keys (`"tx:ENST00000001"`, `"src:HAVANA"`) or by keeping the ids in separate pay
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-`Key` must satisfy the `registry_value` concept: `std::equality_comparable` and hashable through
-`std::hash<Key>`. `std::string` and the integer types qualify, as do `genomic_coordinate`, `numeric`
+`Key` must satisfy the `registry_value` concept (a C++20 *concept* is a named checklist of
+requirements on a type): `std::equality_comparable` (it has `==`) and hashable through
+`std::hash<Key>` (the standard hook that turns a value into the small integer a lookup table files it
+under; see {doc}`index`). `std::string` and the integer types qualify, as do `genomic_coordinate`, `numeric`
 and `kmer` (each ships a `std::hash` specialisation), so `registry<gdt::genomic_coordinate>` compiles
 as-is. `interval` has no `std::hash` and cannot be a registry key without one. A custom type needs
 both `operator==` and a `std::hash` specialisation.
@@ -219,7 +240,8 @@ both `operator==` and a `std::hash` specialisation.
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Keys are strings. Any `str` works; other key types are not exposed.
+Keys are strings: any `str` works, and string keys cover the Python use cases (names and IDs); other
+key types are a C++ feature.
 
 ::::
 
@@ -236,9 +258,13 @@ grove that refer to them become meaningless. Do it between runs or tests, not wh
 :sync: cpp
 
 ```cpp
+// continuing from above: gdt and reg
 reg.clear();                              // on the instance
-gdt::registry<std::string>::reset();      // the same, as a static call
+gdt::registry<std::string>::reset();      // the same, as a static call (on the class, not an object)
 ```
+
+`reset()` is only a shortcut for `instance().clear()`; use it where you have no object at hand, for
+example in test set-up.
 
 ::::
 
@@ -246,9 +272,13 @@ gdt::registry<std::string>::reset();      // the same, as a static call
 :sync: py
 
 ```python
+# continuing from above: pg and r
 r.clear()                                 # on the instance
-pg.Registry.reset()                       # the same, as a static call
+pg.Registry.reset()                       # the same, as a static call (on the class, not an object)
 ```
+
+`reset()` is only a shortcut for `clear()` on the instance; use it where you have no object at hand,
+for example in test set-up.
 
 ::::
 
@@ -256,8 +286,8 @@ pg.Registry.reset()                       # the same, as a static call
 
 ## Persistence
 
-A registry is saved and loaded separately from any grove. When grove payloads hold registry IDs,
-write the registry **first** and read it back **first**, so the IDs resolve (see
+A registry is saved and loaded ({term}`serialization`) separately from any grove. When grove payloads
+hold registry IDs, write the registry **first** and read it back **first**, so the IDs resolve (see
 {doc}`/guide/serialization/index`).
 
 :::::{tab-set}
@@ -267,22 +297,30 @@ write the registry **first** and read it back **first**, so the IDs resolve (see
 
 ```cpp
 #include <fstream>
+// continuing from above: gdt and reg
 
-std::ofstream out("names.bin", std::ios::binary);
-reg.serialize(out);
+{
+    std::ofstream out("names.bin", std::ios::binary);           // a file stream, opened for bytes
+    reg.serialize(out);
+}                                                               // the closing brace closes and flushes the file
 
 std::ifstream in("names.bin", std::ios::binary);
 auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the singleton's contents
 ```
 
-- Wire format: with `Key == Payload`, a `uint64_t` count then each payload; otherwise `(key, payload)`
-  pairs in ID order. Each value is written through `gdt::serializer<Payload>` (and
-  `gdt::serializer<Key>` when they differ), so a custom payload such as the `gene_info` above must be
-  trivially copyable, or `serialization_traits` must be specialised for it — see
-  {doc}`/guide/serialization/index`.
-- `deserialize` offers a **strong exception guarantee**: it builds into temporaries and commits only
-  after the whole stream has been read, so a truncated or corrupt stream leaves the singleton exactly
-  as it was. It throws `std::runtime_error` for a count beyond `id_type` capacity
+The two {term}`streams <stream>` are the file handles the registry writes to and reads from. The
+file must be closed (here by the closing brace) before it is read back.
+
+- Wire format (the byte layout in the file): with `Key == Payload`, a `uint64_t` (64-bit) count then
+  each payload; otherwise `(key, payload)` pairs in ID order. Each value is written through
+  `gdt::serializer<Payload>` (and `gdt::serializer<Key>` when they differ). A custom payload must
+  therefore be {term}`trivially copyable` (a plain record of numbers) or provide its own
+  `serialize` / `deserialize`. The `gene_info` above holds two `std::string` members, so it is not
+  trivially copyable and needs its own `serialize` / `deserialize` members or a
+  `serialization_traits` specialisation — see {doc}`/guide/serialization/index`.
+- `deserialize` offers a {term}`strong exception guarantee`: it builds into temporaries and commits
+  only after the whole stream has been read, so a truncated or corrupt stream leaves the singleton
+  exactly as it was. It throws `std::runtime_error` for a count beyond `id_type` capacity
   (`"...entry count exceeds id_type capacity"`) and for a duplicate key (`"...duplicate key"`).
 
 ::::
@@ -291,12 +329,14 @@ auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the 
 :sync: py
 
 ```python
-r.serialize("names.gg")                    # keys and JSON payloads
-r2 = pg.Registry.deserialize("names.gg")   # loads into the singleton, replacing its contents
+# continuing from above: pg and r
+r.serialize("names.reg")                   # keys and JSON payloads
+r2 = pg.Registry.deserialize("names.reg")  # loads into the singleton, replacing its contents
 ```
 
-`deserialize` raises `RuntimeError` on a truncated or corrupt file and leaves the singleton as it was.
-Both calls release the GIL.
+`deserialize` raises `RuntimeError` on a truncated or corrupt file and leaves the singleton as it was
+(a {term}`strong exception guarantee`). Both calls {term}`release the GIL <GIL>`, so other Python
+threads keep running during the file I/O.
 
 ::::
 
@@ -304,12 +344,15 @@ Both calls release the GIL.
 
 ## Thread safety
 
+If your program never runs more than one thread, skip this section. It says which calls are
+{term}`thread-safe` (safe to make from several threads at once).
+
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-One internal `std::mutex` per singleton.
+One internal `std::mutex` (a lock that lets one thread in at a time) per singleton.
 
 - **Locked**: `intern()`, `find()`, `clear()`, `serialize()`, and the final commit of `deserialize()`
   (its I/O and parsing run unlocked, so a long load does not block `intern` / `find`). Because the
@@ -318,8 +361,9 @@ One internal `std::mutex` per singleton.
   load, or repeat the interns after it.
 - **Unlocked**: `get(id)`, `contains(id)`, `size()`, `empty()`. These are safe only while no writer
   (`intern`, `clear`, `reset`, `deserialize`) runs concurrently; an unlocked read overlapping a
-  writer is a data race, not a stale snapshot. `get(id)` is safe once the `intern` that produced `id`
-  happens-before it and no further mutation is in flight.
+  writer is a data race (two threads touching the same memory at once, with undefined results), not
+  a stale snapshot. `get(id)` is safe once the `intern` that produced `id` happens-before it (has
+  completed and been made visible to the reading thread) and no further mutation is in flight.
 
 Heavy concurrent interning serialises on the one mutex. See {doc}`/guide/thread_safety`.
 
@@ -328,8 +372,8 @@ Heavy concurrent interning serialises on the one mutex. See {doc}`/guide/thread_
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The same C++ mutex applies underneath, and `serialize` / `deserialize` release the GIL. `intern`,
-`find` and `clear` are safe to call from several threads; `get`, `contains`, `size` and `empty` are
+The same C++ mutex (a lock that lets one thread in at a time) applies underneath, and `serialize` /
+`deserialize` release the GIL. `intern`, `find` and `clear` are safe to call from several threads; `get`, `contains`, `size` and `empty` are
 safe only while no thread is interning, clearing or deserializing. `deserialize` **replaces** the
 contents when it finishes, so an `intern` from another thread during a load is discarded — do not
 intern while a load is running, or repeat the interns after it. See {doc}`/guide/thread_safety`.
@@ -351,8 +395,8 @@ Methods:
 
 - `static instance()` — the singleton
 - `intern(key, payload)` → `id_type`; `intern(value)` → `id_type` (only when `key_is_payload`);
-  both `[[nodiscard]]`
-- `find(key)` → `std::optional<id_type>` — lookup without inserting
+  both {term}`[[nodiscard]] <nodiscard>`
+- `find(key)` → `std::optional<id_type>` (an ID, or empty) — lookup without inserting
 - `get(id)` → `const Payload&`; throws `std::out_of_range` for an unknown id
 - `contains(id)`, `size()`, `empty()`
 - `clear()`; `static reset()`
@@ -370,7 +414,7 @@ Methods:
 
 - `Registry.instance()` — the singleton
 - `intern(value)` → `int`; `intern(key, payload)` → `int`
-- `find(key)` → `int | None` — lookup without inserting
+- `find(key)` → `int | None` (an `int`, or `None` when absent) — lookup without inserting
 - `get(id)` → payload; `IndexError` for an unknown id
 - `contains(id)`, `size()` / `len(r)`, `empty()`
 - `clear()`; `Registry.reset()`

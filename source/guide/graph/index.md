@@ -1,23 +1,25 @@
 # Graph Overlay
 
-Every grove carries an optional **graph overlay**: directed edges between the keys it stores. The
-tree answers *what is here?*; the graph answers *what is this connected to?* — exon → next exon,
-enhancer → regulated gene, transcript → its exons. Edges live inside the grove, can cross
-chromosomes, may carry their own metadata, and are saved and restored with the grove.
+Every {term}`grove` carries an optional **{term}`graph overlay`**: directed {term}`edges <edge>`
+between the {term}`keys <key>` it stores. The tree answers *what is here?*; the graph answers *what
+is this connected to?* — exon → next exon, enhancer → regulated gene, transcript → its exons. Edges
+live inside the grove, can cross chromosomes, may carry their own {term}`metadata <edge metadata>`,
+and are saved and restored with the grove.
 
 The subpages cover each part:
 
-- {doc}`building` — adding edges, linking consecutive keys, graph-only (external) keys
+- {doc}`building` — adding edges, linking consecutive keys, graph-only ({term}`external <external key>`) keys
 - {doc}`navigating` — neighbours in both directions, edge metadata, filtering, degrees
-- {doc}`editing` — removing edges, finding a specific edge, clearing the graph, predicate rules
+- {doc}`editing` — removing edges, finding a specific edge, clearing the graph, {term}`predicate` rules
 
 Edges are written to disk together with the grove; see the
-{doc}`serialization guide </guide/serialization/index>` (including SIF export for Cytoscape).
+{doc}`serialization guide </guide/serialization/index>` (including {term}`SIF` export for Cytoscape).
 
 ## A first graph
 
 Three exons of one transcript, chained in transcription order, then walked forwards and backwards.
-Edges are created between **key handles** — the values returned by inserts and queries.
+Edges are created between **{term}`key handles <key>`** — the values returned by inserts and queries.
+The `100` passed when creating the grove is its {term}`order`; see {doc}`/guide/grove/index`.
 
 :::::{tab-set}
 
@@ -53,6 +55,10 @@ int main() {
 }
 ```
 
+The `auto*` variables are {term}`pointers <pointer>` to the stored keys — the C++ form of a key
+handle. The two `namespace` lines define the `gdt::` / `gst::` shorthands that every other C++
+snippet on these pages uses.
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -75,6 +81,11 @@ transcript.add_edge(exon2, exon3)   # exon2 -> exon3
 transcript.edge_count()                                # 2
 ```
 
+The `# …` comments after bare expressions show what an interactive session would echo; in a
+script, wrap them in `print(...)`. The `Key` objects returned by `insert` are the Python form of a
+key handle. Every other Python
+snippet on these pages assumes the same `import pygenogrove as pg` line.
+
 ::::
 
 :::::
@@ -89,8 +100,8 @@ Whether edges carry metadata, and of what type, is a property of the grove.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The grove's third template parameter is the edge metadata type. Leave it out (or write `void`) for
-plain edges; name a type to attach one value per edge:
+The grove's third {term}`template` parameter is the edge metadata type. Leave it out (or write
+`void`) for plain edges; name a type to attach one value per edge:
 
 ```cpp
 gst::grove<gdt::interval, std::string> plain(100);                  // edges carry nothing
@@ -102,21 +113,26 @@ weighted.add_edge(a, b, 0.95);          // a -> b with weight 0.95
 weighted.get_edges(a);                  // {0.95}
 ```
 
-The metadata-dependent accessors (`get_edges`, `get_neighbors_if` and their `get_in_*` twins) exist
-only when the edge type is not `void`; `get_edge_list` / `get_in_edge_list` always exist, with the
-`metadata` field being `std::monostate` on plain-edge groves. For several metadata shapes in one
-grove use a `std::variant` as the edge type — but note that the default serializer handles only
-trivially copyable types and `std::string`, so a grove with a `std::variant` edge type (or any other
-non-trivial metadata) needs a `serialization_traits` specialization before it can be saved (see the
-{doc}`serialization guide </guide/serialization/index>`).
+The accessors that read metadata exist only when the edge type is not `void`; the ones that
+return edge lists always exist, and on a plain-edge grove their `metadata` field is
+`std::monostate` (an empty placeholder value). {doc}`navigating` introduces them one by one.
+
+To store several metadata shapes in one grove, use a `std::variant` (a type that holds one of
+several alternatives) as the edge type. Saving such a grove needs a little extra code: the default
+serializer handles only {term}`trivially copyable` types and `std::string`, so a `std::variant`
+(or any other non-trivial metadata type) needs a `serialization_traits` specialization that says
+how to write and read it — see the {doc}`serialization guide </guide/serialization/index>`.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-On the universal `Grove` (and `NumericGrove` / `KmerGrove`) every edge carries a JSON payload;
-the 2-argument `add_edge` attaches `None`:
+pygenogrove has one **universal** `Grove` (and the point groves `NumericGrove` / `KmerGrove`)
+whose keys and edges carry any JSON value — their edges are *labelled* — and the **typed**
+`BedGrove` / `GffGrove`, whose edges carry nothing (*unlabelled*). The guide uses those four words
+throughout. On the universal `Grove` every edge carries a JSON {term}`payload`; the 2-argument
+`add_edge` attaches `None`:
 
 ```python
 g = pg.Grove()
@@ -127,10 +143,10 @@ g.get_edges(a)                          # [{'type': 'regulates', 'weight': 0.95}
 ```
 
 Edge payloads must be finite JSON (`float('nan')` / `float('inf')` raise `ValueError`). The typed
-`BedGrove` / `GffGrove` keep **unlabelled** edges so their `.gg` files stay readable by a plain C++
-`grove<key_type, data_type>`; on them the labelled-edge methods (`add_edge` with a payload,
-`get_edges`, `get_edge_list`, `get_neighbors_if`, `link_with` and the `get_in_*` variants) are
-absent.
+`BedGrove` / `GffGrove` keep **unlabelled** edges so their {term}`.gg files <.gg file>` stay readable
+by a plain C++ `grove<key_type, data_type>`; on them the labelled-edge methods (`add_edge` with a
+payload, `get_edges`, `get_edge_list`, `get_neighbors_if`, `link_with` and the `get_in_*` variants)
+are absent.
 
 ::::
 
@@ -165,7 +181,8 @@ g.get_neighbors(a);          // {b, b}
 g.has_edge(a, b);            // true — existence only
 ```
 
-Both edges are serialized. A null `source` or `target` throws `std::invalid_argument`.
+Both edges are serialized. A {term}`null pointer <pointer>` as `source` or `target` throws a
+`std::invalid_argument` {term}`exception`.
 
 ::::
 
@@ -185,7 +202,7 @@ g.get_neighbors(a)           # [b, b]
 g.has_edge(a, b)             # True — existence only
 ```
 
-Both edges are serialized. Passing `None` as either key raises `TypeError`.
+Both edges are serialized. Passing `None` as either key raises a `TypeError` {term}`exception`.
 
 ::::
 

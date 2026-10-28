@@ -64,10 +64,15 @@ QueryResult
 0-based closed
   genogrove's coordinate convention: positions count from 0 and **both** ends are included, so
   `[100, 200]` covers bases 100 through 200 and has length `end - start + 1`. The BED, BAM and
-  VCF **readers** expose 0-based half-open `[start, end)` records (for VCF the reader has already
+  VCF **readers** expose 0-based {term}`half-open` `[start, end)` records (for VCF the reader has already
   turned the file's 1-based `POS` into `start = POS - 1`), which convert as `[start, end - 1]`;
   the GFF/GTF reader keeps the file's 1-based closed coordinates, which convert as
   `[start - 1, end - 1]`. See {doc}`io/index`.
+
+half-open
+  The `[start, end)` convention of BED and BAM files and of the BED, BAM and VCF readers: `end` is
+  one past the last base, so the length is `end - start`. Converts to the grove's
+  {term}`0-based closed` keys as `[start, end - 1]`. See {doc}`io/index`.
 
 strand
   Which DNA strand a feature lies on: `'+'`, `'-'`, or `'.'` for a feature with no strand.
@@ -113,6 +118,11 @@ edge
   One directed link from a *source* key to a *target* key in the graph overlay. Following edges
   forwards gives a key's *neighbours*, backwards its *in-neighbours*. See {doc}`graph/navigating`.
 
+parallel edge
+  A second edge with the same source and target, in the same direction. `add_edge` never merges
+  duplicates, so adding the same pair twice stores two edges, each with its own
+  {term}`edge metadata`. See {doc}`graph/index`.
+
 edge metadata
   Data attached to an edge (a label, a weight). In C++ its type is the grove's third template
   argument, `void` for plain edges; in Python `Grove` edges carry any JSON value while
@@ -157,6 +167,11 @@ deserialize
   (it expects the header); a {term}`view` can read either when told where the grove bytes start.
   See {doc}`serialization/format`.
 
+block
+  One independently compressed unit of a `.gg` file: one B+ tree {term}`node`, or one chunk of
+  {term}`external keys <external key>`. A {term}`view` loads blocks on demand; `blocks_loaded()`
+  and `block_count()` count them. See {doc}`serialization/format`.
+
 format version
   The version of the `.gg` layout, currently 0.3. A genogrove build reads exactly one format;
   older files must be regenerated. See {doc}`serialization/format`.
@@ -174,6 +189,18 @@ SIF
   Simple Interaction Format, a tab-separated text format read by Cytoscape (a network
   visualisation program). A grove can be exported to it to look at its tree and graph. See
   {doc}`serialization/format`.
+
+htslib
+  The C library behind samtools and bcftools. genogrove uses it to read BAM/CRAM, VCF/BCF and
+  compressed files, so it must be installed before the C++ library is compiled; the Python package
+  from `pip` already contains it. See {doc}`installation`.
+
+bgzip
+tabix
+  `bgzip` compresses a text file in chunks so that it stays {term}`seekable`; `tabix` writes a
+  small companion lookup file (`.tbi` or `.csi`) next to a bgzipped, position-sorted BED, GFF or
+  VCF file so that one locus can be read without scanning the whole file. See
+  {doc}`io/region_access`.
 ```
 
 ## Programming terms
@@ -187,8 +214,11 @@ B+ tree
   leaves for as long as they still overlap, so a wide query costs in proportion to its hits.
 
 node
-  One block of a B+ tree holding up to `order - 1` keys. A *leaf* holds the stored keys; an
-  *internal node* holds separators and child pointers.
+leaf
+internal node
+  One box of a B+ tree, holding up to `order - 1` keys (see {term}`order`). A *leaf* holds the
+  stored keys; an *internal node* holds separators and child pointers, the values that steer a
+  search downwards.
 
 handle
   A value that refers to something the grove owns without copying it: a raw pointer in C++, a
@@ -203,6 +233,34 @@ template
   (C++) A class or function with type parameters in angle brackets, filled in at compile time:
   `grove<interval, std::string>` is a grove of intervals with string payloads. Python has no
   equivalent; pygenogrove instead ships one class per combination (`Grove`, `BedGrove`, …).
+
+concept
+  (C++) A named list of requirements a type must meet to be used as a {term}`template` argument,
+  checked when the code is compiled. `key_type_base` is the concept a {term}`key type` must
+  satisfy. See {doc}`grove/custom_key_types`.
+
+move-only
+  (C++) A type that can be handed over (`std::move`) but not copied: `auto g2 = g;` is a compile
+  error for a `grove`. Pass it as `grove&` or `std::move` it; a {term}`view` cannot even be moved.
+
+std::optional
+  (C++) A value that may be absent. Test it like a boolean, read it with `*` or `->`, or supply a
+  fallback with `value_or(...)`. The file readers use it for optional columns such as the BED name
+  or the GFF strand; Python returns `None` in the same places.
+
+trivially copyable
+  (C++) A type that can be copied byte for byte: plain numbers, and structs made only of them.
+  Such {term}`payloads <payload>` are serialized automatically, provided the type also has a
+  default constructor. A `std::string` or smart-pointer member makes a type not trivially
+  copyable, so it needs `serialize` / `deserialize` methods or a `serialization_traits`
+  specialisation. A raw pointer member passes the check but would be saved as a meaningless
+  address, so such types need the custom methods too. See {doc}`serialization/index`.
+
+hash
+  A number computed from a value such that equal values give equal numbers, which is what lets a
+  value be used as a dictionary or set key. genogrove provides `std::hash` for
+  `genomic_coordinate`, `numeric` and `kmer`; a Python `Key` hashes by its coordinate. See
+  {doc}`data_types/index`.
 
 const
   (C++) A promise not to modify. A `const` method can be called on a read-only object; a
@@ -270,7 +328,10 @@ thread-safe
   for concurrent mutation (concurrent reads of a grove no thread is changing are fine); a view is
   not thread-safe at all, so use one per thread. See {doc}`thread_safety`.
 
-O(log n), O(n)
-  Shorthand for how running time grows with the input size *n*. O(log n) barely grows (a tree
-  search); O(n) grows in proportion (a scan of everything); O(1) does not grow at all.
+O(1)
+O(log n)
+O(n)
+  Shorthand for how running time grows with the input size *n*. O(1) does not grow at all (a
+  registry ID lookup); O(log n) barely grows (a tree search); O(n) grows in proportion (a scan of
+  everything).
 ```
