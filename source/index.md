@@ -88,12 +88,13 @@ int main() {
 
 ## Getting Started
 
-Ready to use genogrove? Check out the {doc}`user_guide` for:
+Ready to use genogrove? The {doc}`guide/quickstart` gets a first program running in C++ or
+Python in a few minutes. The {doc}`user_guide` then covers:
 
 - Installation instructions
-- Detailed tutorials on I/O operations
-- Working with data types and the grove
-- Complete examples and best practices
+- Working with the grove, its graph overlay and the data types
+- Reading BED, GFF/GTF, BAM, FASTA and VCF files
+- Saving and loading groves, complete examples and best practices
 
 ## Documentation
 
