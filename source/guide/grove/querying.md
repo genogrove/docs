@@ -221,9 +221,11 @@ ordinary `Key` handles, with the same lifetime rules as above.
 A second form of `flanking` takes a {term}`predicate` `is_compatible(candidate, query)` — a
 function returning true or false — that is applied to each candidate before the overlap and
 ordering checks. Use it for constraints the key type does not encode — most commonly, "nearest
-neighbour on the same strand". The predicate only removes candidates from the answer. It runs at the
-leaf level. The search at the internal nodes never uses it, so a subtree that contains only
-incompatible keys is still visited, and its keys are filtered out at the leaves.
+neighbour on the same strand". The predicate only removes candidates from the answer. It runs for
+leaf candidates only; the internal nodes never call it. The search skips subtrees by using the best
+neighbours found so far, and a rejected candidate does not improve them. A subtree that contains
+only incompatible keys is therefore still visited, and its keys are filtered out at the leaves. A
+strict predicate can make a search visit more nodes (for a view, read more blocks).
 
 :::::{tab-set}
 
