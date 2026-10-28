@@ -2,16 +2,28 @@
 
 Short definitions of the terms the guide uses. Each entry links to the page that explains the
 concept in full. The first group is genogrove's own vocabulary; the second group covers the
-programming terms the C++ and Python tabs rely on.
+programming terms the C++ and Python tabs rely on. Entries are grouped by topic rather than
+alphabetically; use your browser's search to jump to a word.
 
 ## genogrove terms
 
 ```{glossary}
+genogrove
+pygenogrove
+  **genogrove** is the C++ library; **pygenogrove** is its Python package (`pip install
+  pygenogrove`, imported as `pg`). Their version numbers are independent, which is why each guide
+  tab shows the version it documents. See {doc}`installation`.
+
+CLI
+  The `genogrove` command-line program that ships with the C++ library. Its two commands are
+  `idx` (build a `.gg` {term}`index file <index>` from a BED or GFF file) and `isec` (intersect a
+  query file with a BED file or a prebuilt index). See {doc}`/cli`.
+
 grove
-  The central data structure: one B+ tree per {term}`index` (chromosome), holding
+  The central data structure: one {term}`B+ tree` per {term}`index` (chromosome), holding
   {term}`keys <key>` that can be searched by overlap, plus an optional {term}`graph overlay`.
-  In C++ `gst::grove<key_type, data_type, edge_data_type>`; in Python `Grove`, `BedGrove`,
-  `GffGrove`, `NumericGrove` or `KmerGrove`. See {doc}`grove/index`.
+  In C++ it is a {term}`template`, `gst::grove<key_type, data_type, edge_data_type>`; in Python one
+  of `Grove`, `BedGrove`, `GffGrove`, `NumericGrove` or `KmerGrove`. See {doc}`grove/index`.
 
 index
   Used in three senses, which the guide tries to keep apart:
@@ -25,25 +37,37 @@ index
      "tree" for this.
 
 key
-  One stored item: a {term}`key type` value (where it is) plus an optional {term}`payload` (what it
-  is). Inserts and queries hand back **key handles**: a pointer in C++, a `Key` object in Python.
-  Handles stay valid until {term}`compact` is called. See {doc}`data_types/key`.
+key handle
+  A **key** is one stored item: a {term}`key type` value (where it is) plus an optional
+  {term}`payload` (what it is). Inserts and queries hand back **key handles** — a
+  {term}`pointer` in C++, a `Key` object in Python — through which you read the value and the
+  payload. Handles to indexed keys stay valid until {term}`compact` is called. See
+  {doc}`data_types/key`.
 
 key type
   The value a grove sorts and searches on. Four are built in: `interval` and
-  `genomic_coordinate` for regions, `numeric` and `kmer` for exact matches. Every grove is built on
-  exactly one. See {doc}`data_types/index`.
+  `genomic_coordinate` for regions (`genomic_coordinate` adds a {term}`strand`, and is the one to
+  use for BED/GFF features and the only region type in Python), `numeric` and `kmer` for exact
+  matches. Every grove is built on exactly one. See {doc}`data_types/index`.
 
 payload
-  The data attached to a key — a name, a file record such as `BedEntry`, or (Python) any JSON
-  value. The tree never looks at it. Also called the key's *data*. In C++ it is the `data_type`
-  template argument; `void` means "keys without data". See {doc}`data_types/key`.
+  The data attached to a key — a name, a file record such as `BedEntry` / `GffEntry` (the Python
+  classes for one BED or GFF line), or (Python `Grove`) any JSON value. The tree never looks at
+  it. Also called the key's *data*. In C++ it is the `data_type` {term}`template` argument;
+  `void` means no payload. See {doc}`data_types/key`.
+
+QueryResult
+  What `intersect` returns in Python: the matching {term}`key handles <key>`. Loop over it or
+  wrap it in `list(...)`; it has `len()` but no `[i]` indexing. The C++ counterpart is
+  `query_result` with `get_keys()`. See {doc}`grove/querying`.
 
 0-based closed
   genogrove's coordinate convention: positions count from 0 and **both** ends are included, so
-  `[100, 200]` covers bases 100 through 200 and has length `end - start + 1`. BED, BAM and VCF
-  use 0-based half-open `[start, end)` and convert as `[start, end - 1]`; GFF/GTF use 1-based
-  closed and convert as `[start - 1, end - 1]`. See {doc}`io/index`.
+  `[100, 200]` covers bases 100 through 200 and has length `end - start + 1`. The BED, BAM and
+  VCF **readers** expose 0-based half-open `[start, end)` records (for VCF the reader has already
+  turned the file's 1-based `POS` into `start = POS - 1`), which convert as `[start, end - 1]`;
+  the GFF/GTF reader keeps the file's 1-based closed coordinates, which convert as
+  `[start - 1, end - 1]`. See {doc}`io/index`.
 
 strand
   Which DNA strand a feature lies on: `'+'`, `'-'`, or `'.'` for a feature with no strand.
@@ -61,14 +85,15 @@ flanking
   before) and the *successor* (just after). Either may be absent. See {doc}`grove/querying`.
 
 order
-  The B+ tree's branching factor: the maximum number of children per node (and `order - 1` keys).
-  It is the only constructor argument of a grove; 100 is a good default and 3 the minimum. See
-  {doc}`grove/index` and {doc}`performance`.
+  The {term}`B+ tree`'s branching factor: the maximum number of children per {term}`node` (and
+  `order - 1` keys). It is the only argument when creating a grove (`Grove(100)`); 100 is a good
+  default and 3 the minimum. See {doc}`grove/index` and {doc}`performance`.
 
 sorted insert
-  An insert that promises the new key is greater than every key already in that index, letting
-  the grove append without searching. The promise is not checked; breaking it silently corrupts
-  the tree. See {doc}`grove/inserting`.
+  An insert that promises the new key is greater than every key already in that index (for
+  regions: starts at or after them, by the key type's own ordering), letting the grove append
+  without searching. The promise is not checked; breaking it silently corrupts the tree. See
+  {doc}`grove/inserting`.
 
 bulk insert
   Inserting a whole sorted batch for one index at once. On an empty index the tree is built
@@ -76,7 +101,8 @@ bulk insert
 
 compact
   Rebuilding a grove's key storage after removals so it holds only live keys. It invalidates
-  **every** key handle obtained before. See {doc}`grove/removing`.
+  **every indexed** key handle obtained before; handles to {term}`external keys <external key>`
+  stay valid. See {doc}`grove/removing`.
 
 graph overlay
   Optional directed edges between the keys of a grove, which may cross chromosomes and carry their
@@ -97,30 +123,39 @@ external key
   `intersect` or `flanking`. Used for things that have no position, such as a transcription
   factor or a sample. See {doc}`graph/building`.
 
+hop
 seed
-  In the CLI's `isec --hops`, an interval that overlaps the query and from which the edge walk
-  starts. See {doc}`/cli`.
+  In the {term}`CLI`'s `isec --hops N`, a **seed** is an interval that overlaps the query, and a
+  **hop** is one edge followed from it; `--hops 2` reports everything within two edges of a seed.
+  See {doc}`/cli`.
 
 registry
-  A process-wide table that turns a repeated value (a sample name, a gene symbol) into a small
-  integer ID, so keys can store the ID instead of the string. Called *interning*. C++ has one
-  registry per template instantiation; Python has a single `Registry`. See {doc}`data_types/registry`.
+  A table, shared by the whole program, that turns a repeated value (a sample name, a gene symbol)
+  into a small integer ID, so keys can store the ID instead of the string. Called *interning*.
+  C++ has one registry per combination of key and payload type; Python has a single `Registry`
+  with string keys and JSON payloads. See {doc}`data_types/registry`.
 
 interning
-  Storing a value once in a {term}`registry` and referring to it by its ID everywhere else.
+  Storing a value once in a {term}`registry` and referring to it by its ID everywhere else. See
+  {doc}`data_types/registry`.
 
 k-mer
   A DNA sequence of fixed length *k*, here up to 32 bases packed two bits per base. The `kmer`
   key type makes a grove a k-mer set or counter. See {doc}`data_types/kmer`.
 
 serialization
-  Writing a grove to a file and reading it back, so the data is parsed and inserted only once.
-  The file is a compressed binary and by convention has the `.gg` extension. See
-  {doc}`serialization/index`.
+deserialize
+  **Serialization** is writing a grove to a file so the data is parsed and inserted only once;
+  **deserialize** is the call that reads such a file back into a new grove (`Grove.deserialize(path)`
+  in Python, the static `grove::deserialize(stream)` in C++). The file is a compressed binary and
+  by convention has the `.gg` extension. See {doc}`serialization/index`.
 
 .gg file
-  A serialized grove. A file written by `serialize` is a bare grove stream; one written by the
-  CLI's `idx` has a 12-byte header in front of the same stream. See {doc}`serialization/format`.
+  A serialized grove. A file written by `serialize` is the bare grove bytes; one written by the
+  {term}`CLI`'s `idx` has a 12-byte header in front of the same bytes. `deserialize` cannot read
+  an `idx` file directly (the header is in the way), and `isec -i` cannot read a `serialize` file
+  (it expects the header); a {term}`view` can read either when told where the grove bytes start.
+  See {doc}`serialization/format`.
 
 format version
   The version of the `.gg` layout, currently 0.3. A genogrove build reads exactly one format;
@@ -133,11 +168,12 @@ view
 
 eager
   Loading or building the whole grove in memory, as `deserialize` does — in contrast to a
-  {term}`view`.
+  {term}`view`. See {doc}`serialization/partial_reading`.
 
 SIF
-  Simple Interaction Format, a tab-separated text format read by Cytoscape. A grove can be
-  exported to it for visualisation. See {doc}`serialization/format`.
+  Simple Interaction Format, a tab-separated text format read by Cytoscape (a network
+  visualisation program). A grove can be exported to it to look at its tree and graph. See
+  {doc}`serialization/format`.
 ```
 
 ## Programming terms
@@ -145,9 +181,10 @@ SIF
 ```{glossary}
 B+ tree
   The sorted, balanced tree a grove is built on. Values sit in the bottom row of **leaf** nodes,
-  linked left to right; the **internal** nodes above only route a search. Looking up a region
-  walks one path from the root to a leaf, so the cost grows with the logarithm of the number of
-  keys, not with the number itself.
+  linked left to right; the **internal** nodes above only route a search. Finding the first
+  candidate for a region walks one path from the root to a leaf, so that step grows with the
+  logarithm of the number of keys, not with the number itself; the query then reads along the
+  leaves for as long as they still overlap, so a wide query costs in proportion to its hits.
 
 node
   One block of a B+ tree holding up to `order - 1` keys. A *leaf* holds the stored keys; an
@@ -210,9 +247,10 @@ singleton
 
 exception
   How an error is reported: the operation stops and an error object travels up to the nearest
-  handler. C++ throws `std::invalid_argument` (bad argument), `std::out_of_range` (unknown ID),
-  `std::runtime_error` (I/O or corrupt data); Python raises `TypeError`, `ValueError`,
-  `IndexError`, `RuntimeError` for the same cases.
+  handler. C++ throws `std::invalid_argument` (bad argument), `std::out_of_range` (unknown ID)
+  and `std::runtime_error` (I/O, corrupt data, a full registry); Python raises `ValueError`,
+  `IndexError` and `RuntimeError` for the same three cases, and additionally `TypeError` when
+  `None` is passed where a key is required.
 
 strong exception guarantee
   If an operation fails, the object is left exactly as it was before the call. `registry::deserialize`
