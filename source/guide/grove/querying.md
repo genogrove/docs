@@ -97,7 +97,8 @@ result can be fed straight into graph operations, removal, or {term}`payload` ed
 
 `intersect` returns a `gdt::query_result<key_type, data_type>`. Its `get_keys()` returns
 `const std::vector<gdt::key<key_type, data_type>*>&`, a read-only reference to a vector of
-{term}`pointers <pointer>` to keys owned by the grove, in tree order. Because the pointers
+{term}`pointers <pointer>` to keys owned by the grove, in tree order within each index (when you
+search all indices with `intersect(query)`, the order between indices is not defined). Because the pointers
 themselves are not {term}`const` (the keys they point to may be modified), the keys can go directly
 into `add_edge` ({doc}`/guide/graph/building`) or `remove_key` ({doc}`removing`) as they are.
 Continuing from above:
@@ -126,7 +127,8 @@ the grove compacted ({doc}`removing`). Never modify a key's coordinate through t
 list:
 
 - `len(result)` — number of hits
-- iterating it (a `for` loop) yields the matching `Key`s in tree order
+- iterating it (a `for` loop) yields the matching `Key`s in tree order within each index (when you
+  search all indices, the order between indices is not defined)
 - `result.keys` — the same keys as a list
 - `result.query` — the query coordinate you passed
 
@@ -219,9 +221,9 @@ ordinary `Key` handles, with the same lifetime rules as above.
 A second form of `flanking` takes a {term}`predicate` `is_compatible(candidate, query)` — a
 function returning true or false — that is applied to each candidate before the overlap and
 ordering checks. Use it for constraints the key type does not encode — most commonly, "nearest
-neighbour on the same strand". The predicate only removes candidates from the answer; it does not
-make the search faster, because the search still visits the same parts of the tree and filters
-afterwards.
+neighbour on the same strand". The predicate only removes candidates from the answer. It runs at the
+leaf level. The search at the internal nodes never uses it, so a subtree that contains only
+incompatible keys is still visited, and its keys are filtered out at the leaves.
 
 :::::{tab-set}
 

@@ -36,7 +36,7 @@ int main() {
         gio::bed_reader reader("genes.bed.gz");
         for (const auto& entry : reader) {
             // gst::sorted promises the file is sorted by position within each chromosome;
-            // drop it if yours is not (sort -k1,1 -k2,2n). Convert half-open [start, end)
+            // drop it if yours is not (sort -k1,1 -k2,2n -k3,3n: chromosome, start, then end). Convert half-open [start, end)
             // to closed [start, end - 1]
             // The name column is optional in BED: fall back to "unknown" when absent
             my_grove.insert_data(entry.chrom,
@@ -184,9 +184,9 @@ int main() {
 - BED and BAM readers produce 0-based half-open `[start, end)` coordinates — subtract 1 from `end` when constructing `gdt::interval`
 - GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — subtract 1 from both `start` and `end` so BED- and GFF-derived keys share the grove's {term}`0-based closed` space
 - File readers handle decompression automatically
-- For small files, use incremental insertion with the `sorted` tag (a {term}`sorted insert`; see {doc}`inserting`)
-- For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag
-- Data must be sorted before using bulk insertion: sort the file first (`sort -k1,1 -k2,2n`) unless you know it is; on unsorted input the tag silently produces wrong query results
+- For small files, use incremental insertion. Add the `sorted` tag (a {term}`sorted insert`; see {doc}`inserting`) only when the file is sorted within each chromosome. If the order is not known, use the plain insert
+- For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag, after you sort the data
+- Data must be sorted before using bulk insertion: sort the file first (`sort -k1,1 -k2,2n -k3,3n`: chromosome, start, then end, because the key order compares the start and then the end) unless you know it is; on unsorted input the tag silently produces wrong query results
 - Bulk insertion is ~10-20x faster for large datasets
 - See the {doc}`performance guide </guide/performance>` for detailed insertion strategies
 

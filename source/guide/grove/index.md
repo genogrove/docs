@@ -157,7 +157,8 @@ than querying all of them, so pass the chromosome whenever you know it.
 
 The index is the first argument of `insert_data` and the last argument of `intersect` (a
 `std::string_view`, so a string literal or a `std::string` both work). To see which indices exist,
-read the index map of a grove (continuing from `grove1` above):
+read the index map of a grove (continuing from `grove1` above; `std::cout` needs
+`#include <iostream>`):
 
 ```cpp
 const auto& roots = grove1.get_root_nodes();   // maps each index name to its tree's root node

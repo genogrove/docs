@@ -68,10 +68,10 @@ Each returned `Key` refers to the key stored inside the grove, not to a copy of 
 ## Sorted inserts
 
 If you insert keys in ascending order — the common case when reading a position-sorted BED or
-GFF file — tell the grove so. The sorted path appends to the rightmost leaf instead of searching
-down the tree for the right place; only the chain of nodes above that leaf is refreshed, which grows
-with the height of the tree (logarithmically with the number of keys), not with the keys already
-stored.
+GFF file — tell the grove so. The sorted path appends to the rightmost leaf and skips the search
+down the tree for the right place. It must still update the chain of nodes above that leaf. This
+chain is as long as the tree is high, and the height grows slowly (logarithmically) with the number
+of keys. Occasional node splits add to the cost.
 
 :::{warning}
 "Sorted" is a **promise, not a hint**: every key inserted this way must be greater than all keys
@@ -302,7 +302,9 @@ repr(k)       # 'Key(+:100-200)'
 ```
 
 Because `k.data` is a fresh copy on the universal `Grove`, changing it (`k.data["gene"] = "BAR"`)
-does **not** change what is stored; to change a payload, insert the key again with the new value.
+does **not** change what is stored. To change a payload, remove the key with `remove_key` and insert
+a new key with the new value. `insert` always adds a key; it does not replace an existing key that
+has the same coordinate. `remove_key` also removes all graph edges of that key, so add them again.
 On `BedGrove` / `GffGrove` the record is live, so editing its fields in place does persist.
 
 `Key` supports `==`, `<`, `>` and `hash()` ({term}`hash`), all computed from `value` alone and
