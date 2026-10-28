@@ -11,7 +11,10 @@ When it runs, continue with {doc}`grove/index` for what each call does.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Build the library once from a checkout (details and the CMake route in {doc}`installation`):
+You need `git`, CMake 3.14+, `pkg-config`, a C++20 compiler (GCC 13+, Clang 16+, Apple Clang
+15+), and the htslib and zlib libraries (`sudo apt-get install libhts-dev` on Ubuntu/Debian,
+`brew install htslib` on macOS — see the [prerequisites](installation.md#prerequisites)). Then
+build the library once from the source code:
 
 ```bash
 git clone https://github.com/genogrove/genogrove.git
@@ -20,7 +23,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-You need a C++20 compiler (GCC 13+, Clang 16+, Apple Clang 15+), htslib and zlib.
+{doc}`installation` has the details and how to use the library from a CMake project.
 
 ::::
 
@@ -28,10 +31,13 @@ You need a C++20 compiler (GCC 13+, Clang 16+, Apple Clang 15+), htslib and zlib
 :sync: py
 
 ```bash
-pip install pygenogrove
+pip install pygenogrove       # pip3 on systems where "pip" is Python 2 or missing
 ```
 
-Wheels are published for Python 3.10–3.14; no compiler or htslib is needed.
+Prebuilt packages are published for Python 3.10–3.14 on Linux x86_64 (glibc) and Apple Silicon
+macOS 14+; there, nothing else needs to be installed. On other platforms (Intel Mac, Windows,
+aarch64 or musl Linux) `pip` builds from source and needs the C++ prerequisites of the C++ tab —
+see [the Python install section](installation.md#install).
 
 ::::
 
@@ -77,9 +83,10 @@ int main() {
 }
 ```
 
-`insert_data` returns a handle to the stored key, which this program does not need. `intersect`
-returns a `query_result`; `get_keys()` gives the matching keys as pointers, and each key has the
-interval (`get_value()`) and the payload (`get_data()`).
+The first argument of `insert_data` and the last of `intersect` is the {term}`index` — the
+chromosome. `insert_data` returns a {term}`key handle <key>`, which this program does not need.
+`intersect` returns a `query_result` (the C++ form of a {term}`QueryResult`); `get_keys()` gives
+the matching keys, and each key has the interval (`get_value()`) and the payload (`get_data()`).
 
 ::::
 
@@ -91,8 +98,8 @@ Save as `first_grove.py`:
 ```python
 import pygenogrove as pg
 
-# A grove whose keys are stranded coordinates and whose payloads are any JSON value.
-# 100 is the tree order (a good default).
+# A grove whose keys are coordinates with a strand and whose payloads can be a name,
+# a number, or a dictionary like the ones below. 100 is the tree order (a good default).
 features = pg.Grove(100)
 
 # insert(index, coordinate, payload): the index is the chromosome, "+" the strand
@@ -107,7 +114,10 @@ for key in results:
     print(key.value.start, key.value.end, key.data["name"])
 ```
 
-`insert` returns a `Key` handle, which this program does not need. `intersect` returns a
+The first argument of `insert` and the last of `intersect` is the {term}`index` — the chromosome.
+Unlike the C++ `interval`, a Python coordinate always carries a {term}`strand`: the inserts use
+`"+"`, and the query uses the wildcard `"*"` so it matches features on either strand. `insert`
+returns a {term}`Key handle <key>`, which this program does not need. `intersect` returns a
 {term}`QueryResult`: loop over it, and each `Key` has the coordinate (`.value`) and the payload
 (`.data`).
 
@@ -122,14 +132,18 @@ for key in results:
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Point the compiler at the headers and the built library (adjust the two paths to your checkout;
-drop `-lpthread` on macOS):
+Point the compiler at the headers and the built library. Replace `/path/to/genogrove` with the
+`genogrove` folder that `git clone` created in step 1; drop `-lpthread` on macOS (`g++` works
+there too — it is Clang under another name):
 
 ```bash
 g++ -std=c++20 -I/path/to/genogrove/include first_grove.cpp \
     -L/path/to/genogrove/build -lgenogrove -lhts -lz -lpthread -o first_grove
 ./first_grove
 ```
+
+If htslib came from Homebrew, add `-I$(brew --prefix)/include -L$(brew --prefix)/lib` so `-lhts`
+is found.
 
 Expected output:
 
@@ -149,7 +163,7 @@ undefined `genogrove::` symbols, `-L` / `-lgenogrove` is missing. A CMake projec
 :sync: py
 
 ```bash
-python first_grove.py
+python first_grove.py         # python3 on systems where "python" is Python 2 or missing
 ```
 
 Expected output:
@@ -159,7 +173,9 @@ Expected output:
 300 400 gene2
 ```
 
-`gene3` at `[500, 600]` does not overlap `[150, 350]`, so it is not reported.
+`gene3` at `[500, 600]` does not overlap `[150, 350]`, so it is not reported. If you see
+`ModuleNotFoundError: No module named 'pygenogrove'`, the `pip` and `python` commands belong to
+different Python installations; run `python -m pip install pygenogrove` with the same `python`.
 
 ::::
 

@@ -213,10 +213,12 @@ Once installed, proceed to the next sections of the user guide to learn how to u
 pip install pygenogrove
 ```
 
-Wheels are published for Python 3.10–3.14 (3.9 is end-of-life and no longer built). The wheel
-bundles the genogrove C++ library and htslib, so nothing else needs to be installed. Building from
-source instead requires a C++20 compiler, CMake 3.15+ (the pygenogrove build; the C++ library alone
-needs 3.14), htslib, and Python 3.10+:
+Wheels are published for Python 3.10–3.14 (3.9 is end-of-life and no longer built) on Linux x86_64
+(glibc, not musl) and Apple Silicon macOS 14+. A wheel bundles the genogrove C++ library and
+htslib, so nothing else needs to be installed. On any other platform — Intel Mac, Windows, aarch64
+or musl Linux — `pip install pygenogrove` builds from the source distribution, which requires a
+C++20 compiler, CMake 3.15+ (the pygenogrove build; the C++ library alone needs 3.14), htslib, and
+Python 3.10+; the same applies to building a checkout by hand:
 
 ```bash
 git clone --recursive https://github.com/genogrove/pygenogrove.git
