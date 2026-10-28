@@ -16,7 +16,7 @@ model, insertion modes, and the graph overlay.
 ## Grove views (partial random-access readers)
 
 Read-only, partial readers over a serialized `.gg` — page in only the blocks a
-query touches. See the {doc}`Serialization guide </guide/serialization>`.
+query touches. See the {doc}`Partial Reading guide </guide/serialization/partial_reading>`.
 
 ```{eval-rst}
 .. autoclass:: pygenogrove.GroveView

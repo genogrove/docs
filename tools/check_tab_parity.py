@@ -42,6 +42,9 @@ CONVERTED = {
     "guide/data_types/kmer.md",
     "guide/data_types/key.md",
     "guide/data_types/registry.md",
+    "guide/serialization/index.md",
+    "guide/serialization/partial_reading.md",
+    "guide/serialization/format.md",
 }
 
 FENCE = re.compile(r"^(:{3,})\{(tab-set|tab-item)\}\s*(.*)$")

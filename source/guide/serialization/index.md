@@ -1,0 +1,409 @@
+# Serialization
+
+A grove can be written to disk and loaded back later, so you parse and insert your data once
+instead of on every run. For large datasets this is much faster than rebuilding the grove from the
+source files. The file is a zlib-compressed binary stream; by project convention it carries the
+`.gg` extension, and the genogrove CLI reads and writes the same format.
+
+This page covers saving and loading a whole grove. The subpages cover the two more specialised
+topics:
+
+- {doc}`partial_reading` — querying a `.gg` on disk without loading all of it (`grove_view` /
+  `GroveView`)
+- {doc}`format` — how the stream is laid out, format versions and compatibility, the `.gg` file
+  header written by the CLI, and SIF export for visualisation
+
+## Saving and loading
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+`serialize` writes the grove to an output stream; the static `deserialize` reads one back and
+returns a new grove.
+
+```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+#include <fstream>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+int main() {
+    gst::grove<gdt::interval, std::string> my_grove(100);
+    my_grove.insert_data("chr1", gdt::interval{100, 200}, "gene1");
+    my_grove.insert_data("chr1", gdt::interval{300, 400}, "gene2");
+
+    // Save to disk
+    {
+        std::ofstream out("grove.gg", std::ios::binary);
+        my_grove.serialize(out);
+    }
+
+    // Load from disk
+    {
+        std::ifstream in("grove.gg", std::ios::binary);
+        auto loaded = gst::grove<gdt::interval, std::string>::deserialize(in);
+        // loaded is a fully functional grove with all data restored
+    }
+
+    return 0;
+}
+```
+
+Always open streams with `std::ios::binary` to avoid platform-specific newline translation.
+
+The file extension does not matter to the library — a `grove.bin` and the CLI's `.gg` are the same
+stream format. `.gg` is the project convention and is what the CLI's `isec -i` expects.
+
+`deserialize` returns the grove **by value**. `grove` is move-only (copying is deleted), and the
+return relies on copy elision or an implicit move, so simply assign the result to a local variable
+as shown above. The template arguments must match those the grove was written with; the stream does
+not record them.
+
+`serialize()` (and the supporting `grove_to_sif()` and `node::serialize()`) are
+**`const`-qualified**, so code that holds a `const grove&` — for example a read-only query layer —
+can serialize without a `const_cast`:
+
+```cpp
+void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) {
+    g.serialize(os);   // OK — serialize() is const
+}
+```
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+`serialize(path)` writes the grove to a file; the static `Grove.deserialize(path)` reads one back
+and returns a new grove. Both take a file path rather than a stream, and both release the GIL.
+
+```python
+import pygenogrove as pg
+
+g = pg.Grove(100)
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"gene": "gene1"})
+g.insert("chr1", pg.GenomicCoordinate("+", 300, 400), {"gene": "gene2"})
+
+g.serialize("grove.gg")
+reloaded = pg.Grove.deserialize("grove.gg")
+```
+
+```python
+serialize(path: str) -> None
+Grove.deserialize(path: str) -> Grove
+```
+
+Load a file with the grove class that wrote it: a `BedGrove` file with `BedGrove.deserialize`, a
+`NumericGrove` file with `NumericGrove.deserialize`, and so on. The file does not record which
+class wrote it.
+
+**Reading a Python `.gg` from C++ (and vice versa).** A universal `Grove` stores each payload as
+JSON text, so its file is readable by a C++ `grove<genomic_coordinate, std::string>`; with
+labelled edges the matching C++ type is `grove<genomic_coordinate, std::string, std::string>`.
+The typed `BedGrove` / `GffGrove` files round-trip the structured `BedEntry` / `GffEntry`
+payloads with a C++ `grove<genomic_coordinate, bed_entry>` / `grove<genomic_coordinate, gff_entry>`.
+
+::::
+
+:::::
+
+## What is saved
+
+Everything the grove holds is written: every index (chromosome) with its keys and payloads, and the
+graph overlay — every edge with its metadata, including the relative order of each key's incoming
+edges — so neighbours can be followed after a reload exactly as before. The B+ tree structure itself
+is stored too, so loading does not rebuild or re-balance anything.
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+All built-in key types (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and the common data
+types are serialized automatically:
+
+- **Trivially copyable types** (`int`, `double`, `uint32_t`, …) — written byte-for-byte via `memcpy`
+- **`std::string`** — length-prefixed
+- **`gio::bed_entry`** (with its nested `gio::block_info`) and **`gio::gff_entry`** — member
+  `serialize` / `deserialize` provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted
+  directly. The `.gg` files produced by the `idx` CLI subcommand are this form. `gio::rgb_color` and
+  `gio::thick_info` are trivially copyable and serialize automatically.
+
+Any other key or data type needs a small amount of code — see [Custom key types](#custom-key-types)
+and [Custom data types](#custom-data-types) below.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+Nothing needs to be declared. Payloads of the universal `Grove` (and `NumericGrove` / `KmerGrove`)
+are JSON values and are stored as JSON text; `BedGrove` / `GffGrove` store their `BedEntry` /
+`GffEntry` records in the same binary form the C++ library uses. Edge metadata is stored the same
+way as payloads.
+
+::::
+
+:::::
+
+## Saving a registry with a grove
+
+When a {doc}`registry </guide/data_types/registry>` holds shared metadata that the grove refers to
+by ID (sample names, for example), save the registry as well, and restore it **before** you use the
+IDs stored in the grove.
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+Both objects can share one stream. Write the registry first, then the grove, and read them back in
+the same order:
+
+```cpp
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+#include <genogrove/data_type/registry.hpp>
+#include <fstream>
+
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+int main() {
+    auto& reg = gdt::registry<std::string>::instance();
+    gst::grove<gdt::interval, uint32_t> my_grove(100);
+
+    // Intern shared metadata, store IDs in the grove
+    auto id1 = reg.intern("SampleA_liver");
+    auto id2 = reg.intern("SampleB_brain");
+    my_grove.insert_data("chr1", gdt::interval{100, 200}, id1);
+    my_grove.insert_data("chr1", gdt::interval{150, 250}, id2);
+
+    // Save: registry first, then grove
+    {
+        std::ofstream out("data.gg", std::ios::binary);
+        reg.serialize(out);
+        my_grove.serialize(out);
+    }
+
+    // Load: same order
+    reg.clear();
+    {
+        std::ifstream in("data.gg", std::ios::binary);
+        auto& restored = gdt::registry<std::string>::deserialize(in);
+        auto loaded = gst::grove<gdt::interval, uint32_t>::deserialize(in);
+
+        // Registry IDs in the grove still resolve correctly
+        auto results = loaded.intersect(gdt::interval{100, 200}, "chr1");
+        for (auto* key : results.get_keys()) {
+            const auto& name = restored.get(key->get_data());  // "SampleA_liver"
+        }
+    }
+
+    return 0;
+}
+```
+
+This works because `grove::deserialize` reads exactly its own bytes and leaves whatever follows in
+the stream untouched — see [Streams and errors](#streams-and-errors).
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+The Python API takes a path per object, so the registry and the grove go into two files. Write
+both, and load the registry before resolving IDs from the grove:
+
+```python
+import pygenogrove as pg
+
+reg = pg.Registry.instance()
+g = pg.Grove(100)
+
+id1 = reg.intern("SampleA_liver")
+g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": id1})
+
+reg.serialize("names.gg")
+g.serialize("grove.gg")
+
+# Later: load the registry first, then the grove
+reg = pg.Registry.deserialize("names.gg")
+g = pg.Grove.deserialize("grove.gg")
+for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
+    reg.get(key.data["sample"])          # "SampleA_liver"
+```
+
+`Registry.deserialize` loads into the singleton, **replacing** its contents; see
+{doc}`/guide/data_types/registry` for its guarantees.
+
+::::
+
+:::::
+
+## Custom key types
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+A {doc}`custom key type </guide/grove/custom_key_types>` must provide a `serialize` member method
+and a static `deserialize` factory:
+
+```cpp
+struct CustomInterval {
+    size_t start;
+    size_t end;
+
+    void serialize(std::ostream& os) const {
+        os.write(reinterpret_cast<const char*>(&start), sizeof(start));
+        os.write(reinterpret_cast<const char*>(&end), sizeof(end));
+    }
+
+    [[nodiscard]] static CustomInterval deserialize(std::istream& is) {
+        CustomInterval ci;
+        is.read(reinterpret_cast<char*>(&ci.start), sizeof(ci.start));
+        is.read(reinterpret_cast<char*>(&ci.end), sizeof(ci.end));
+        if (!is) throw std::runtime_error("Failed to deserialize CustomInterval");
+        return ci;
+    }
+
+    // ... other key_type_base requirements (operator<, overlap, aggregate, etc.)
+};
+```
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+Already covered: each pygenogrove grove class has a fixed key type (`GenomicCoordinate`, `Numeric`
+or `Kmer`), and all three serialize automatically. Defining your own key type is a C++ feature.
+
+::::
+
+:::::
+
+## Custom data types
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+For a custom payload type there are two options.
+
+**Option 1: member methods.** Add `serialize` and a static `deserialize` to your type, as for a key
+type. `gdt::serializer<T>` writes and reads the built-in types for you:
+
+```cpp
+struct Annotation {
+    std::string name;
+    double score;
+
+    void serialize(std::ostream& os) const {
+        genogrove::data_type::serializer<std::string>::write(os, name);
+        os.write(reinterpret_cast<const char*>(&score), sizeof(score));
+    }
+
+    [[nodiscard]] static Annotation deserialize(std::istream& is) {
+        auto name = genogrove::data_type::serializer<std::string>::read(is);
+        double score;
+        is.read(reinterpret_cast<char*>(&score), sizeof(score));
+        if (!is) throw std::runtime_error("Failed to deserialize Annotation");
+        return {std::move(name), score};
+    }
+};
+```
+
+**Option 2: specialise `serialization_traits`.** For a third-party type you cannot modify:
+
+```cpp
+#include <genogrove/data_type/serialization_traits.hpp>
+
+template<>
+struct genogrove::data_type::serialization_traits<ThirdPartyType> {
+    static void serialize(std::ostream& os, const ThirdPartyType& value) {
+        // write fields to os
+    }
+
+    static ThirdPartyType deserialize(std::istream& is) {
+        // read fields from is and return constructed object
+    }
+};
+```
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+Already covered: payloads are JSON values, so any dict, list, string, number, boolean or `None`
+— nested as deeply as you like — is serialized as JSON text without further work. Whether a value
+is representable as JSON is checked at insert time, not at serialization time: an arbitrary Python
+object raises `TypeError`, a `NaN` or infinite float `ValueError`.
+
+::::
+
+:::::
+
+## Streams and errors
+
+:::::{tab-set}
+
+::::{tab-item} {{ cpp_tab }}
+:sync: cpp
+
+**Non-seekable sources.** `grove::deserialize()` reads each block from an isolated buffer of
+exactly its length, consuming the source **sequentially** and never rewinding. It therefore works
+on **non-seekable sources** (pipes, sockets, custom streambufs) and leaves any bytes that follow the
+grove intact — so a registry followed by a grove, several groves back-to-back, or a sentinel trailer
+can all share one stream without a seekable source.
+
+```{note}
+Random-access *partial* reading via {doc}`grove_view <partial_reading>` still needs a seekable
+source — it seeks to individual block offsets — which is why `grove_view::open` takes a file path
+rather than an arbitrary stream.
+```
+
+**Errors.** Every `deserialize` (`node::deserialize`, `grove::deserialize`, `registry::deserialize`,
+`serialization_traits<std::string>::deserialize`) throws `std::runtime_error` on a corrupt or
+truncated stream, and on a stream that is not a format 0.3 grove (bad magic). `node::deserialize`
+additionally validates the B+ tree invariants (`num_keys < order`, `num_children <= order`). All
+`deserialize` methods are `[[nodiscard]]`, so accidentally discarding the result is a compiler
+warning.
+
+`registry::deserialize` gives a **strong exception guarantee**: if the stream throws or is truncated,
+the singleton is left exactly as it was. It also rejects an entry count that exceeds the `id_type`
+capacity and streams containing duplicate keys — see {doc}`/guide/data_types/registry`.
+
+::::
+
+::::{tab-item} {{ py_tab }}
+:sync: py
+
+**Files only.** `serialize` / `deserialize` take a path and open the file themselves; there is no
+stream overload, so the concatenated-payload pattern of the C++ tab (several objects in one file)
+is not available. Use one file per object.
+
+**Errors.** `Grove.deserialize` raises `RuntimeError` if the file cannot be opened, is not a
+format 0.3 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if the file cannot be
+opened or written. `Registry.deserialize` raises `RuntimeError` on a truncated or corrupt file and
+leaves the registry as it was.
+
+::::
+
+:::::
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+
+partial_reading
+format
+```

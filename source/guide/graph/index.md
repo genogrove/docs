@@ -12,7 +12,7 @@ The subpages cover each part:
 - {doc}`editing` — removing edges, finding a specific edge, clearing the graph, predicate rules
 
 Edges are written to disk together with the grove; see the
-{doc}`serialization guide </guide/serialization>` (including SIF export for Cytoscape).
+{doc}`serialization guide </guide/serialization/index>` (including SIF export for Cytoscape).
 
 ## A first graph
 
@@ -108,7 +108,7 @@ only when the edge type is not `void`; `get_edge_list` / `get_in_edge_list` alwa
 grove use a `std::variant` as the edge type — but note that the default serializer handles only
 trivially copyable types and `std::string`, so a grove with a `std::variant` edge type (or any other
 non-trivial metadata) needs a `serialization_traits` specialization before it can be saved (see the
-{doc}`serialization guide </guide/serialization>`).
+{doc}`serialization guide </guide/serialization/index>`).
 
 ::::
 

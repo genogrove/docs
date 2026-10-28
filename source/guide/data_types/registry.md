@@ -258,7 +258,7 @@ pg.Registry.reset()                       # the same, as a static call
 
 A registry is saved and loaded separately from any grove. When grove payloads hold registry IDs,
 write the registry **first** and read it back **first**, so the IDs resolve (see
-{doc}`/guide/serialization`).
+{doc}`/guide/serialization/index`).
 
 :::::{tab-set}
 
@@ -279,7 +279,7 @@ auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the 
   pairs in ID order. Each value is written through `gdt::serializer<Payload>` (and
   `gdt::serializer<Key>` when they differ), so a custom payload such as the `gene_info` above must be
   trivially copyable, or `serialization_traits` must be specialised for it — see
-  {doc}`/guide/serialization`.
+  {doc}`/guide/serialization/index`.
 - `deserialize` offers a **strong exception guarantee**: it builds into temporaries and commits only
   after the whole stream has been read, so a truncated or corrupt stream leaves the singleton exactly
   as it was. It throws `std::runtime_error` for a count beyond `id_type` capacity

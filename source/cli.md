@@ -218,7 +218,7 @@ the raw entry coordinates of the target payload.
 ```{warning}
 The internal GFF interval numbering shifted by −1 to share this space, so the `.gg` on-disk format
 changed for GFF payloads. **GFF indexes built before v0.25.0 must be regenerated** (`genogrove idx`).
-See the {doc}`serialization guide </guide/serialization>` — there is no serialization back-compat.
+See the {doc}`format page </guide/serialization/format>` — there is no serialization back-compat.
 ```
 
 (vcf-bcf-queries)=
@@ -256,7 +256,7 @@ genogrove isec -q variants.bcf -i genes.gg --in-place
 #### In-place querying
 
 By default `isec -i` deserializes the whole `.gg` into memory. `--in-place` instead queries the
-index on disk via a partial reader ([`grove_view`](guide/serialization.md#partial-random-access-reading)),
+index on disk via a partial reader ([`grove_view`](guide/serialization/partial_reading.md)),
 loading only the blocks each query walks. Output is identical to the eager path — it is a
 memory/latency trade-off:
 

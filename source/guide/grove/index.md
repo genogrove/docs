@@ -16,7 +16,7 @@ This page explains the model and how to create a grove. The subpages cover each 
 - {doc}`loading_data` — filling a grove from BED, GFF/GTF and BAM files
 - {doc}`/guide/graph/index` — the graph overlay
 
-Persisting a grove to disk is covered in the {doc}`serialization guide </guide/serialization>`.
+Persisting a grove to disk is covered in the {doc}`serialization guide </guide/serialization/index>`.
 
 ## What a grove stores
 
@@ -174,7 +174,7 @@ g.intersect(pg.GenomicCoordinate("*", 150, 160))           # every index
 ```
 
 `Grove` does not expose a list of its indices; keep track of the names you insert. (The on-disk
-reader `GroveView` does, via `get_index_names()` — see {doc}`/guide/serialization`.)
+reader `GroveView` does, via `get_index_names()` — see {doc}`/guide/serialization/partial_reading`.)
 
 ::::
 

@@ -31,7 +31,7 @@ guide/graph/index
 guide/examples
 guide/io/index
 guide/data_types/index
-guide/serialization
+guide/serialization/index
 guide/performance
 guide/thread_safety
 ```
