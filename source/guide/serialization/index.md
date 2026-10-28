@@ -247,6 +247,14 @@ for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
 `Registry.deserialize` loads into the singleton, **replacing** its contents; see
 {doc}`/guide/data_types/registry` for its guarantees.
 
+**One registry, not many.** Where C++ has a separate singleton (and therefore a separate file) per
+`registry<Key, Tag, Payload>` instantiation, pygenogrove binds exactly one: `Registry`, with string
+keys and JSON payloads. There is one registry file per Python process, whatever it is used for. A
+`Registry` file is **not** interchangeable with the C++ `registry<std::string>` file of the C++ tab
+— the C++ one has no payload column. Each Python payload is written as its JSON text with the
+`std::string` serializer, so the C++ type that reads a `Registry` file is
+`registry<std::string, void, std::string>`, with the JSON left to the caller to parse.
+
 ::::
 
 :::::
