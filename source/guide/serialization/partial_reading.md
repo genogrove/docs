@@ -11,7 +11,9 @@ the {term}`eager` grove, which remains the builder and the load-it-all reader. T
 `isec --in-place` is built on it — see the [CLI reference](../../cli.md#in-place-querying).
 
 The snippets below continue from one another: each section reuses the `view` opened in
-[Opening a view](#opening-a-view) and, later, the `hits` from [Querying](#querying).
+[Opening a view](#opening-a-view) and, later, the `hits` from [Querying](#querying). The first
+snippet opens `grove.gg`, the file that the {doc}`saving example <index>` writes. Run that example
+first, or use any grove file of your own.
 
 ## Opening a view
 
@@ -46,25 +48,31 @@ to skip it:
 
 namespace gio = genogrove::io;
 
-// A BED index written by `genogrove idx`: interval keys, bed_entry payloads, string edge labels
+// A BED index written by `genogrove idx features.bed -o index.gg` (see the CLI page):
+// interval keys, bed_entry payloads, string edge labels
 auto cli_view = gst::grove_view<gdt::interval, gio::bed_entry, std::string>::open(
     "index.gg", gio::gg_header::SIZE);
 ```
 
 `open` throws `std::runtime_error` (an {term}`exception`) on a missing file, a bad {term}`magic`
-value, a non-seekable or truncated {term}`stream`, or a malformed directory. Hold the view by value
-as returned from `open()` — that is, write `auto view = ...::open(...)` as above and keep using
-that variable.
+value, a non-seekable or truncated {term}`stream`, or a malformed directory. Assign the result of
+`open()` to a variable, as above, and keep using that variable. You cannot copy or move a view.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-There is one view class per grove class: `GroveView`, `NumericGroveView`, `KmerGroveView`,
-`BedGroveView` and `GffGroveView`. Each returns the {term}`Key <key>` / {term}`QueryResult` types
-of its grove. Open a file with the view class that matches the grove class that wrote it (see
-{doc}`/guide/grove/index` for the grove classes). `open` takes a **file path** because partial
+There is one view class for each grove class. Open a file with the view class that matches the
+grove class that wrote it (see {doc}`/guide/grove/index` for the grove classes):
+
+- `Grove` → `GroveView`
+- `NumericGrove` → `NumericGroveView`
+- `KmerGrove` → `KmerGroveView`
+- `BedGrove` → `BedGroveView`
+- `GffGrove` → `GffGroveView`
+
+Each view returns the {term}`Key <key>` / {term}`QueryResult` types of its grove. `open` takes a **file path** because partial
 reading seeks to individual block offsets, which needs a {term}`seekable` source.
 
 ```python
@@ -93,7 +101,8 @@ non-seekable source or a malformed directory. It {term}`releases the GIL <GIL>`.
 `intersect` ({term}`overlap` search) and {term}`flanking` have the same signatures and return the
 same results as on the eager grove — they share the query engine. The difference is only in what
 gets read: `intersect` pages in the descent path plus the overlapping leaves; `flanking` may page
-in a few more blocks, because it can branch into both sides of the query.
+in more blocks, because it can branch into both sides of the query. A flanking predicate (see
+below) can increase this number.
 
 :::::{tab-set}
 
@@ -109,7 +118,7 @@ auto all  = view.intersect(gdt::interval{100, 200});
 
 // Nearest non-overlapping neighbours on either side
 auto fl = view.flanking(gdt::interval{100, 200}, "chr1");
-if (fl.get_predecessor()) { /* ... */ }   // nullptr if there is none
+if (fl.get_predecessor()) { std::cout << "predecessor found\n"; }   // nullptr if there is none
 
 // Predicate-filtered flanking, applied at leaf candidates only
 auto same_side = view.flanking(gdt::interval{100, 200}, "chr1",
@@ -117,11 +126,11 @@ auto same_side = view.flanking(gdt::interval{100, 200}, "chr1",
 ```
 
 The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`)
-that decides which neighbour candidates count; it never changes how much of the tree is read.
-Precisely: the `flanking` predicate {term}`overload` applies `is_compatible` at **leaf candidates
-only** — the internal nodes above the leaves are skipped or descended purely on the position ranges
-they summarise (aggregate ranges), without consulting the predicate — exactly as in
-`grove::flanking`. Either result field may be null (a {term}`pointer` to nothing); both are null if
+that decides which neighbour candidates count. The `flanking` predicate {term}`overload` calls
+`is_compatible` for **leaf candidates only**. It never runs on the internal nodes above the leaves.
+The search still uses the best neighbours found so far to skip subtrees, and a candidate that the
+predicate rejects does not improve them. A strict predicate can therefore make the view read more
+blocks. The result is the same as in `grove::flanking`. Either result field may be null (a {term}`pointer` to nothing); both are null if
 the index is absent. See {doc}`/guide/grove/querying` for the semantics.
 
 ::::
@@ -146,8 +155,10 @@ fl = view.flanking(pg.GenomicCoordinate("+", 100, 200), "chr1",
 ```
 
 The optional third argument is a filter function (a {term}`predicate`, here a {term}`lambda`) that
-decides which neighbour candidates count. It is applied at leaf candidates only, exactly as in
-`Grove.flanking`; exceptions it raises propagate out. Queries hold the GIL,
+decides which neighbour candidates count. It is called for leaf candidates only, and the result is
+the same as in `Grove.flanking`. A strict predicate can make the view read more blocks, because a
+rejected candidate does not help to skip subtrees. Exceptions that the predicate raises propagate
+out. Queries hold the GIL,
 because a query pages blocks into the view's cache. See {doc}`/guide/grove/querying` for the
 semantics.
 
@@ -175,10 +186,9 @@ nothing to follow.
 
 ```cpp
 for (auto* k : hits.get_keys()) {
-    for (auto* nbr : view.get_neighbors(k))    { /* outgoing: k -> nbr */ }
-    for (auto* src : view.get_in_neighbors(k)) { /* incoming: src -> k */ }
-    auto n_out = view.out_degree(k);
-    auto n_in  = view.in_degree(k);
+    for (auto* nbr : view.get_neighbors(k))    { std::cout << "out: " << nbr->get_value().to_string() << '\n'; }
+    for (auto* src : view.get_in_neighbors(k)) { std::cout << "in: "  << src->get_value().to_string() << '\n'; }
+    std::cout << view.out_degree(k) << ' ' << view.in_degree(k) << '\n';
 }
 
 // Edge-carrying views only (edge_data_type != void), e.g. cli_view from "Opening a view"
@@ -207,10 +217,10 @@ in {doc}`/guide/graph/building`.
 ```python
 for key in hits:
     for nbr in view.get_neighbors(key):      # outgoing: key -> nbr
-        ...
+        print("out:", nbr.value)
     for src in view.get_in_neighbors(key):   # incoming: src -> key
-        ...
-    view.out_degree(key), view.in_degree(key)
+        print("in:", src.value)
+    print(view.out_degree(key), view.in_degree(key))
 
     # Edge-carrying views only (GroveView, NumericGroveView, KmerGroveView)
     view.get_edges(key)                      # metadata, parallel to get_neighbors(key)
@@ -271,7 +281,9 @@ assert view.blocks_loaded() < view.block_count()     # the query was partial
 
 `get_order()` is the tree {term}`order` the grove was built with (the `100` in `Grove(100)`).
 `get_index_names()` reads nothing beyond the directory already loaded at `open()`. The eager `Grove`
-has no equivalent — see {doc}`/guide/grove/index`.
+has no method that lists its indexes yet
+([pygenogrove#118](https://github.com/genogrove/pygenogrove/issues/118)). To list the indexes of a
+file, open it with a view and call `get_index_names()` on the view.
 
 ::::
 
@@ -283,6 +295,8 @@ has no equivalent — see {doc}`/guide/grove/index`.
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
+
+This list is for reference. Skip it on a first read.
 
 `grove_view<key_type, data_type = void, edge_data_type = void>` in
 `genogrove/structure/grove/grove_view.hpp`. Every method is `[[nodiscard]]` ({term}`nodiscard`).
@@ -317,8 +331,9 @@ Edge-carrying views only (`edge_data_type != void`):
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-`GroveView`, `NumericGroveView`, `KmerGroveView`, `BedGroveView`, `GffGroveView`. Full signatures in
-the {doc}`Python API reference </reference/python/grove>`.
+This list is for reference. Skip it on a first read. The view classes are `GroveView`,
+`NumericGroveView`, `KmerGroveView`, `BedGroveView` and `GffGroveView`. Full signatures are in the
+{doc}`Python API reference </reference/python/grove>`.
 
 Methods:
 
@@ -350,9 +365,8 @@ All raise `TypeError` on `None`.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-- **Non-copyable and non-movable** — keep the view in the variable `open()` returned; it cannot be
-  copied or moved afterwards. It owns the file and a {term}`zlib` decompression state. Hold it by
-  value from `open()`; the return is guaranteed copy elision, so no move is needed.
+- **Non-copyable and non-movable** — keep the view in the variable that `open()` returned. It owns
+  the file and a {term}`zlib` decompression state.
 - **The block cache never evicts** — every block a query reads stays in memory until the view is
   destroyed, so memory grows with the set of blocks touched, bounded by the query footprint (the
   distinct blocks your queries reach), and never shrinks.

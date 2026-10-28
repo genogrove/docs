@@ -14,8 +14,9 @@ topics:
 - {doc}`format` — how the stream is laid out, {term}`format versions <format version>` and
   compatibility, the `.gg` file header written by the CLI, and {term}`SIF` export for visualisation
 
-The C++ snippets are complete programs; {doc}`/guide/installation` shows how to compile and link
-them against genogrove, and {doc}`/guide/quickstart` builds the first grove they save.
+Some C++ snippets are complete programs and some are fragments to put in `main()`.
+{doc}`/guide/installation` shows how to compile and link them against genogrove, and
+{doc}`/guide/quickstart` builds the first grove they save.
 
 ## Saving and loading
 
@@ -62,18 +63,16 @@ Always open streams with `std::ios::binary` to avoid platform-specific newline t
 The file extension does not matter to the library — `grove.bin` would be read just the same. `.gg`
 is the project convention. Note that the CLI's own `.gg` files carry a 12-byte header in front of
 the grove stream, so `isec -i` does not accept a file written by `serialize` directly — see
-{doc}`format` and the {doc}`CLI reference </cli>`.
+{doc}`format` and the {doc}`CLI reference </cli>`. Python's `serialize` writes no such header
+either.
 
-Assign the result of `deserialize` to a variable, as the example does; nothing else is needed. In
-C++ terms: `deserialize` returns the grove **by value**. `grove` is move-only (copying is deleted),
-and the return relies on copy elision or an implicit move, so simply assign the result to a local
-variable as shown above. The {term}`template` arguments must match those the grove was written
-with; the stream does not record them.
+Assign the result of `deserialize` to a variable, as the example does. You cannot copy a grove, and
+you do not need to. The {term}`template` arguments must match those the grove was written with: the
+key type, the payload type and the edge type, in the same order. The stream does not record them.
 
-A grove can be saved through a read-only reference. `serialize()` (and the supporting
-`grove_to_sif()` and `node::serialize_block()`) are **{term}`const`-qualified**, so code that holds
-a `const grove&` — for example a read-only query layer — can serialize without a `const_cast` (the
-cast that strips `const`):
+A grove can be saved through a read-only reference. `serialize()` is **{term}`const`-qualified**
+(as are `grove_to_sif()` and `node::serialize_block()`), so code that only has a read-only
+reference to a grove (`const grove&`) can still save it:
 
 ```cpp
 void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) {
@@ -81,13 +80,14 @@ void persist(const gst::grove<gdt::interval, std::string>& g, std::ostream& os) 
 }
 ```
 
-**Reading a Python `.gg` from C++ (and vice versa).** A file written by {term}`pygenogrove`'s
-universal `Grove` stores each payload and each edge's metadata as JSON text, so it is read by a
-`grove<genomic_coordinate, std::string, std::string>`. Only a file with **no edges at all** can be
-read by the two-parameter `grove<genomic_coordinate, std::string>`: every edge writes metadata
-(JSON `null` for an unlabelled one), which a void-edge reader cannot skip. The typed `BedGrove` /
-`GffGrove` files round-trip their `BedEntry` / `GffEntry` payloads with a
-`grove<genomic_coordinate, bed_entry>` / `grove<genomic_coordinate, gff_entry>`.
+**Reading a Python `.gg` from C++.** A file written by {term}`pygenogrove`'s universal `Grove`
+stores each payload and each edge's metadata as JSON text. To read it, use
+`grove<genomic_coordinate, std::string, std::string>`: the key type, then the payload type (JSON
+text), then the edge type (JSON text). If the file has **no edges at all**, you can use the shorter
+`grove<genomic_coordinate, std::string>`. With edges, you must use the three-type form, because
+every edge writes metadata (JSON `null` for an unlabelled one) and the short form cannot skip it. The
+typed `BedGrove` / `GffGrove` files are read with `grove<genomic_coordinate, bed_entry>` /
+`grove<genomic_coordinate, gff_entry>`.
 
 ::::
 
@@ -118,14 +118,9 @@ Load a file with the grove class that wrote it: a `BedGrove` file with `BedGrove
 `NumericGrove` file with `NumericGrove.deserialize`, and so on (the classes are introduced in
 {doc}`/guide/grove/index`). The file does not record which class wrote it.
 
-**Reading a Python `.gg` from C++ (and vice versa).** A universal `Grove` stores each
-{term}`payload` and each edge's {term}`metadata <edge metadata>` as JSON text, so its file is
-readable by a C++
-`grove<genomic_coordinate, std::string, std::string>`. Only a file with **no edges at all** can be
-read by the two-parameter `grove<genomic_coordinate, std::string>`: every edge writes metadata
-(JSON `null` for an unlabelled one), which a void-edge reader cannot skip.
-The typed `BedGrove` / `GffGrove` files round-trip the structured `BedEntry` / `GffEntry`
-payloads with a C++ `grove<genomic_coordinate, bed_entry>` / `grove<genomic_coordinate, gff_entry>`.
+**Reading a Python `.gg` from C++.** A universal `Grove` stores each {term}`payload` and each
+edge's {term}`metadata <edge metadata>` as JSON text, so a C++ program can read its file. The
+C++ tab shows which C++ grove type to use for each Python grove class.
 
 ::::
 
@@ -147,9 +142,8 @@ re-balance anything.
 All built-in {term}`key types <key type>` (`interval`, `genomic_coordinate`, `numeric`, `kmer`) and
 the common data types are serialized automatically:
 
-- **Trivially copyable types** — plain fixed-size values such as `int`, `double`, `uint32_t` —
-  written byte-for-byte via `memcpy`
-- **`std::string`** — length-prefixed
+- **Numbers and strings** — `int`, `double`, `uint32_t` and `std::string` are saved without extra
+  code
 - **`gio::bed_entry`** (with its nested `gio::block_info`) and **`gio::gff_entry`** — member
   `serialize` / `deserialize` provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted
   directly (the {doc}`CLI </cli>`'s `idx` indexes are groves of this kind with a `std::string` edge
@@ -215,7 +209,7 @@ int main() {
         my_grove.serialize(out);
     }
 
-    // Load: same order
+    // Load: same order. reg.clear() empties the registry, as in a new program run
     reg.clear();
     {
         std::ifstream in("data.gg", std::ios::binary);
@@ -258,7 +252,7 @@ g.insert("chr1", pg.GenomicCoordinate("+", 100, 200), {"sample": id1})
 reg.serialize("names.gg")
 g.serialize("grove.gg")
 
-# Later: load the registry first, then the grove
+# Later (this part can be a new run of your script): load the registry first, then the grove
 reg = pg.Registry.deserialize("names.gg")
 g = pg.Grove.deserialize("grove.gg")
 for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
@@ -268,13 +262,13 @@ for key in g.intersect(pg.GenomicCoordinate("*", 100, 200), "chr1"):
 `Registry.deserialize` loads into the {term}`singleton` (the one registry the whole program
 shares), **replacing** its contents; see {doc}`/guide/data_types/registry` for its guarantees.
 
-**One registry, not many.** Where C++ has a separate singleton (and therefore a separate file) per
-`registry<Key, Tag, Payload>` instantiation, pygenogrove binds exactly one: `Registry`, with string
-keys and JSON payloads. There is one registry file per Python process, whatever it is used for. A
-`Registry` file is **not** interchangeable with the C++ `registry<std::string>` file of the C++ tab
-— the C++ one has no payload column. Each Python payload is written as its JSON text with the
-`std::string` serializer, so the C++ type that reads a `Registry` file is
-`registry<std::string, void, std::string>`, with the JSON left to the caller to parse.
+**One registry, not many.** C++ can have many registries, one for each combination of key type and
+payload type, and each has its own file. pygenogrove has exactly one: `Registry`, with string keys
+and JSON payloads. There is one registry file per Python process, whatever it is used for. A
+`Registry` file is **not** the same as the registry file of the C++ tab, because the C++ registry in
+that tab has no payload column. A C++ program reads a Python `Registry` file with
+`registry<std::string, void, std::string>` (string keys, string payloads) and parses the JSON text
+itself.
 
 ::::
 
@@ -321,7 +315,8 @@ the `reinterpret_cast<const char*>` lets `write` and `read` see a number as its 
 :sync: py
 
 Already covered: each pygenogrove grove class has a fixed key type (`GenomicCoordinate`, `Numeric`
-or `Kmer`), and all three serialize automatically. Defining your own key type is a C++ feature.
+or `Kmer`), and all three serialize automatically (see {doc}`/guide/data_types/index`). Defining
+your own key type is a C++ feature.
 
 ::::
 
@@ -382,7 +377,7 @@ struct genogrove::data_type::serialization_traits<ThirdPartyType> {
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-Already covered: payloads are JSON values, so any dict, list, string, number, boolean or `None`
+Already covered (see {doc}`/guide/data_types/key`): payloads are JSON values, so any dict, list, string, number, boolean or `None`
 — nested as deeply as you like — is serialized as JSON text without further work. Whether a value
 is representable as JSON is checked at insert time, not at serialization time: an arbitrary Python
 object raises `TypeError`, a `NaN` or infinite float `ValueError`.
@@ -399,13 +394,10 @@ object raises `TypeError`, a `NaN` or infinite float `ValueError`.
 :sync: cpp
 
 **Non-seekable sources.** `grove::deserialize()` reads the stream front to back and stops exactly
-where the grove ends, so it never needs to jump around in the source and leaves whatever follows
-untouched. Precisely: it reads each block from an isolated buffer of exactly its length, consuming
-the source **sequentially** and never rewinding. It therefore works on **non-{term}`seekable`
-sources** (pipes, sockets, custom streambufs — anything that can only be read once, in order) and
-leaves any bytes that follow the grove intact — so a registry followed by a grove, several groves
-back-to-back, or a sentinel trailer (an end marker of your own) can all share one stream without a
-seekable source.
+where the grove ends. It never jumps back in the source, and it leaves the bytes after the grove
+unread. It therefore works on **non-{term}`seekable` sources**: pipes, sockets and custom stream
+buffers, which you can read only once, in order. A registry followed by a grove, several groves
+back-to-back, or an end marker of your own can all share one stream.
 
 ```{note}
 Random-access *partial* reading via {doc}`grove_view <partial_reading>` still needs a seekable
