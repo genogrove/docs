@@ -64,7 +64,7 @@ QueryResult
 0-based closed
   genogrove's coordinate convention: positions count from 0 and **both** ends are included, so
   `[100, 200]` covers bases 100 through 200 and has length `end - start + 1`. The BED, BAM and
-  VCF **readers** expose 0-based half-open `[start, end)` records (for VCF the reader has already
+  VCF **readers** expose 0-based {term}`half-open` `[start, end)` records (for VCF the reader has already
   turned the file's 1-based `POS` into `start = POS - 1`), which convert as `[start, end - 1]`;
   the GFF/GTF reader keeps the file's 1-based closed coordinates, which convert as
   `[start - 1, end - 1]`. See {doc}`io/index`.
@@ -119,9 +119,9 @@ edge
   forwards gives a key's *neighbours*, backwards its *in-neighbours*. See {doc}`graph/navigating`.
 
 parallel edge
-  A second edge with the same source and target, in the same direction. `add_edge` never
-  deduplicates, so adding the same pair twice stores two edges, each with its own metadata. See
-  {doc}`graph/index`.
+  A second edge with the same source and target, in the same direction. `add_edge` never merges
+  duplicates, so adding the same pair twice stores two edges, each with its own
+  {term}`edge metadata`. See {doc}`graph/index`.
 
 edge metadata
   Data attached to an edge (a label, a weight). In C++ its type is the grove's third template
@@ -192,14 +192,15 @@ SIF
 
 htslib
   The C library behind samtools and bcftools. genogrove uses it to read BAM/CRAM, VCF/BCF and
-  compressed files, so it is a build dependency of the C++ library; the Python wheels bundle it.
-  See {doc}`installation`.
+  compressed files, so it must be installed before the C++ library is compiled; the Python package
+  from `pip` already contains it. See {doc}`installation`.
 
 bgzip
 tabix
-  `bgzip` compresses a text file in blocks so that it stays {term}`seekable`; `tabix` builds a
-  `.tbi` / `.csi` index over a bgzipped, position-sorted BED, GFF or VCF file so that one locus can
-  be read without scanning the whole file. See {doc}`io/region_access`.
+  `bgzip` compresses a text file in chunks so that it stays {term}`seekable`; `tabix` writes a
+  small companion lookup file (`.tbi` or `.csi`) next to a bgzipped, position-sorted BED, GFF or
+  VCF file so that one locus can be read without scanning the whole file. See
+  {doc}`io/region_access`.
 ```
 
 ## Programming terms
@@ -215,8 +216,9 @@ B+ tree
 node
 leaf
 internal node
-  One block of a B+ tree holding up to `order - 1` keys. A *leaf* holds the stored keys; an
-  *internal node* holds separators and child pointers.
+  One box of a B+ tree, holding up to `order - 1` keys (see {term}`order`). A *leaf* holds the
+  stored keys; an *internal node* holds separators and child pointers, the values that steer a
+  search downwards.
 
 handle
   A value that refers to something the grove owns without copying it: a raw pointer in C++, a
@@ -238,8 +240,8 @@ concept
   satisfy. See {doc}`grove/custom_key_types`.
 
 move-only
-  (C++) A type that can be handed over (`std::move`) but not copied. `grove` is move-only, so
-  pass it by reference or move it; a {term}`view` cannot even be moved.
+  (C++) A type that can be handed over (`std::move`) but not copied: `auto g2 = g;` is a compile
+  error for a `grove`. Pass it as `grove&` or `std::move` it; a {term}`view` cannot even be moved.
 
 std::optional
   (C++) A value that may be absent. Test it like a boolean, read it with `*` or `->`, or supply a
@@ -248,9 +250,11 @@ std::optional
 
 trivially copyable
   (C++) A type that can be copied byte for byte: plain numbers, and structs made only of them.
-  Such payloads are serialized automatically; anything holding a `std::string` or a pointer is
-  not trivially copyable and needs `serialize` / `deserialize` methods or a
-  `serialization_traits` specialisation. See {doc}`serialization/index`.
+  Such {term}`payloads <payload>` are serialized automatically, provided the type also has a
+  default constructor. A `std::string` or smart-pointer member makes a type not trivially
+  copyable, so it needs `serialize` / `deserialize` methods or a `serialization_traits`
+  specialisation. A raw pointer member passes the check but would be saved as a meaningless
+  address, so such types need the custom methods too. See {doc}`serialization/index`.
 
 hash
   A number computed from a value such that equal values give equal numbers, which is what lets a
@@ -327,6 +331,7 @@ thread-safe
 O(1)
 O(log n)
 O(n)
-  Shorthand for how running time grows with the input size *n*. O(log n) barely grows (a tree
-  search); O(n) grows in proportion (a scan of everything); O(1) does not grow at all.
+  Shorthand for how running time grows with the input size *n*. O(1) does not grow at all (a
+  registry ID lookup); O(log n) barely grows (a tree search); O(n) grows in proportion (a scan of
+  everything).
 ```
