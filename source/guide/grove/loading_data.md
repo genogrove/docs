@@ -1,7 +1,8 @@
 # Loading Data from Files
 
-Combine file readers with grove insertion to load genomic data directly from BED,
-GFF/GTF, and BAM/SAM files.
+Combine the {doc}`file readers </guide/io/index>` with grove insertion to load genomic data directly
+from BED, GFF/GTF, and BAM/SAM files. The readers open plain and gzip/BGZF-compressed (`.gz`) files
+alike.
 
 :::::{tab-set}
 
@@ -9,7 +10,9 @@ GFF/GTF, and BAM/SAM files.
 :sync: cpp
 
 Combine file readers from the `genogrove::io` namespace with grove insertion to load genomic data
-directly from BED, GFF/GTF, and BAM/SAM files.
+directly from BED, GFF/GTF, and BAM/SAM files. Each reader is walked with a `for` loop, one record
+at a time; the `try` / `catch` block around the loop catches the {term}`exception`
+(`std::runtime_error`) a reader throws when the file cannot be opened or a line cannot be parsed.
 
 ### BED Files
 
@@ -19,6 +22,7 @@ directly from BED, GFF/GTF, and BAM/SAM files.
 #include <genogrove/io/bed_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <iostream>
 
 namespace gio = genogrove::io;
 namespace gdt = genogrove::data_type;
@@ -33,6 +37,7 @@ int main() {
         for (const auto& entry : reader) {
             // BED files are typically sorted by position
             // Convert half-open [start, end) to closed [start, end]
+            // The name column is optional in BED: fall back to "unknown" when absent
             my_grove.insert_data(entry.chrom,
                                 gdt::interval(entry.start, entry.end - 1),
                                 entry.name.value_or("unknown"),
@@ -54,12 +59,13 @@ int main() {
 
 #### Efficient Loading (Bulk Insertion)
 
-For large files (>10K intervals), use bulk insertion for better performance:
+For large files (>10K intervals), use {term}`bulk insertion <bulk insert>` for better performance:
 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <iostream>
 #include <map>
 #include <vector>
 
@@ -70,7 +76,7 @@ namespace gst = genogrove::structure;
 int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
-    // Group entries by chromosome
+    // Group entries by chromosome: one list of (interval, name) pairs per chromosome name
     std::map<std::string, std::vector<std::pair<gdt::interval, std::string>>> data;
 
     gio::bed_reader reader("large_dataset.bed.gz");
@@ -101,6 +107,7 @@ int main() {
 #include <genogrove/io/gff_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <iostream>
 
 namespace gio = genogrove::io;
 namespace gdt = genogrove::data_type;
@@ -113,6 +120,7 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // Keep gene features that carry a gene_id; the ID is the payload
+            // (get_gene_id() returns an optional: `!gene_id` means the attribute is absent)
             auto gene_id = entry.get_gene_id();
             if (entry.type != "gene" || !gene_id) continue;
 
@@ -138,6 +146,7 @@ int main() {
 #include <genogrove/io/bam_reader.hpp>
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+#include <iostream>
 
 namespace gio = genogrove::io;
 namespace gdt = genogrove::data_type;
@@ -146,7 +155,7 @@ namespace gst = genogrove::structure;
 int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
-    // Read only high-quality primary alignments
+    // Read only high-quality primary alignments (mapping quality >= 20)
     gio::bam_reader_options opts = gio::bam_reader_options::primary_only();
     opts.min_mapq = 20;
     gio::bam_reader reader("alignments.bam", opts);
@@ -170,28 +179,30 @@ int main() {
 ### Key Points
 
 - BED and BAM readers produce 0-based half-open `[start, end)` coordinates — subtract 1 from `end` when constructing `gdt::interval`
-- GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — subtract 1 from both `start` and `end` so BED- and GFF-derived keys share the grove's 0-based closed space
+- GFF/GTF readers produce 1-based inclusive `[start, end]` coordinates — subtract 1 from both `start` and `end` so BED- and GFF-derived keys share the grove's {term}`0-based closed` space
 - File readers handle decompression automatically
-- For small files, use incremental insertion with `sorted` tag
+- For small files, use incremental insertion with the `sorted` tag (a {term}`sorted insert`; see {doc}`inserting`)
 - For large files (>10K intervals), collect data and use bulk insertion with the `sorted` tag
 - Data must be sorted before using bulk insertion (BED files are typically pre-sorted)
 - Bulk insertion is ~10-20x faster for large datasets
-- See the {doc}`/guide/performance` for detailed insertion strategies
+- See the {doc}`performance guide </guide/performance>` for detailed insertion strategies
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The schemaless {doc}`./index` is the everyday tool. The **typed** groves
-`BedGrove` (`grove<genomic_coordinate, bed_entry>`) and `GffGrove`
-(`grove<genomic_coordinate, gff_entry>`) are the alternative for when you want a
-**guaranteed BED/GFF schema** and full interop with typed C++ `.gg` files: instead
-of a JSON payload, each key carries a structured `BedEntry` / `GffEntry`.
+The schemaless {doc}`Grove <./index>` (any JSON {term}`payload`, no fixed layout) is the everyday
+tool. The **typed** groves `BedGrove` (the C++ `grove<genomic_coordinate, bed_entry>`) and
+`GffGrove` (`grove<genomic_coordinate, gff_entry>`) are the alternative for when you want a
+**guaranteed BED/GFF schema** — every key carries exactly one record — and full interoperability
+with typed C++ {term}`.gg files <.gg file>`: instead of a JSON payload, each key carries a
+structured `BedEntry` / `GffEntry`.
 
-Both are genomic-coordinate keyed and expose the same surface as `Grove`
-(multi-index `insert` / `intersect`, the graph overlay, `serialize` /
-`deserialize`), with the differences noted below.
+Both are genomic-coordinate keyed and offer the same methods as `Grove` (multi-index `insert` /
+`intersect`, the {term}`graph overlay`, `serialize` / `deserialize`), with the differences noted
+below. Like the C++ readers, `BedReader` and `GffReader` open plain and gzip/BGZF-compressed (`.gz`)
+files alike — see {doc}`/guide/io/index`.
 
 ### BedGrove
 
@@ -222,9 +233,9 @@ Differences from the universal `Grove`:
   BED payload.
 - `add_external_key(key: GenomicCoordinate, data: BedEntry) -> BedKey` takes the
   payload too.
-- Typed groves keep **unlabelled** graph edges (for binary C++ interop), so the
-  labelled-edge methods (`add_edge(s, t, data)`, `get_edges`, `get_neighbors_if`,
-  `link_with`) are **absent**. Plain edges and all edge-cleanup methods are
+- Typed groves keep **unlabelled** graph edges — edges without {term}`edge metadata`, so their
+  files stay readable by C++ — and the labelled-edge methods (`add_edge(s, t, data)`,
+  `get_edges`, `get_neighbors_if`, `link_with`) are therefore **absent**. Plain edges and all edge-cleanup methods are
   present — see {doc}`/guide/graph/index`.
 
 `GffGrove` is identical with a `GffEntry` payload.
@@ -235,13 +246,15 @@ The foolproof way to load records from a reader — pass a bare entry and the
 `GenomicCoordinate` key is derived from its native coordinates (no
 hand-conversion):
 
-- `insert(index, entry) -> BedKey` — a 2-argument overload. BED's half-open
+- `insert(index, entry) -> BedKey` — a 2-argument {term}`overload`. BED's half-open
   `[s, e)` → closed `[s, e-1]`; GFF's 1-based `[s, e]` → `[s-1, e-1]`. Strand is
   taken from the record's strand column (absent → `'.'`).
 - `insert_bulk(index, entries, presorted=False) -> list[BedKey]` — same idea for a
   whole list of bare entries.
 
 ```python
+import pygenogrove as pg
+
 g = pg.BedGrove(256)
 for e in pg.BedReader("peaks.bed"):
     g.insert(e.chrom, e)        # key derived from each entry
@@ -252,11 +265,12 @@ for e in pg.BedReader("peaks.bed"):
 Data-carrying groves also expose explicit fast paths:
 
 - `insert_sorted(index, coord, data) -> BedKey` — single insert on the
-  rightmost-append path (skips tree traversal).
+  rightmost-append path (a sorted insert: skips tree traversal).
 - `insert_bulk(index, items, presorted=False) -> list[BedKey]` — insert many
-  explicit `(GenomicCoordinate, BedEntry)` records at once (10–20× faster for
-  large datasets; an empty index is built bottom-up in O(n)). `presorted=True`
-  skips the internal sort.
+  explicit `(GenomicCoordinate, BedEntry)` records at once (a bulk insert:
+  10–20× faster for large datasets; an empty index is built bottom-up in O(n),
+  i.e. in a single pass over the batch). `presorted=True` skips the internal sort.
+  See {doc}`inserting`.
 
 :::{warning}
 **Precondition:** sorted/bulk inserts require ascending intervals, and when
@@ -344,7 +358,8 @@ GffEntry(seqid: str, start: int, end: int, type: str)
 - `phase` — `Optional[int]` (CDS phase 0/1/2)
 - `attributes` — `dict[str, str]`, the column-9 key/value pairs (returned/assigned
   by copy)
-- `format` — a `GffFormat` enum (`GFF3` / `GTF` / `UNKNOWN`)
+- `format` — a `GffFormat` enum, i.e. one of a fixed set of named values (`GFF3` / `GTF` /
+  `UNKNOWN`)
 
 **Methods**: `is_gtf()`, `is_gff3()`, `get_attribute(key)`, and the GTF helpers
 `get_gene_id()`, `get_transcript_id()`, `get_exon_number()`, `get_gene_name()`,
@@ -352,10 +367,10 @@ GffEntry(seqid: str, start: int, end: int, type: str)
 
 ### Loading from a reader
 
-`BedReader` and `GffReader` iterate BED and GFF3/GTF files, yielding `BedEntry` /
-`GffEntry` records. The 2-argument `insert` derives the grove's 0-based closed
-`GenomicCoordinate` key from each entry's native coordinates, so you never
-hand-convert:
+`BedReader` and `GffReader` are {term}`iterable <iterator / iterable>`: a `for` loop walks a BED or
+GFF3/GTF file one record at a time, yielding `BedEntry` / `GffEntry` records. The 2-argument
+`insert` derives the grove's 0-based closed `GenomicCoordinate` key from each entry's
+native coordinates, so you never hand-convert:
 
 ```python
 import pygenogrove as pg
@@ -370,6 +385,7 @@ for e in pg.GffReader("genes.gff3"):
     gff.insert(e.seqid, e)
 
 # bulk-load one chromosome at a time (insert_bulk is per-index):
+# the list comprehension keeps only the chr1 records
 g2 = pg.BedGrove(256)
 g2.insert_bulk("chr1", [e for e in pg.BedReader("peaks.bed") if e.chrom == "chr1"])
 ```
