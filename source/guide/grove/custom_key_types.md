@@ -91,7 +91,7 @@ If you need a different notion of "key" in Python, map it onto one of the three:
 
 To persist a grove keyed by your type, it additionally needs a `serialize(std::ostream&) const`
 member and a static `deserialize(std::istream&)` factory — see the
-{doc}`serialization guide </guide/serialization>`.
+{doc}`serialization guide </guide/serialization/index>`.
 
 ::::
 

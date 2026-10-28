@@ -15,7 +15,7 @@ wrappers, and the structured record types they carry. See the
 ## Grove views (partial random-access readers)
 
 Read-only, partial readers over a serialized `.gg`. See the
-{doc}`Serialization guide </guide/serialization>`.
+{doc}`Partial Reading guide </guide/serialization/partial_reading>`.
 
 ```{eval-rst}
 .. autoclass:: pygenogrove.BedGroveView

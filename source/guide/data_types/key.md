@@ -77,7 +77,7 @@ Methods:
 - `to_string()` — the value's text form
 - `serialize(os)`, `static deserialize(is)` — binary persistence of value and payload (what
   `grove::serialize` uses); the payload type must be serializable (see
-  {doc}`/guide/serialization`)
+  {doc}`/guide/serialization/index`)
 - `operator==`, `operator<`, `operator>` — see below
 
 ::::
