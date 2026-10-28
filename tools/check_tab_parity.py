@@ -27,6 +27,7 @@ CONVERTED = {
     "guide/grove/querying.md",
     "guide/grove/removing.md",
     "guide/grove/custom_key_types.md",
+    "guide/grove/loading_data.md",
     "guide/graph/index.md",
     "guide/graph/building.md",
     "guide/graph/navigating.md",
