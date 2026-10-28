@@ -5,6 +5,24 @@ from BED, GFF/GTF, and BAM/SAM files. The readers open plain and gzip/BGZF-compr
 alike. Each section below loads one format; the last two cover loading large files faster and
 keeping the whole file record as the payload.
 
+A {term}`grove` is an in-memory index of genomic regions that you can search for overlaps. Each
+region is a {term}`key`. Keys are stored under an {term}`index`, which here is the chromosome name.
+Each key can carry a {term}`payload`, such as a gene name. Two kinds of grove appear on this page:
+the *universal* `Grove` (Python) and the C++ `grove` store a payload of your choice; the *typed*
+groves `BedGrove` and `GffGrove` (Python) store the whole file record (see
+[Keeping the whole record](#loading-typed-groves)). The files in the examples (`genes.bed.gz`,
+`annotations.gff.gz`, `alignments.bam`) stand for your own files. The
+{doc}`I/O pages </guide/io/index>` give small sample files you can save and use. If you have no BED
+file, save these two tab-separated lines as `genes.bed` and use that name:
+
+```text
+chr1	1000	1500	geneA
+chr1	1800	2400	geneB
+```
+
+To build and run the C++ examples, see {doc}`/guide/installation`; for Python, install
+`pygenogrove` as described there.
+
 ## Coordinates
 
 The readers return the coordinates of their file format. The grove keys are {term}`0-based closed`,
@@ -41,6 +59,8 @@ namespace gdt = genogrove::data_type;
 namespace gst = genogrove::structure;
 
 int main() {
+    // A grove with interval keys and std::string payloads (the gene name).
+    // 100 is the tree order, a tuning value; copy it as it is.
     gst::grove<gdt::interval, std::string> my_grove(100);
 
     // Read and insert each entry
@@ -48,21 +68,19 @@ int main() {
         gio::bed_reader reader("genes.bed.gz");
         for (const auto& entry : reader) {
             // BED is half-open [start, end); the grove key is closed, so use end - 1.
-            // gst::sorted promises that the file is sorted within each chromosome.
-            // Drop it if yours is not (see "Loading large files faster" below).
             // The name column is optional in BED: fall back to "unknown" when absent
             my_grove.insert_data(entry.chrom,
                                 gdt::interval(entry.start, entry.end - 1),
-                                entry.name.value_or("unknown"),
-                                gst::sorted);
+                                entry.name.value_or("unknown"));
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
+    // indexed_vertex_count(): the number of keys stored in the grove
     std::cout << "Loaded " << my_grove.indexed_vertex_count() << " intervals\n";
 
-    // Query the loaded data
+    // Query the loaded data: all keys on chr1 that overlap [1000, 2000]
     auto results = my_grove.intersect(gdt::interval{1000, 2000}, "chr1");
     std::cout << "Found " << results.get_keys().size() << " overlapping intervals\n";
 
@@ -82,27 +100,40 @@ record's strand column (`'.'` when it is absent).
 ```python
 import pygenogrove as pg
 
-g = pg.BedGrove(100)
+g = pg.BedGrove(100)                     # 100 is the tree order, a tuning value; copy it as it is
 
-for e in pg.BedReader("genes.bed.gz"):
-    g.insert(e.chrom, e)                 # the key is derived from the record
+try:
+    for e in pg.BedReader("genes.bed.gz"):
+        g.insert(e.chrom, e)             # the key is derived from the record
+except (RuntimeError, ValueError) as err:
+    print("Error:", err)
 
+# "*" means any strand; (1000, 2000) is the closed range to search on chr1
 hits = g.intersect(pg.GenomicCoordinate("*", 1000, 2000), "chr1")
 print(f"Found {len(hits)} overlapping intervals")
-for hit in hits:
+for hit in hits:                         # hit.data is the BED record, hit.value the key
     print(hit.data.name, hit.value.start, hit.value.end)
 ```
 
 A file that cannot be opened raises `RuntimeError` when the reader is created. A line that cannot
-be parsed raises it during the loop. If you only need one field as the payload, use the universal
-`Grove` and build the key yourself: `g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start,
-e.end - 1), e.name)`.
+be parsed raises it during the loop. A record with `end <= start` raises `ValueError` from `insert`.
+`len(hits)` counts the hits, as `results.get_keys().size()` does in C++. If you only need one field
+as the payload, use the universal `Grove` and build the key yourself (`e.strand or "."` means
+"the strand, or `.` when the column is absent"):
+
+```python
+g = pg.Grove(100)
+g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1), e.name)
+```
 
 ::::
 
 :::::
 
 ## Loading GFF/GTF files
+
+A GTF gene line carries a `gene_id` attribute. A GFF3 gene line carries `ID` instead. The examples
+below accept both, because a GFF3 file would otherwise load no genes and print no error.
 
 :::::{tab-set}
 
@@ -125,16 +156,17 @@ int main() {
     try {
         gio::gff_reader reader("annotations.gff.gz");
         for (const auto& entry : reader) {
-            // Keep gene features that carry a gene_id; the ID is the payload
-            // (get_gene_id() returns an optional: `!gene_id` means the attribute is absent)
-            auto gene_id = entry.get_gene_id();
-            if (entry.type != "gene" || !gene_id) continue;
+            // Keep gene features that carry an ID; the ID is the payload.
+            // GTF uses the gene_id attribute, GFF3 uses ID. Each lookup returns an optional:
+            // `!id` means the attribute is absent, and `*id` reads the value.
+            auto id = entry.get_gene_id();
+            if (!id) id = entry.get_attribute("ID");
+            if (entry.type != "gene" || !id) continue;
 
             // GFF coordinates are 1-based inclusive — shift both to the grove's 0-based closed keys
             my_grove.insert_data(entry.seqid,
                                 gdt::interval(entry.start - 1, entry.end - 1),
-                                *gene_id,
-                                gst::sorted);
+                                *id);
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
@@ -160,13 +192,14 @@ import pygenogrove as pg
 g = pg.GffGrove(100)
 
 for e in pg.GffReader("annotations.gff.gz"):
-    if e.type == "gene" and e.get_gene_id():       # get_gene_id() is None when the attribute is absent
+    gene_id = e.get_gene_id() or e.get_attribute("ID")   # GTF: gene_id, GFF3: ID; None if absent
+    if e.type == "gene" and gene_id:
         g.insert(e.seqid, e)
 
 print(f"Loaded {g.indexed_vertex_count()} features")
 ```
 
-Attribute lookups and the other record fields are described in {doc}`/guide/io/gff`.
+A record with `start == 0` or `end < start` raises `ValueError` from `insert`. Attribute lookups and the other record fields are described in {doc}`/guide/io/gff`.
 
 ::::
 
@@ -192,15 +225,20 @@ namespace gst = genogrove::structure;
 int main() {
     gst::grove<gdt::interval, std::string> my_grove(100);
 
-    // Read only high-quality primary alignments (mapping quality >= 20)
+    // Read only high-quality primary alignments. The mapping quality (MAPQ) is a number from 0 to 255
+    // that tells how sure the aligner is about the placement; keep 20 and above.
     gio::bam_reader_options opts = gio::bam_reader_options::primary_only();
     opts.min_mapq = 20;
     try {
         gio::bam_reader reader("alignments.bam", opts);
         for (const auto& entry : reader) {
+            // A read whose CIGAR uses no reference bases (for example a pure soft clip, 100S)
+            // has end == start, so end - 1 would be invalid. Skip such reads.
+            if (!entry.consumes_reference()) continue;
+            // qname is the read name; it is the payload
             my_grove.insert_data(entry.chrom,
                                  gdt::interval(entry.start, entry.end - 1),
-                                 entry.qname, gst::sorted);
+                                 entry.qname);
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
@@ -218,9 +256,11 @@ int main() {
 :sync: py
 
 There is no typed BAM grove (`SamEntry` is not serializable). Load into the universal `Grove` with
-the record's `to_coordinate()` and `to_dict()`; `consumes_reference()` skips records that cover no
-reference bases. Read options such as the mapping-quality filter are described in
-{doc}`/guide/io/bam`.
+the record's `to_coordinate()` (the key, already converted to a closed range) and `to_dict()` (the
+record as a dictionary, used as the payload). `consumes_reference()` skips records that cover no
+reference bases. The reader takes the same filters as the C++ options, for example
+`pg.BamReader("alignments.bam", skip_secondary=True, min_mapq=20)`; see {doc}`/guide/io/bam`. A BAM
+file is binary: to look at it, use `samtools view`.
 
 ```python
 import pygenogrove as pg
@@ -240,18 +280,29 @@ print(f"Loaded {g.indexed_vertex_count()} reads")
 ## Loading large files faster
 
 For files with more than about 10,000 records, the {term}`sorted insert` and the
-{term}`bulk insert` of {doc}`inserting` are much faster than plain inserts: bulk insertion is
-about 10 to 20 times faster. Both rely on the data being sorted, and **neither checks it**. On
-unsorted input they give wrong query results and report no error. Sort the file first, by
-chromosome, start and then end, because the key order compares the start and then the end:
+{term}`bulk insert` of {doc}`inserting` are much faster than plain inserts. The
+{doc}`performance guide </guide/performance>` measures bulk insertion at about 10 to 20 times faster.
+Both rely on the data being in key order, and **neither checks it**. On data in the wrong order they
+give wrong query results and report no error. The key order is:
+
+- **C++ `interval` keys:** start, then end.
+- **Python `GenomicCoordinate` keys** (`BedGrove`, `GffGrove`, `insert_sorted`, `insert_bulk` with
+  `presorted=True`): start, then end, then strand in the order `*`, `.`, `+`, `-`.
+
+A file that is sorted by start only is not enough, because two records with the same start must also
+come in order of their end. A sorted BAM file is sorted by start only. Duplicate records (the same
+start and end) also break the order, because every new key must be *strictly* greater than the
+previous one. For a BED file you can sort it for C++ `interval` keys like this:
 
 ```bash
 sort -k1,1 -k2,2n -k3,3n genes.bed > genes.sorted.bed
 ```
 
-Appending to an index that already holds keys also requires every new key to be greater than all
-existing ones. If you do not know whether the order is right, use the plain insert. See the
-{doc}`performance guide </guide/performance>` for the numbers.
+Appending to an index that already holds keys also requires every new key to be strictly greater
+than all existing ones. If you do not know whether the order is right, use the plain insert. In
+Python, `insert_bulk` without `presorted` sorts the list for you and handles the strand, so it is the
+safe choice there. The examples below read `.bed.gz` files. To compress the sorted file, run
+`bgzip genes.sorted.bed`, which writes `genes.sorted.bed.gz`, and read that name in the example.
 
 :::::{tab-set}
 
@@ -259,7 +310,8 @@ existing ones. If you do not know whether the order is right, use the plain inse
 :sync: cpp
 
 Collect the records per chromosome, then insert each chromosome in one call with `gst::sorted` and
-`gst::bulk`:
+`gst::bulk`. This example needs `large_dataset.bed.gz` to be sorted as described above, and the
+grove must be empty (a new grove, as here):
 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
@@ -292,7 +344,7 @@ int main() {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
-    // Bulk insert per chromosome (data must be sorted).
+    // Bulk insert per chromosome (the lists must be sorted by start, then end, with no duplicates).
     // Each map entry is a (name, list) pair; [chrom, chrom_data] gives both parts a name.
     for (auto& [chrom, chrom_data] : data) {
         my_grove.insert_data(chrom, chrom_data, gst::sorted, gst::bulk);
@@ -310,8 +362,10 @@ int main() {
 :sync: py
 
 Group the records per chromosome, then call `insert_bulk` once for each. It sorts each list for
-you. Pass `presorted=True` to skip that sort when you know the list is already in order (then the
-promise above applies):
+you, by start, end and strand, so no sorted file is needed. Use it on an empty index: the new keys
+must be strictly greater than all keys already in the index, whatever the value of `presorted`.
+Pass `presorted=True` only when you know the list is already in key order (then the promise above
+applies, with the strand):
 
 ```python
 import pygenogrove as pg
@@ -328,7 +382,7 @@ print(f"Loaded {g.indexed_vertex_count()} intervals using bulk insertion")
 ```
 
 For a single key on the sorted path, `insert_sorted(index, interval, data)` takes an explicit
-coordinate and record, with the same precondition.
+coordinate and record, with the same precondition and no check.
 
 ::::
 
@@ -338,7 +392,8 @@ coordinate and record, with the same precondition.
 ## Keeping the whole record: typed groves
 
 The examples above store one field per key in C++ (a name or an ID) and a whole record in Python.
-Both languages can do either.
+Both languages can do either. In Python, the *typed* groves `BedGrove` and `GffGrove` keep the whole
+file record. The *universal* `Grove` keeps any JSON value that you choose.
 
 :::::{tab-set}
 
@@ -347,14 +402,40 @@ Both languages can do either.
 
 To keep the whole record, use the record type as the payload. `gio::bed_entry` and
 `gio::gff_entry` have serialization built in, so such a grove can be saved to a {term}`.gg file <.gg file>`
-directly (see {doc}`/guide/serialization/index`). Inside the loop of the BED example:
+directly (see {doc}`/guide/serialization/index`). The grove is declared **before** the loop, and only
+the insert goes **inside** the loop. This is the BED example with the record as the payload:
 
 ```cpp
-gst::grove<gdt::interval, gio::bed_entry> records(100);
+#include <genogrove/io/bed_reader.hpp>
+#include <genogrove/structure/grove/grove.hpp>
+#include <genogrove/data_type/interval.hpp>
+#include <iostream>
 
-// in the loop over the reader:
-records.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), entry, gst::sorted);
+namespace gio = genogrove::io;
+namespace gdt = genogrove::data_type;
+namespace gst = genogrove::structure;
+
+int main() {
+    gst::grove<gdt::interval, gio::bed_entry> records(100);   // before the loop
+
+    try {
+        gio::bed_reader reader("genes.bed.gz");
+        for (const auto& entry : reader) {
+            // inside the loop: one insert for each record
+            records.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), entry);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+
+    std::cout << "Loaded " << records.indexed_vertex_count() << " records\n";
+    return 0;
+}
 ```
+
+To save the grove, write it to a binary stream (`std::ofstream out("records.gg", std::ios::binary);
+records.serialize(out);`) as described in the serialization guide. The notes on `BedGrove` and
+`GffGrove` in the Python tab (live records, unlabelled edges) describe those Python classes only.
 
 ::::
 
