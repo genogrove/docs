@@ -2,9 +2,10 @@
 
 A {term}`registry` collapses the thousands of repeats of the same string in a dataset — chromosome
 names, transcript or gene IDs, sample identifiers — into one small integer you store as a
-{term}`grove` {term}`payload`, and gives the string back when you need it. This is called
-{term}`interning`: every distinct key gets one stable 4-byte ID, and interning the same key again
-returns the existing ID.
+{term}`grove` {term}`payload`, and gives the string back when you need it. For example, if a million
+intervals each belong to a sample called `SampleA_liver`, you store the name once and the number `0`
+a million times. This is called {term}`interning`: every distinct key gets one stable 4-byte ID, and
+interning the same key again returns the existing ID.
 
 ## Getting the registry
 
@@ -37,7 +38,7 @@ auto& reg = gdt::registry<std::string>::instance();
 :sync: py
 
 `Registry` is a process-wide {term}`singleton` (one shared object for the whole program) mapping a
-string key to a JSON payload (the C++ `registry<std::string, void, json_value>`):
+string key to a payload that can be any JSON value (a dict, list, string, number or `None`):
 
 ```python
 import pygenogrove as pg
@@ -76,16 +77,17 @@ reg.contains(999);                      // false
 
 The comments show what each line evaluates to; the lines compute the value without printing it. IDs
 are `registry::id_type` (`uint32_t`, a 32-bit unsigned integer), handed out in insertion order from
-0; `registry::null_id` (`UINT32_MAX`) is reserved and never returned. A pool can hold up to
-`null_id` entries; `intern` throws a `std::runtime_error` {term}`exception` on the entry after that.
-`get(id)` with an unknown ID throws `std::out_of_range`.
+0. `get(id)` with an unknown ID throws `std::out_of_range`.
+
+Limit: `registry::null_id` (`UINT32_MAX`) is reserved and never returned, so a pool holds up to
+`null_id` entries. `intern` throws a `std::runtime_error` {term}`exception` on the entry after that.
 
 Store the ID in the grove instead of the string:
 
 ```cpp
-// continuing from above: gdt and reg
 #include <genogrove/structure/grove/grove.hpp>
 #include <genogrove/data_type/interval.hpp>
+// continuing from above: gdt and reg
 
 namespace gst = genogrove::structure;
 
@@ -157,8 +159,7 @@ const gene_info& info = gene_reg::instance().get(id1);                    // {"F
 ```
 
 The one-argument `intern(value)` exists only when `Key == Payload` (`registry::key_is_payload`).
-This pattern avoids giving `gene_info` an `operator==` / `std::hash` that only looks at the ID, which
-would leak a partial notion of equality to everyone else holding a `gene_info`.
+With this pattern the key is the identity, so `gene_info` needs no `operator==` or `std::hash`.
 
 ::::
 
@@ -262,6 +263,9 @@ reg.clear();                              // on the instance
 gdt::registry<std::string>::reset();      // the same, as a static call (on the class, not an object)
 ```
 
+`reset()` is only a shortcut for `instance().clear()`; use it where you have no object at hand, for
+example in test set-up.
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -272,6 +276,9 @@ gdt::registry<std::string>::reset();      // the same, as a static call (on the 
 r.clear()                                 # on the instance
 pg.Registry.reset()                       # the same, as a static call (on the class, not an object)
 ```
+
+`reset()` is only a shortcut for `clear()` on the instance; use it where you have no object at hand,
+for example in test set-up.
 
 ::::
 
@@ -289,23 +296,28 @@ hold registry IDs, write the registry **first** and read it back **first**, so t
 :sync: cpp
 
 ```cpp
-// continuing from above: gdt and reg
 #include <fstream>
+// continuing from above: gdt and reg
 
-std::ofstream out("names.bin", std::ios::binary);               // a file stream, opened for bytes
-reg.serialize(out);
+{
+    std::ofstream out("names.bin", std::ios::binary);           // a file stream, opened for bytes
+    reg.serialize(out);
+}                                                               // the closing brace closes and flushes the file
 
 std::ifstream in("names.bin", std::ios::binary);
 auto& restored = gdt::registry<std::string>::deserialize(in);   // replaces the singleton's contents
 ```
 
-The two {term}`streams <stream>` are the file handles the registry writes to and reads from.
+The two {term}`streams <stream>` are the file handles the registry writes to and reads from. The
+file must be closed (here by the closing brace) before it is read back.
 
 - Wire format (the byte layout in the file): with `Key == Payload`, a `uint64_t` (64-bit) count then
   each payload; otherwise `(key, payload)` pairs in ID order. Each value is written through
-  `gdt::serializer<Payload>` (and `gdt::serializer<Key>` when they differ), so a custom payload such
-  as the `gene_info` above must be trivially copyable (a plain record that can be copied byte for
-  byte), or `serialization_traits` must be specialised for it — see {doc}`/guide/serialization/index`.
+  `gdt::serializer<Payload>` (and `gdt::serializer<Key>` when they differ). A custom payload must
+  therefore be {term}`trivially copyable` (a plain record of numbers) or provide its own
+  `serialize` / `deserialize`. The `gene_info` above holds two `std::string` members, so it is not
+  trivially copyable and needs its own `serialize` / `deserialize` members or a
+  `serialization_traits` specialisation — see {doc}`/guide/serialization/index`.
 - `deserialize` offers a {term}`strong exception guarantee`: it builds into temporaries and commits
   only after the whole stream has been read, so a truncated or corrupt stream leaves the singleton
   exactly as it was. It throws `std::runtime_error` for a count beyond `id_type` capacity
@@ -318,8 +330,8 @@ The two {term}`streams <stream>` are the file handles the registry writes to and
 
 ```python
 # continuing from above: pg and r
-r.serialize("names.gg")                    # keys and JSON payloads
-r2 = pg.Registry.deserialize("names.gg")   # loads into the singleton, replacing its contents
+r.serialize("names.reg")                   # keys and JSON payloads
+r2 = pg.Registry.deserialize("names.reg")  # loads into the singleton, replacing its contents
 ```
 
 `deserialize` raises `RuntimeError` on a truncated or corrupt file and leaves the singleton as it was

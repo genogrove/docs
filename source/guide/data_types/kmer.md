@@ -1,7 +1,8 @@
 # K-mer
 
-A **point** {term}`key type` holding a DNA sequence of at most 32 bases, packed two bits per base
-(`A=00`, `C=01`, `G=10`, `T=11`) into one 64-bit integer together with its length `k`. Two
+A **point** {term}`key type` holding a DNA sequence of at most 32 bases. Each base takes two bits
+(`A=00`, `C=01`, `G=10`, `T=11`), and the bits of all bases form one 64-bit integer, the *encoding*.
+The key also stores the length `k`. Two
 {term}`k-mers <k-mer>` "{term}`overlap`" only when they are **identical**, so in a {term}`grove` keyed
 by `kmer` `intersect` is an exact lookup (membership, counts) and {term}`flanking` returns the nearest
 k-mers on either side in sort order.
@@ -31,9 +32,9 @@ gdt::kmer::is_valid("ACGN");          // false — N is not a base
 
 The comments show what each line evaluates to; the lines compute the value without printing it, so
 wrap one in `std::cout << ... << '\n';` to see it. The sequence constructor throws a
-`std::invalid_argument` {term}`exception` for a base outside `ACGT` (any case) or a length over 32;
-the encoding constructor masks the encoding to `k` bases (keeps only the lowest `2k` bits) and
-throws if `k > 32`. A default-constructed `kmer` (`gdt::kmer{}`) is the empty 0-mer.
+`std::invalid_argument` {term}`exception` for a base outside `ACGT` (any case) or a length over 32.
+The encoding constructor keeps only the lowest `2k` bits and throws if `k > 32`. A
+default-constructed `kmer` (`gdt::kmer{}`) is the empty 0-mer.
 
 ::::
 
@@ -62,9 +63,8 @@ Kmer(encoding: int, k: int)           # encoding is masked to k bases
 ```
 
 The sequence constructor raises a `ValueError` {term}`exception` for a base outside `ACGT` or a
-length over 32; the encoding constructor masks the encoding to `k` bases (keeps only the lowest `2k`
-bits) and raises `ValueError` for `k` in 33–255 (a `k` above 255 does not fit the 8-bit parameter —
-an integer 0–255 — and is rejected earlier with `TypeError`).
+length over 32. `Kmer(encoding, k)` keeps only the lowest `2k` bits and raises `ValueError` if `k`
+is above 32. A `k` above 255 does not fit the 8-bit parameter and raises `TypeError`.
 
 ::::
 
@@ -74,7 +74,7 @@ an integer 0–255 — and is rejected earlier with `TypeError`).
 
 K-mers sort by `k` first, then by encoding, so every 4-mer sorts before every 5-mer and k-mers of
 one length sort as their packed integers (which is alphabetical in `A < C < G < T`). Equality
-compares both fields.
+compares both fields. For example, `AC` sorts before `AAA`, because 2 is less than 3.
 
 ## The kmer type
 
@@ -91,9 +91,11 @@ Methods:
 - `get_encoding()`, `get_k()`
 - `static overlaps(a, b)` — same `k` and same encoding
 - `static aggregate(a, b)` — the greater of the two in sort order
-- `static is_valid(sequence)` — `constexpr` check that every character is a base `A`, `C`, `G` or `T` (either case; usable at compile time). It does not check the length: a valid sequence of more than 32 bases passes this check and then fails in the constructor
+- `static is_valid(sequence)` — `constexpr` check that every character is a base `A`, `C`, `G` or
+  `T` (either case; usable at compile time). It does not check the length: a valid sequence of more
+  than 32 bases passes this check and then fails in the constructor
 - `static encode_base(c)`, `static decode_base(bits)` — single-base conversions; `BASE_MASK`
-  (`0x03`, binary `11`) isolates one base from an encoding (AND-ing with it keeps the lowest two bits)
+  (`0x03`, binary `11`) isolates one base from an encoding
 - `to_string()` — the sequence
 - `serialize(os)`, `static deserialize(is)` — binary persistence ({term}`serialization`)
 - `max_k` — `static constexpr uint8_t` (a compile-time constant), 32

@@ -1,8 +1,8 @@
 # Key
 
-A {term}`key` is what a {term}`grove` actually stores: a {term}`key type` value (the coordinate the
-tree sorts on, see {doc}`index`) together with an optional data {term}`payload` (whatever you want to
-carry with it — a name, a record, a JSON object). Inserts and queries hand you keys; graph
+A {term}`grove` stores keys. A {term}`key` has two parts. The **value** is the coordinate that the
+tree sorts on (a {term}`key type`, see {doc}`index`). The optional {term}`payload` is whatever you
+want to carry with it: a name, a record, a JSON object. Inserts and queries hand you keys, and graph
 {term}`edges <edge>` connect keys. On this page *value* means the coordinate and *key* means the
 stored item that wraps it.
 
@@ -30,8 +30,8 @@ gdt::key<gdt::interval>           bare{gdt::interval{100, 200}};     // no paylo
 ```
 
 A grove creates keys for you on insert and returns a {term}`pointer` to the stored key (its
-{term}`key handle`); you rarely construct one by hand except for `grove::insert(index, key)` on a
-payload-less grove.
+{term}`key handle`). `insert_data(index, value, data)` builds the key for you. You construct a key by
+hand only for `grove::insert(index, key)` on a payload-less grove.
 
 ::::
 
@@ -53,7 +53,9 @@ hit = list(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))[0]   # also
 `"chr1"` is the {term}`index` (the chromosome tree) and the dict the payload. `intersect` returns a
 {term}`QueryResult`, hence the `list(...)`.
 
-`BedKey`, `GffKey`, `NumericKey` and `KmerKey` are the same thing for the typed and point groves.
+`BedKey` and `GffKey` are the same thing for `BedGrove` and `GffGrove`, whose payload is a `BedEntry`
+or `GffEntry` record (see {doc}`/guide/grove/loading_data`). `NumericKey` and `KmerKey` are the same
+thing for `NumericGrove` and `KmerGrove`.
 
 ::::
 
@@ -178,8 +180,7 @@ hits[0] == k                   # True if same coordinate, whatever the payloads
 ```
 
 `==`, `<`, `>` and `hash()` (the integer that `set` and `dict` use to place and find a value) all delegate to
-`value`. `hash(k)` is the C++ `std::hash` of the
-value, so it agrees with `hash(k.value)`. (`<=` / `>=` are not defined on `Key`; they are on the
+`value`. `hash(k)` is the same number as `hash(k.value)`. (`<=` / `>=` are not defined on `Key`; they are on the
 coordinate types.)
 
 ::::
@@ -202,8 +203,7 @@ code it was declared in).
 
 A key without a payload costs nothing extra on GCC and Clang
 (`sizeof(gdt::key<gdt::interval>) == sizeof(gdt::interval)` — `sizeof` is the size in bytes — via
-`[[no_unique_address]]`, an attribute that lets the compiler give an empty payload no space at all);
-MSVC ignores that attribute and pads the key by a byte.
+`[[no_unique_address]]`, an attribute that lets the compiler give an empty payload no space at all).
 
 ::::
 
@@ -212,8 +212,9 @@ MSVC ignores that attribute and pads the key by a byte.
 
 A `Key` keeps its owning grove alive for as long as you hold it, so the grove cannot disappear
 underneath it. It stays valid until the grove is **compacted**: `grove.compact()` ({term}`compact`)
-rebuilds the key storage and invalidates every indexed key — rediscover them with a fresh query (see
-{doc}`/guide/grove/removing`); keys from `add_external_key` are unaffected. A `Key` cannot be
+rebuilds the key storage and invalidates every `Key` that came from `insert` or a query. Find them
+again with a new query (see {doc}`/guide/grove/removing`); keys from `add_external_key` are
+unaffected. A `Key` cannot be
 pickled (saved with Python's `pickle` module) or moved to another grove.
 
 ::::

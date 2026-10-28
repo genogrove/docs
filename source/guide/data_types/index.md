@@ -6,6 +6,9 @@ exact matches — and every grove is built on exactly one of them. The {term}`pa
 key (a name, a record, a JSON object) is a separate thing and is covered in {doc}`key`;
 {term}`interning` repeated values into small IDs is covered in {doc}`registry`.
 
+The C++ snippets in this guide are fragments. Put them in `main()` and build as in the
+{doc}`/guide/quickstart`.
+
 | Key type (C++ / Python) | What it holds | Two values "{term}`overlap`" when | Use it for |
 |---|---|---|---|
 | `interval` / — | {term}`0-based closed` `[start, end]` | the ranges share at least one base | regions where {term}`strand` does not matter (C++ only) |
@@ -52,7 +55,8 @@ Your own type can be a key type too — see {doc}`/guide/grove/custom_key_types`
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-- **`GenomicCoordinate`** is the key type of `Grove`, `BedGrove` and `GffGrove`. There is no plain
+- **`GenomicCoordinate`** is the key type of `Grove`, `BedGrove` and `GffGrove` (the groves are
+  described in {doc}`/guide/grove/index`). There is no plain
   interval class in Python: an unstranded region is `GenomicCoordinate('.', start, end)`, and a
   query that should ignore strand uses `'*'`.
 - **`Numeric`** is the key type of `NumericGrove`, **`Kmer`** of `KmerGrove`: "overlap" means
@@ -78,12 +82,15 @@ C++ feature (see {doc}`/guide/grove/custom_key_types`).
 ## Coordinates
 
 Region keys are **0-based and closed**: `[100, 200]` covers bases 100 through 200 inclusive, so a
-single base is `[n, n]`. File formats differ (BED and BAM are 0-based half-open, GFF is 1-based
-closed), and the readers keep each format's native numbers, so convert when building keys from the
-**reader records' `start` / `end` fields**: BED/BAM/VCF `[s, e)` → `[s, e - 1]`, GFF `[s, e]` →
-`[s - 1, e - 1]`. (The VCF reader has already turned the file's 1-based `POS` into a 0-based `start`;
-the rule applies to the record, not to a position read straight out of a VCF file.) The conversion
-table and the helpers that do it for you are in the {doc}`I/O guide </guide/io/index>`.
+single base is `[n, n]`. The readers keep the numbers of each file format, so you convert when you
+build a key from the `start` and `end` fields of a reader record:
+
+- BED, BAM and VCF records are {term}`half-open` `[s, e)`. The key is `[s, e - 1]`.
+- GFF records are 1-based and closed `[s, e]`. The key is `[s - 1, e - 1]`.
+
+The VCF reader has already turned the 1-based `POS` of the file into a 0-based `start`. The rule
+applies to the record, not to a `POS` that you read directly from a VCF file. The conversion table
+and the helpers that do it for you are in the {doc}`I/O guide </guide/io/index>`.
 
 ## What every key type can do
 
@@ -115,11 +122,11 @@ static_assert(region.get_start() == 100);
 static_assert(gdt::interval::overlaps(region, gdt::interval{150, 250}));
 ```
 
-`genomic_coordinate`, `numeric` and `kmer` also specialise `std::hash` — the standard hook that
-tells C++ how to turn a value into the small integer (*hash*) that `std::unordered_set` /
-`std::unordered_map` file it under; it mixes exactly the fields `operator==` compares — so they work
-as keys of those containers and as {term}`registry` keys; `interval` does not. Hashing is not part of `key_type_base` — the grove never hashes
-keys.
+`genomic_coordinate`, `numeric` and `kmer` also specialise `std::hash`: a function that turns a
+value into an integer (a {term}`hash`). Unordered containers such as `std::unordered_set` use that
+integer to place and find values, and so does a {term}`registry`. The hash uses exactly the fields
+that `operator==` compares. `interval` has no hash, so it cannot be a key of these containers. The
+grove never hashes keys, so hashing is not part of `key_type_base`.
 
 ::::
 
@@ -131,14 +138,13 @@ The three types share one interface:
 | Operation | Meaning |
 |---|---|
 | `a < b`, `a <= b`, `a > b`, `a >= b`, `a == b` | ordering and equality (what the tree sorts by) |
-| `T.overlaps(a, b)` | static; the type's own overlap rule |
+| `GenomicCoordinate.overlaps(a, b)` (likewise `Numeric`, `Kmer`) | static; the type's own overlap rule |
 | `str(a)`, `repr(a)` | text form, e.g. `"+:100-200"`, `"42"`, `"ACGT"` |
-| `hash(a)` | value-based, built on the C++ `std::hash` of the value, so equal values always hash equal |
+| `hash(a)` | value-based, so equal values always hash equal |
 
-(A *hash* is the small integer `set` and `dict` file a value under to find it again quickly.) That
-makes all three usable as `set` members, `dict` keys and sort keys. (The Python integer is not
-guaranteed to be the raw C++ hash value — Python normalises hash results — so do not compare hashes
-across the two languages.) `GenomicCoordinate` and `Numeric` have setters: do not call them on a
+(A {term}`hash` is the integer that `set` and `dict` use to place a value and find it again quickly.)
+That makes all three usable as `set` members, `dict` keys and sort keys. Do not compare hash numbers
+with C++ hash values: they can differ. `GenomicCoordinate` and `Numeric` have setters: do not call them on a
 value while it is a `set` member or `dict` key, since the stored hash would no longer match and the
 lookup fails. {term}`Serialization <serialization>` happens through the grove (`Grove.serialize`),
 not on the values themselves.
@@ -160,8 +166,8 @@ inserting it (a query object, say); never call them on something the grove alrea
 
 The {term}`key handles <key handle>` a grove returns are non-{term}`const` (not read-only), and
 `key::set_value(...)` / the type setters (`set_range`, `set_strand`, `set_value`) compile fine
-through them. The rule is enforced by
-discipline: edit only the **data payload** through a handle, never the value.
+through them. Nothing stops you, so follow the rule: edit only the **data payload** through a
+handle, never the value.
 
 ::::
 
@@ -170,8 +176,8 @@ discipline: edit only the **data payload** through a handle, never the value.
 
 `key.value` returns a **copy**, so reading a stored coordinate back and editing the copy is always
 safe. `set_range` / `set_strand` / `set_value` on a coordinate you have not inserted yet are fine;
-on the universal `Grove` the key value you inserted is copied into the grove, so there is no way to
-reach the stored one.
+on the universal `Grove` ({doc}`/guide/grove/index`, the grove that takes any JSON payload) the key
+value you inserted is copied into the grove, so there is no way to reach the stored one.
 
 ::::
 

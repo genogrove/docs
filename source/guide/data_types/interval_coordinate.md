@@ -25,10 +25,10 @@ gdt::genomic_coordinate wild{'*', 1000, 2000};   // wildcard strand (for queries
 
 Both constructors throw a `std::invalid_argument` {term}`exception` if `start > end`;
 `genomic_coordinate` also throws for a strand other than `'+'`, `'-'`, `'.'`, `'*'`. A
-default-constructed `interval` (`gdt::interval{}`, no arguments) holds the sentinel
-`interval::INVALID_POSITION` (`SIZE_MAX`, the largest value a `size_t` can hold) in both fields — a
-*sentinel* is a reserved value meaning "not set", so use it only as a placeholder. A
-default-constructed `genomic_coordinate` is the real value `'.'`, `[0, 0]`, not a sentinel.
+default-constructed `interval` (`gdt::interval{}`, no arguments) is a "not set" placeholder. Both
+fields hold the *sentinel* `interval::INVALID_POSITION`, a reserved value (`SIZE_MAX`, the largest
+value a `size_t` can hold). Use it only as a placeholder. A default-constructed `genomic_coordinate`
+is the real value `'.'`, `[0, 0]`, not a sentinel.
 
 ::::
 
@@ -100,6 +100,8 @@ after inserting `plus` and `minus`, a query with strand `'+'` finds only `plus` 
 :sync: py
 
 ```python
+import pygenogrove as pg
+
 plus  = pg.GenomicCoordinate("+", 100, 200)
 minus = pg.GenomicCoordinate("-", 100, 200)
 dot   = pg.GenomicCoordinate(".", 100, 200)
@@ -109,8 +111,8 @@ pg.GenomicCoordinate.overlaps(plus, minus)   # False — different strands
 pg.GenomicCoordinate.overlaps(plus, dot)     # False — '.' matches only '.'
 pg.GenomicCoordinate.overlaps(plus, star)    # True  — '*' matches anything
 
-g = pg.Grove()
-g.insert("chr1", plus)
+g = pg.Grove(100)
+g.insert("chr1", plus)                       # the payload is optional
 g.insert("chr1", minus)
 len(g.intersect(pg.GenomicCoordinate("+", 150, 160), "chr1"))   # 1
 len(g.intersect(pg.GenomicCoordinate("*", 150, 160), "chr1"))   # 2

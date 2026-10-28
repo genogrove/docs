@@ -30,8 +30,9 @@ n1.to_string();                                   // "100"
 The comments show what each line evaluates to; the lines compute the value without printing it, so
 wrap one in `std::cout << ... << '\n';` to see it. The constructor is `explicit`: write
 `gdt::numeric{100}`, a bare `100` is not converted on its own. A default-constructed `numeric`
-(`gdt::numeric{}`) holds `INT_MIN` (the smallest 32-bit value) — the identity for `aggregate`, the
-starting value that never wins against a real one — not zero, so always pass a value.
+(`gdt::numeric{}`) holds `INT_MIN`, the smallest 32-bit value, not zero. Always pass a value.
+`INT_MIN` is also a valid key: `numeric{}` is equal to `numeric{INT_MIN}` and overlaps it, so do not
+use it to mean "missing".
 
 ::::
 
@@ -57,10 +58,10 @@ result. Signature (for reference, not to paste):
 Numeric(value: int)      # -2**31 <= value <= 2**31 - 1
 ```
 
-`Numeric` wraps a C++ 32-bit `int`: a value outside `-2**31 .. 2**31 - 1` raises a `TypeError`
+`Numeric` holds a 32-bit signed integer: a value outside `-2**31 .. 2**31 - 1` raises a `TypeError`
 {term}`exception` (not `ValueError`), from both the constructor and `set_value`. `Numeric()` with no
-argument is the sentinel `INT_MIN` (`-2**31`, a reserved "not set" value), not zero — always pass a
-value.
+argument holds `-2**31`, not zero. That value is also a valid key: `Numeric()` is equal to
+`Numeric(-2**31)`, so do not use it to mean "missing". Always pass a value.
 
 ::::
 
@@ -127,7 +128,7 @@ auto hit = ids.intersect(gdt::numeric{42}, "samples");        // exact lookup: 1
 hit.get_keys().front()->get_data();                           // "sample-42"
 
 auto nb = ids.flanking(gdt::numeric{40}, "samples");          // nearest below / above 40
-nb.get_successor()->get_value().get_value();                  // 42
+nb.get_successor()->get_value().get_value();                  // 42 (key -> numeric -> int)
 ```
 
 `"samples"` is the {term}`index`: in a numeric grove it is simply the name of one tree, not a
