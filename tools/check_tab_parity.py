@@ -21,6 +21,7 @@ from pathlib import Path
 # they are converted; rule 2 only applies to these.
 CONVERTED = {
     "guide/quickstart.md",
+    "guide/examples.md",
     "guide/grove/index.md",
     "guide/grove/inserting.md",
     "guide/grove/querying.md",
