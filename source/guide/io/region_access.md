@@ -1,9 +1,11 @@
 # Region Access
 
 The BED, GFF and VCF readers can read **only the records overlapping one locus** instead of
-streaming the whole file. Pass a tabix region string (`"chrom:start-end"`) and the reader seeks
-through the file's index; iteration, record types and the error contract are otherwise unchanged.
-A per-locus lookup is O(records in the region), not O(file).
+streaming the whole file. Pass a region string in tabix form (`"chrom:start-end"`) and the reader
+seeks through the file's index — a companion file (`.tbi` / `.csi`) that records where each
+chromosome's blocks sit; iteration, record types and the error contract are otherwise unchanged. A
+per-locus lookup costs in proportion to the records in the region, not the size of the file
+({term}`O(records in the region) <O(log n), O(n)>`, not O(file)).
 
 ## Querying a region
 
@@ -20,15 +22,20 @@ A per-locus lookup is O(records in the region), not O(file).
 
 namespace gio = genogrove::io;
 
-// Only records overlapping the EGFR locus
-gio::gff_reader genes("genes.gff3.gz", {.region = "chr7:55000000-55300000"});
-for (const auto& e : genes) {
-    std::cout << e.type << " " << e.start << "-" << e.end << "\n";
-}
+int main() {
+    // Only records overlapping the EGFR locus; {.region = ...} sets that one option
+    gio::gff_reader genes("genes.gff3.gz", {.region = "chr7:55000000-55300000"});
+    for (const auto& e : genes) {
+        std::cout << e.type << " " << e.start << "-" << e.end << "\n";
+    }
 
-// Same option on the other two readers
-gio::bed_reader peaks("peaks.bed.gz", {.region = "chr1:1-1000000"});
-gio::vcf_reader calls("calls.vcf.gz", {.region = "chr1:1-1000000"});
+    // Same option on the other two readers
+    gio::bed_reader peaks("peaks.bed.gz", {.region = "chr1:1-1000000"});
+    gio::vcf_reader calls("calls.vcf.gz", {.region = "chr1:1-1000000"});
+    for (const auto& p : peaks) std::cout << p.chrom << ":" << p.start << "-" << p.end << "\n";
+    for (const auto& v : calls) std::cout << v.chrom << ":" << v.start << " " << v.ref << "\n";
+    return 0;
+}
 ```
 
 An empty `region` (the default) streams the whole file.
@@ -43,12 +50,13 @@ import pygenogrove as pg
 
 # Only records overlapping the EGFR locus
 for e in pg.GffReader("genes.gff3.gz", region="chr7:55000000-55300000"):
-    ...
+    print(e.type, e.start, e.end)
 
-for e in pg.BedReader("peaks.bed.gz", region="chr1:1-1000000"):
-    ...
+# Same option on the other two readers
+for p in pg.BedReader("peaks.bed.gz", region="chr1:1-1000000"):
+    print(p.chrom, p.start, p.end)
 for v in pg.VcfReader("calls.vcf.gz", region="chr1:1-1000000"):
-    ...
+    print(v.chrom, v.start, v.ref)
 ```
 
 An empty `region=""` (the default) streams the whole file.
@@ -105,12 +113,13 @@ bcftools index calls.sorted.bcf
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-The failure is a `std::runtime_error` from the constructor.
+The failure is a `std::runtime_error` {term}`exception` from the constructor.
 
 The region option is implemented on `gio::tabix_reader` (`<genogrove/io/bgzf_utils.hpp>`), a public
-RAII wrapper over htslib's tabix iterator. It is usable on its own to stream the raw,
-newline-stripped lines overlapping a locus from any tabix-indexed file, with the same index
-requirements and error behaviour; see the {doc}`I/O reference </reference/cpp/io>`.
+wrapper over htslib's tabix iterator that opens the index when constructed and closes it when
+destroyed. It is usable on its own to stream the raw, newline-stripped lines overlapping a
+locus from any tabix-indexed file, with the same index requirements and error behaviour; see the
+{doc}`I/O reference </reference/cpp/io>`.
 
 ::::
 

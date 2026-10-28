@@ -1,9 +1,14 @@
 # Reading Genomic Files
 
-genogrove reads the common genomic text and binary formats through a family of **readers**. Every
-reader opens one file, yields one parsed record at a time, and is used the same way: construct it
-with a path (and optional options), then iterate. Plain and gzip/BGZF-compressed inputs are detected
-automatically.
+{term}`genogrove` reads the common genomic text and binary formats through a family of **readers**.
+Every reader opens one file, yields one parsed record at a time, and is used the same way: construct
+it with a path (and optional options), then iterate. Plain and gzip/BGZF-compressed inputs are
+detected automatically.
+
+Before you start, install genogrove or {term}`pygenogrove` — {doc}`/guide/installation`
+also shows how to compile and link the C++ examples. The file names in the snippets
+(`data.bed.gz`, `peaks.bed`, `reads.bam`, …) stand for any file of that format; substitute your
+own.
 
 | Format | Records | Native coordinates | Page |
 |---|---|---|---|
@@ -13,8 +18,11 @@ automatically.
 | FASTA / FASTQ | `fasta_entry` / `FastaEntry` (streaming) and `fasta_index` / `FastaIndex` (random access) | 0-based half-open fetch | {doc}`fasta` |
 | VCF / BCF | `vcf_entry` / `VcfEntry` | 0-based half-open `[start, end)` | {doc}`vcf` |
 
+`[start, end)` means `start` is included and `end` is not: the record covers bases `start`
+through `end - 1`. `[start, end]` includes both.
+
 Three readers (BED, GFF, VCF) can also seek to one locus of an indexed file instead of streaming
-the whole thing — see {doc}`region_access`. Loading records into a grove is covered in
+the whole thing — see {doc}`region_access`. Loading records into a {term}`grove` is covered in
 {doc}`/guide/grove/loading_data`.
 
 ## The reader pattern
@@ -25,22 +33,27 @@ the whole thing — see {doc}`region_access`. Loading records into a grove is co
 :sync: cpp
 
 All readers live in `genogrove::io` and share one shape: construct, then range-for. Each is a
-`file_reader<EntryType>` whose `begin()` is a **single-pass input iterator**.
+`file_reader<EntryType>` (a {term}`template` filled in with the record type) whose `begin()` is a
+**single-pass input {term}`iterator <iterator / iterable>`** — it can only move forward, once.
+
+This fragment shows the shape; wrap it in `main()` to run it (every format page opens with a
+complete program):
 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
 
-namespace gio = genogrove::io;
+namespace gio = genogrove::io;                   // short alias for the namespace
 
 gio::bed_reader reader("data.bed.gz");          // .gz handled automatically
 for (const auto& entry : reader) {
-    // entry is a const bed_entry&
+    // entry is a const bed_entry&: read-only access to the current record
 }
 ```
 
-Readers own htslib handles, so they are **non-copyable but movable**: pass them by reference or
-`std::move` them. Call `begin()` at most once per reader — it consumes the first record eagerly so
-`*it` is valid, and a second call on a non-empty file would skip a record.
+Readers own htslib handles (htslib is the samtools library genogrove reads files with), so they
+are **non-copyable but movable**: pass them by reference or `std::move` them. Call `begin()` at most
+once per reader — it reads the first record immediately so that `*it` (the record the iterator
+points at) is valid, and a second call on a non-empty file would skip a record.
 
 ::::
 
@@ -53,12 +66,13 @@ All readers share one shape: construct, then iterate with `for`.
 import pygenogrove as pg
 
 for entry in pg.BedReader("data.bed.gz"):      # .gz handled automatically
-    ...                                         # entry is a BedEntry
+    print(entry)                                # entry is a BedEntry
 ```
 
-Readers are **single-pass**: each owns an htslib handle and cannot be restarted or iterated twice —
-construct a new one to read again. They are not thread-safe; a call from another thread while
-`__next__` is running raises `RuntimeError` (see {doc}`/guide/thread_safety`).
+Readers are **single-pass**: each owns an htslib handle (htslib is the samtools library genogrove
+reads files with) and cannot be restarted or iterated twice — construct a new one to read again.
+They are not {term}`thread-safe`; a call from another thread while `__next__` is running raises
+`RuntimeError` (see {doc}`/guide/thread_safety`).
 
 ::::
 
@@ -66,8 +80,8 @@ construct a new one to read again. They are not thread-safe; a call from another
 
 ## Coordinates: converting to grove keys
 
-Readers keep each format's **native** convention. Grove keys are **0-based closed** `[start, end]`,
-so convert when inserting:
+Readers keep each format's **native** convention. Grove {term}`keys <key>` are
+**{term}`0-based closed`** `[start, end]`, so convert when inserting:
 
 | Format | Native | Grove key |
 |---|---|---|
@@ -78,6 +92,9 @@ so convert when inserting:
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
+
+Fragments: `grove` is a `gst::grove<gdt::interval, std::string>`, `entry` the record from a
+reader loop and `data` the {term}`payload` to store ({doc}`bed` has the complete program).
 
 ```cpp
 // BED / BAM / VCF: subtract 1 from end
@@ -96,7 +113,9 @@ The typed `BedGrove` / `GffGrove` do the conversion for you: `insert(index, entr
 key from the record's native coordinates. `SamEntry` and `VcfEntry` provide `to_coordinate()`.
 
 ```python
-bed = pg.BedGrove(100)
+import pygenogrove as pg
+
+bed = pg.BedGrove(100)                                  # 100 = tree order, a good default
 for e in pg.BedReader("peaks.bed"):
     bed.insert(e.chrom, e)                              # key derived from the record
 
@@ -121,8 +140,9 @@ The readers open **plain** and **gzip / BGZF** (`.gz`) files; nothing else is de
 both), so files distributed as plain gzip — ENCODE GTFs, GENCODE annotations — need no
 recompression. Only BGZF supports the random-access seeks that {doc}`region_access` needs.
 
-A separate detector recognises a file's format and compression from its extension and magic bytes.
-It also *recognises* BZIP2, XZ, ZSTD and LZ4, but the readers cannot open those — decompress first.
+A separate detector recognises a file's format and compression from its extension and
+{term}`magic bytes <magic>`. It also *recognises* BZIP2, XZ, ZSTD and LZ4, but the readers cannot
+open those — decompress first.
 
 :::::{tab-set}
 
@@ -132,14 +152,15 @@ It also *recognises* BZIP2, XZ, ZSTD and LZ4, but the readers cannot open those 
 ```cpp
 #include <genogrove/io/filetype_detector.hpp>
 
+// the call returns two values at once; `auto [a, b]` names them
 auto [type, compression] = gio::filetype_detector::detect_filetype("data.bed.gz");
 // type        == gio::filetype::BED
 // compression == gio::compression_type::GZIP
 ```
 
-`detect_filetype` is `static`; no detector object is needed. `filetype` covers BED, BEDGRAPH, GFF,
-GTF, SAM, BAM, FASTA, FASTQ, VCF, GG and UNKNOWN; `compression_type` covers NONE, GZIP, BZIP2, XZ,
-ZSTD, LZ4 and UNKNOWN.
+`detect_filetype` is `static` (called on the class, no detector object is needed). `filetype`
+covers BED, BEDGRAPH, GFF, GTF, SAM, BAM, FASTA, FASTQ, VCF, GG and UNKNOWN; `compression_type`
+covers NONE, GZIP, BZIP2, XZ, ZSTD, LZ4 and UNKNOWN.
 
 ::::
 
@@ -147,13 +168,15 @@ ZSTD, LZ4 and UNKNOWN.
 :sync: py
 
 ```python
+import pygenogrove as pg
+
 ftype, comp = pg.FiletypeDetector.detect_filetype("data.bed.gz")
-# (Filetype.BED, CompressionType.GZIP)
+print(ftype, comp)                              # Filetype.BED CompressionType.GZIP
 ```
 
-`detect_filetype` is a `staticmethod`. `Filetype` covers `BED`, `BEDGRAPH`, `GFF`, `GTF`, `SAM`,
-`BAM`, `FASTA`, `FASTQ`, `VCF`, `GG` and `UNKNOWN`; `CompressionType` covers `NONE`, `GZIP`,
-`BZIP2`, `XZ`, `ZSTD`, `LZ4` and `UNKNOWN`.
+`detect_filetype` is a `staticmethod` (called on the class, no detector object is needed).
+`Filetype` covers `BED`, `BEDGRAPH`, `GFF`, `GTF`, `SAM`, `BAM`, `FASTA`, `FASTQ`, `VCF`, `GG` and
+`UNKNOWN`; `CompressionType` covers `NONE`, `GZIP`, `BZIP2`, `XZ`, `ZSTD`, `LZ4` and `UNKNOWN`.
 
 ::::
 
@@ -170,16 +193,17 @@ The BED and GFF readers can instead **skip** malformed records.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
-Readers throw `std::runtime_error`. Construct and iterate inside one `try` so both construction
-and per-record failures are caught:
+Readers report failures as {term}`exceptions <exception>` of type `std::runtime_error`. Construct
+and iterate inside one `try` so both construction and per-record failures are caught (fragments;
+`gio` is the alias from above):
 
 ```cpp
 try {
     gio::bed_reader reader("data.bed");
     for (const auto& entry : reader) { /* ... */ }
 } catch (const std::runtime_error& e) {
-    std::cerr << e.what() << "\n";            // e.g. "Invalid coordinate format at line 42"
-}
+    std::cerr << e.what() << "\n";            // e.what() is the message,
+}                                             // e.g. "Invalid coordinate format at line 42"
 ```
 
 Lenient mode for BED / GFF:
@@ -189,15 +213,17 @@ gio::bed_reader reader("data.bed", gio::bed_reader_options{.skip_invalid_lines =
 for (const auto& entry : reader) { /* only well-formed records arrive here */ }
 ```
 
-With `skip_invalid_lines` a malformed first line is skipped like any other rather than failing
-construction. Skipped records are **silent**: the reader clears its error message at the start of
-every read attempt and keeps reading until a record parses, so by the time your loop body runs the
-message is empty again. To find out what a file contains that would be skipped, read it once without
-the flag. `get_error_message()` is useful after a *caught* exception — a mid-stream BGZF/tabix I/O
-error records its message before propagating.
+`{.skip_invalid_lines = true}` sets one named field of the options and leaves the rest at their
+defaults. With `skip_invalid_lines` a malformed first line is skipped like any other rather than
+failing construction. Skipped records are **silent**: the reader clears its error message at the
+start of every read attempt and keeps reading until a record parses, so by the time your loop body
+runs the message is empty again. To find out what a file contains that would be skipped, read it
+once without the flag. `get_error_message()` is useful after a *caught* exception — a mid-stream
+BGZF/tabix I/O error records its message before propagating.
 
 `bam_reader` and `fasta_reader` have no lenient mode; they throw on I/O errors and on truncated
-records (auxiliary data in BAM, quality strings in FASTQ).
+records (auxiliary data — the optional tags at the end of a record — in BAM, quality strings in
+FASTQ).
 
 ::::
 
@@ -208,9 +234,11 @@ Readers raise `RuntimeError` — at construction for an unopenable file, during 
 malformed record:
 
 ```python
+import pygenogrove as pg
+
 try:
     for entry in pg.BedReader("data.bed"):
-        ...
+        print(entry)
 except RuntimeError as e:
     print(e)                                  # e.g. "Invalid coordinate format at line 42"
 ```
@@ -219,7 +247,7 @@ Lenient mode for `BedReader` / `GffReader`:
 
 ```python
 for entry in pg.BedReader("data.bed", skip_invalid_lines=True):
-    ...                                       # only well-formed records arrive here
+    print(entry)                              # only well-formed records arrive here
 ```
 
 With `skip_invalid_lines=True` a malformed first record is skipped like any other rather than
@@ -229,7 +257,8 @@ empty by the time your loop body runs. To find out what would be skipped, read t
 the flag. `get_current_line()` gives the 1-based line of the last record.
 
 `BamReader` and `FastaReader` have no lenient mode; they raise `RuntimeError` on I/O errors and on
-truncated records (auxiliary data in BAM, quality strings in FASTQ).
+truncated records (auxiliary data — the optional tags at the end of a record — in BAM, quality
+strings in FASTQ).
 
 ::::
 
@@ -237,16 +266,18 @@ truncated records (auxiliary data in BAM, quality strings in FASTQ).
 
 ## Files with no records
 
-For the BED and GFF readers, a structurally valid file that contains no records — empty, only blank
-lines, or only `#` comments and headers — is **not** an error: the reader constructs normally and
-the loop body runs zero times. Deciding what "no data" means is left to the caller. VCF/BCF and BAM
-files must carry a header, so a zero-byte file fails at construction there; a header-only file yields
-zero records.
+For the BED and GFF readers, a structurally valid file that contains no records — empty, only
+blank lines, or only `#` comments and headers — is **not** an error: the reader constructs
+normally and the loop body runs zero times. Deciding what "no data" means is left to the caller.
+VCF/BCF and BAM files must carry a header, so a zero-byte file fails at construction there; a
+header-only file yields zero records.
 
 :::::{tab-set}
 
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
+
+Fragment; `path` is the file name:
 
 ```cpp
 gio::gff_reader reader(path);
@@ -264,9 +295,11 @@ record on a non-empty file, so do not call it again afterwards.
 :sync: py
 
 ```python
-entries = list(pg.GffReader(path))
+import pygenogrove as pg
+
+entries = list(pg.GffReader(path))            # path is the file name
 if not entries:
-    ...   # no records — warn, skip or fail as you see fit
+    print("no records")                       # warn, skip or fail as you see fit
 ```
 
 ::::
