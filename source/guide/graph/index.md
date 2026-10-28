@@ -81,7 +81,9 @@ transcript.add_edge(exon2, exon3)   # exon2 -> exon3
 transcript.edge_count()                                # 2
 ```
 
-The `Key` objects returned by `insert` are the Python form of a key handle. Every other Python
+The `# …` comments after bare expressions show what an interactive session would echo; in a
+script, wrap them in `print(...)`. The `Key` objects returned by `insert` are the Python form of a
+key handle. Every other Python
 snippet on these pages assumes the same `import pygenogrove as pg` line.
 
 ::::
@@ -111,24 +113,26 @@ weighted.add_edge(a, b, 0.95);          // a -> b with weight 0.95
 weighted.get_edges(a);                  // {0.95}
 ```
 
-The metadata-dependent accessors (`get_edges`, `get_neighbors_if` and their `get_in_*` twins) exist
-only when the edge type is not `void`; `get_edge_list` / `get_in_edge_list` always exist, with the
-`metadata` field being `std::monostate` (an empty placeholder value) on plain-edge groves. For
-several metadata shapes in one grove use a `std::variant` (a type that holds one of several
-alternatives) as the edge type — but note that the default serializer handles only trivially
-copyable types (plain values that can be copied byte for byte, such as numbers) and `std::string`,
-so a grove with a `std::variant` edge type (or any other non-trivial metadata) needs a
-`serialization_traits` specialization — a small piece of code telling the serializer how to write
-and read that type — before it can be saved (see the
-{doc}`serialization guide </guide/serialization/index>`).
+The accessors that read metadata exist only when the edge type is not `void`; the ones that
+return edge lists always exist, and on a plain-edge grove their `metadata` field is
+`std::monostate` (an empty placeholder value). {doc}`navigating` introduces them one by one.
+
+To store several metadata shapes in one grove, use a `std::variant` (a type that holds one of
+several alternatives) as the edge type. Saving such a grove needs a little extra code: the default
+serializer handles only {term}`trivially copyable` types and `std::string`, so a `std::variant`
+(or any other non-trivial metadata type) needs a `serialization_traits` specialization that says
+how to write and read it — see the {doc}`serialization guide </guide/serialization/index>`.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-On the universal `Grove` (and `NumericGrove` / `KmerGrove`) every edge carries a JSON
-{term}`payload`; the 2-argument `add_edge` attaches `None`:
+pygenogrove has one **universal** `Grove` (and the point groves `NumericGrove` / `KmerGrove`)
+whose keys and edges carry any JSON value — their edges are *labelled* — and the **typed**
+`BedGrove` / `GffGrove`, whose edges carry nothing (*unlabelled*). The guide uses those four words
+throughout. On the universal `Grove` every edge carries a JSON {term}`payload`; the 2-argument
+`add_edge` attaches `None`:
 
 ```python
 g = pg.Grove()

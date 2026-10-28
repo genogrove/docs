@@ -13,12 +13,16 @@ import from the first example in {doc}`index`.
 ::::{tab-item} {{ cpp_tab }}
 :sync: cpp
 
+Signature:
+
 ```cpp
 void add_edge(key* source, key* target);                  // plain edge
 void add_edge(key* source, key* target, M&& metadata);    // when edge_data_type != void
 ```
 
-`M` stands for the grove's {term}`edge metadata` type, its third {term}`template` argument.
+`M` is deduced from the argument: anything convertible to the grove's {term}`edge metadata` type
+(its third {term}`template` argument) is accepted, a string literal for a `std::string` edge type,
+a number for `double`.
 
 ```cpp
 gst::grove<gdt::interval, std::string, double> g(100);
@@ -36,6 +40,8 @@ Both handles must belong to this grove. A {term}`null pointer <pointer>` throws
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
+
+Signature:
 
 ```python
 add_edge(source: Key, target: Key)            # payload None
@@ -90,8 +96,8 @@ for (size_t i = 0; i < hits.size(); ++i) {
 }
 ```
 
-`get_keys()` returns the matching handles (the C++ counterpart of Python's {term}`QueryResult`);
-`const auto&` names that list without copying it (see {term}`const`).
+`results` is the C++ counterpart of Python's {term}`QueryResult`; `get_keys()` returns its matching
+handles, and `const auto&` names that list without copying it (see {term}`const`).
 
 ::::
 
@@ -135,20 +141,21 @@ the optional holds a value and skips the pair when it is empty. The predicates b
 {term}`lambdas <lambda>` — unnamed functions written inline — that receive the two key handles:
 
 ```cpp
-// Plain edges: link exons that belong to the same transcript
-// ExonInfo: your own struct with a transcript_id field;
-// exon_data: a std::vector<std::pair<gdt::interval, ExonInfo>> sorted by start
-gst::grove<gdt::interval, ExonInfo> g(100);
+// Plain edges: link exons that belong to the same transcript. The payload is the
+// transcript id; the batch is inserted sorted (see /guide/grove/inserting).
+std::vector<std::pair<gdt::interval, std::string>> exon_data = {
+    {{100, 200}, "tx1"}, {{300, 400}, "tx1"}, {{500, 600}, "tx2"}
+};
+gst::grove<gdt::interval, std::string> g(100);
 auto exons = g.insert_data("chr1", exon_data, gst::sorted, gst::bulk);
 
 g.link_if(exons, [](auto* k1, auto* k2) {
-    return k1->get_data().transcript_id == k2->get_data().transcript_id;
+    return k1->get_data() == k2->get_data();         // same transcript id
 });
 
 // Labelled edges: store the intron length, skip implausibly long gaps
-// data: a std::vector<std::pair<gdt::interval, std::string>> sorted by start
 gst::grove<gdt::interval, std::string, double> w(100);
-auto keys = w.insert_data("chr1", data, gst::sorted, gst::bulk);
+auto keys = w.insert_data("chr1", exon_data, gst::sorted, gst::bulk);
 
 w.link_if(keys, [](auto* k1, auto* k2) -> std::optional<double> {
     auto start = k2->get_value().get_start();
@@ -160,8 +167,8 @@ w.link_if(keys, [](auto* k1, auto* k2) -> std::optional<double> {
 });
 ```
 
-`link_if` works on any `std::vector<key*>`, including one you assembled by hand or took from a
-query result. The predicate must satisfy `std::invocable<Predicate, key*, key*>`, i.e. it must be
+The bulk insert is explained in {doc}`/guide/grove/inserting`. `link_if` works on any
+`std::vector<key*>`, including one you assembled by hand or took from a query result. The predicate must satisfy `std::invocable<Predicate, key*, key*>`, i.e. it must be
 callable with two `key*` arguments. See {doc}`editing` for the rules that apply to all predicate
 callbacks.
 
@@ -177,8 +184,11 @@ one-line function) or an ordinary `def` function:
 ```python
 g = pg.Grove(100)
 
-# Plain edges: link exons that belong to the same transcript
-# items: list of (GenomicCoordinate, data) tuples, data being a dict with a "tx" entry
+# Plain edges: link exons that belong to the same transcript. insert_bulk takes
+# (coordinate, payload) tuples — see /guide/grove/inserting
+items = [(pg.GenomicCoordinate("+", 100, 200), {"tx": "tx1"}),
+         (pg.GenomicCoordinate("+", 300, 400), {"tx": "tx1"}),
+         (pg.GenomicCoordinate("+", 500, 600), {"tx": "tx2"})]
 exons = g.insert_bulk("chr1", items)      # list[Key], in input order
 g.link_if(exons, lambda k1, k2: k1.data["tx"] == k2.data["tx"])
 
@@ -190,12 +200,14 @@ def intron(k1, k2):
 g.link_with(exons, intron)
 ```
 
+Signatures (the arrow gives the predicate's return type):
+
 ```python
 link_if(keys: list[Key], predicate: (Key, Key) -> bool)
 link_with(keys: list[Key], predicate: (Key, Key) -> object | None)
 ```
 
-Both work on any list of keys, including one you assembled by hand or took from a query result. A
+The bulk insert is explained in {doc}`/guide/grove/inserting`. Both work on any list of keys, including one you assembled by hand or took from a query result. A
 `None` element in `keys` raises `TypeError`. Both methods call back into Python for every pair and
 {term}`hold the GIL <GIL>`; see {doc}`editing` for the rules that apply to all predicate callbacks.
 
@@ -205,7 +217,7 @@ Both work on any list of keys, including one you assembled by hand or took from 
 
 ## External (graph-only) keys
 
-Some nodes belong in the graph but not in the tree: a transcription factor that regulates genes, a
+Some things belong in the graph but not in the tree: a transcription factor that regulates genes, a
 transcript that groups exons, a sample identifier. An **{term}`external key`** participates in edges
 exactly like an indexed key but is never returned by `intersect` or `flanking`, and it is owned,
 serialized and restored with the grove.

@@ -62,11 +62,12 @@ With parallel edges, `remove_edge` removes the first matching `source → target
 
 ## Removing many edges
 
-Each of these returns the number of edges removed. Every edge is indexed under both of its
-endpoints in one per-key bucket, so removing by endpoint scans only that key's bucket: the cost
-grows with the number of edges touching that key — written O(in-degree + out-degree) below — not
-with the size of the whole graph. `remove_edges_if` has to look at every edge, so its cost grows
-with the total number of edges E, written O(E).
+Each of these returns the number of edges removed. Removing by endpoint only has to look at the
+edges touching that key, not at the whole graph; `remove_edges_if` has to look at every edge.
+Deleting an edge then also updates the list kept for its *other* endpoint, so each deletion costs
+extra in proportion to how many edges that other key has. Clearing a hub connected to many
+high-degree keys, or removing most edges of a large graph with `remove_edges_if`, therefore takes
+noticeably longer than the candidate scan alone.
 
 :::::{tab-set}
 
@@ -74,20 +75,22 @@ with the total number of edges E, written O(E).
 :sync: cpp
 
 ```cpp
-size_t remove_edges_from(key* source);   // all outgoing edges of source   — O(degree of source)
-size_t remove_edges_to(key* target);     // all incoming edges of target   — O(degree of target)
-size_t remove_all_edges(key* key);       // both directions                — O(degree of key)
-size_t remove_edges_if(Predicate p);     // every edge e with p(const edge& e) == true — O(E)
+size_t remove_edges_from(key* source);   // all outgoing edges of source
+size_t remove_edges_to(key* target);     // all incoming edges of target
+size_t remove_all_edges(key* key);       // both directions
+size_t remove_edges_if(Predicate p);     // every edge e with p(const edge& e) == true
 ```
 
-Continuing from the grove above:
+Continuing from the grove above, after putting the removed edge back and adding one more:
 
 ```cpp
-// hub: any key handle of g
-size_t pruned = g.remove_all_edges(hub);           // retire a hub key's connections
+g.add_edge(gene1, gene3, 0.45);
+g.add_edge(gene2, gene3, 0.80);
 
-auto dropped = g.remove_edges_if(                  // threshold on metadata
-    [](const auto& e) { return e.metadata < 0.5; });
+auto dropped = g.remove_edges_if(                  // threshold on metadata: drops gene1 -> gene3
+    [](const auto& e) { return e.metadata < 0.5; });   // 1
+
+size_t pruned = g.remove_all_edges(gene2);         // gene1 -> gene2 and gene2 -> gene3: 2
 ```
 
 The `remove_edges_if` predicate (here a {term}`lambda`, an unnamed function written inline)
@@ -100,24 +103,25 @@ receives the full `edge` struct (`source`, `target`, `metadata`) and must satisf
 :sync: py
 
 ```python
-remove_edges_from(source: Key) -> int    # all outgoing edges of source   — O(degree of source)
-remove_edges_to(target: Key) -> int      # all incoming edges of target   — O(degree of target)
-remove_all_edges(key: Key) -> int        # both directions                — O(degree of key)
-remove_edges_if(predicate) -> int        # every edge the predicate accepts — O(E)
+remove_edges_from(source: Key) -> int    # all outgoing edges of source
+remove_edges_to(target: Key) -> int      # all incoming edges of target
+remove_all_edges(key: Key) -> int        # both directions
+remove_edges_if(predicate) -> int        # every edge the predicate accepts
 ```
 
-Continuing from the grove above:
+Continuing from the grove above, after putting the removed edge back and adding one more:
 
 ```python
-# hub: any key of g
-pruned = g.remove_all_edges(hub)                   # retire a hub key's connections
+g.add_edge(gene1, gene3, {"weight": 0.45})
+g.add_edge(gene2, gene3, {"weight": 0.80})
 
 # Universal / Numeric / Kmer grove: predicate(target, metadata) -> bool
-dropped = g.remove_edges_if(lambda target, meta: meta is not None and meta["weight"] < 0.5)
+dropped = g.remove_edges_if(lambda target, meta: meta is not None and meta["weight"] < 0.5)   # 1
+
+pruned = g.remove_all_edges(gene2)                 # gene1 -> gene2 and gene2 -> gene3: 2
 
 # BedGrove / GffGrove (unlabelled edges): predicate(target) -> bool
-# bed: a pg.BedGrove with some edges
-bed.remove_edges_if(lambda target: target.value.start > 1_000_000)
+pg.BedGrove(100).remove_edges_if(lambda target: target.value.start > 1_000_000)   # 0 on an empty grove
 ```
 
 The predicates above are {term}`lambdas <lambda>`, unnamed one-line functions. The predicate
