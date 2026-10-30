@@ -68,7 +68,7 @@ either.
 
 Assign the result of `deserialize` to a variable, as the example does. You cannot copy a grove, and
 you do not need to. The {term}`template` arguments must match those the grove was written with: the
-key type, the payload type and the edge type, in the same order. The stream does not record them.
+key type, the payload type and the edge type, in the same order. The stream records the key kind and whether payload and edge metadata are present, and `deserialize` throws `std::runtime_error` if those differ (see [type check](format.md#type-check-on-read)). It does not record the payload or edge type itself.
 
 A grove can be saved through a read-only reference. `serialize()` is **{term}`const`-qualified**
 (as are `grove_to_sif()` and `node::serialize_block()`), so code that only has a read-only
@@ -119,7 +119,7 @@ Grove.deserialize(path: str) -> Grove
 
 Load a file with the grove class that wrote it: a `BedGrove` file with `BedGrove.deserialize`, a
 `NumericGrove` file with `NumericGrove.deserialize`, and so on (the classes are introduced in
-{doc}`/guide/grove/index`). The file does not record which class wrote it.
+{doc}`/guide/grove/index`). The file records the key kind and whether it holds payloads and edge metadata, so a mismatch raises `RuntimeError`. It does not record which class wrote it, so two classes with the same key kind and payload presence are not told apart.
 
 **Reading a Python `.gg` from C++.** A universal `Grove` stores each {term}`payload` and each
 edge's {term}`metadata <edge metadata>` as JSON text, so a C++ program can read its file. The
@@ -440,7 +440,7 @@ stream {term}`overload`. Where the C++ tab puts several objects in one file, a P
 one file per object.
 
 **Errors.** `Grove.deserialize` raises `RuntimeError` (an {term}`exception`) if the file cannot be
-opened, is not a format 0.3 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if
+opened, is not a format 0.4 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if
 the file cannot be opened or written. `Registry.deserialize` raises `RuntimeError` on a truncated or
 corrupt file and leaves the registry as it was.
 

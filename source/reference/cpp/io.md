@@ -52,6 +52,26 @@ The `genogrove::io` namespace contains file readers and parsers for genomic file
    :undoc-members:
 ```
 
+### file_reader
+
+`file_reader<EntryType>` is the shared shape of every reader. `EntryType` is the record type the reader returns, for example `bed_entry` for `bed_reader`. You normally use a format-specific reader such as `bed_reader`. See {doc}`/guide/io/index` for a complete example.
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::file_reader
+   :members:
+   :undoc-members:
+```
+
+### file_reader_iterator
+
+This type lets a `for` loop run over a reader. You rarely write its name. After the loop, call `get_error_message()` on the reader. It shows whether the loop ended at the end of the file or at an error.
+
+```{eval-rst}
+.. doxygenclass:: genogrove::io::file_reader_iterator
+   :members:
+   :undoc-members:
+```
+
 ### vcf_reader
 
 ```{eval-rst}

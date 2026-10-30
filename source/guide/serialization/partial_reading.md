@@ -388,9 +388,10 @@ All raise `TypeError` on `None`.
 - **Not {term}`thread-safe`** — a query pages in blocks on demand, so use one view per thread.
 - **Key pointers** a view returns point into its block cache and are valid only while the view is
   alive.
-- Requires a **{term}`format <format version>` 0.3** `.gg` (genogrove v0.26.1+; see
-  {doc}`format`). Match the template arguments to the grove that wrote the file; the stream does
-  not record them.
+- Requires a **{term}`format <format version>` 0.4** `.gg` (genogrove v0.27.0+; see
+  {doc}`format`). Match the template arguments to the grove that wrote the file. `grove_view::open`
+  throws `std::runtime_error` if the key kind or the payload or edge-metadata presence differs
+  ({doc}`format`); it does not check the payload or edge type itself.
 
 ::::
 
@@ -404,9 +405,10 @@ All raise `TypeError` on `None`.
   Python threads take turns on view I/O; use **one view per thread**.
 - **Keys** a view returns point into its own storage and are valid only while the view is alive.
   A `Key` keeps its view alive for as long as you hold it.
-- Requires a **{term}`format <format version>` 0.3** `.gg` (genogrove v0.26.1+, pygenogrove 0.8.0+;
+- Requires a **{term}`format <format version>` 0.4** `.gg` (genogrove v0.27.0+, pygenogrove 0.10.0+;
   see {doc}`format`).
-  Match the view class to the grove class that wrote the file; the file does not record it.
+  Match the view class to the grove class that wrote the file. `open` raises `RuntimeError` if the key
+  kind or the payload or edge-metadata presence differs ({doc}`format`); it does not check the class itself.
 
 ::::
 

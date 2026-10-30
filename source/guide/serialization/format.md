@@ -27,7 +27,7 @@ input streams and leaves any bytes after the grove unread.
 
 The stream is laid out as:
 
-1. A plain (uncompressed) header: {term}`magic`, tree {term}`order`, the index directory (one name +
+1. A plain (uncompressed) header: {term}`magic`, a 3-byte type tag (see [below](#type-check-on-read)), tree {term}`order`, the index directory (one name +
    root block id per chromosome) and the block/key counts
 2. One zlib-compressed block per B+ tree node, in depth-first order per index. A leaf block holds
    all its keys and payloads first, then the id of the next leaf. After that it holds the edge lists
@@ -54,7 +54,7 @@ nothing of its own.
 
 The stream is laid out as:
 
-1. A plain (uncompressed) header: {term}`magic`, tree {term}`order`, the index directory (one name +
+1. A plain (uncompressed) header: {term}`magic`, a 3-byte type tag (see [below](#type-check-on-read)), tree {term}`order`, the index directory (one name +
    root block id per chromosome) and the block/key counts
 2. One zlib-compressed block per B+ tree node, in depth-first order per index. A leaf block holds
    all its keys and payloads first, then the id of the next leaf. After that it holds the edge lists
@@ -73,20 +73,40 @@ block.
 
 :::::
 
+## Type check on read
+
+Right after the {term}`magic`, the stream records three things: the key kind (`interval`,
+`genomic_coordinate`, `numeric`, `kmer` or `custom`), whether the grove has a payload, and whether
+it has edge metadata. A reader compares these with its own types before it parses any block. On a
+difference, C++ `grove::deserialize` and `grove_view::open` throw `std::runtime_error`, and Python
+raises `RuntimeError`. The message names both types:
+
+```text
+grove_view: grove stream was written with key type interval, with data, with edge data, reader expects key type genomic_coordinate, with data, no edge data
+```
+
+(`deserialize` starts the message with `Failed to deserialize grove`.)
+
+The tag does not record the payload type or the edge type themselves. Two groves with the same key
+kind and the same payload and edge presence have the same tag, so the reader cannot tell them apart.
+All key types you write yourself use the kind `custom`, so two of them also look the same. Match
+the types to the grove that wrote the file, as before.
+
 ## Format versions and compatibility
 
 The stream format is versioned as `format_major.format_minor` (the numbers appear in the
-[`.gg` file header](#the-gg-file-header) the CLI writes). The current format is **0.3**.
+[`.gg` file header](#the-gg-file-header) the CLI writes). The current format is **0.4**.
 
 | Format | genogrove | Payload |
 |---|---|---|
 | 0.1 | < 0.25.0 | Whole file a single zlib stream |
 | 0.2 | 0.25.0 – 0.26.0 | Block-structured (per-node blocks, external-key chunks); edges recorded under their source only |
-| 0.3 | 0.26.1+ | Block-structured; each key records its outgoing **and** incoming edge lists, enabling reverse traversal in a view |
+| 0.3 | 0.26.1 – 0.26.4 | Block-structured; each key records its outgoing **and** incoming edge lists, enabling reverse traversal in a view |
+| 0.4 | 0.27.0+ | Fixed-width little-endian layout; the stream header carries a type tag (key kind, data present, edge data present) |
 
 :::{warning}
-**No serialization back-compat.** A build reads exactly one format: v0.26.1+ rejects 0.1 and 0.2
-`.gg` files, which must be regenerated (re-run {doc}`genogrove idx </cli>` or save the grove again).
+**No serialization back-compat.** A build reads exactly one format: v0.27.0+ rejects 0.1, 0.2 and
+0.3 `.gg` files, which must be regenerated (re-run {doc}`genogrove idx </cli>` or save the grove again).
 While `format_major == 0` the format is still evolving and may break again.
 :::
 
@@ -107,7 +127,7 @@ for the genogrove version inside pygenogrove.
 
 The public signatures — `serialize(std::ostream&)` / `deserialize(std::istream&)` — have not
 changed across these versions. A stream of the wrong format fails in `deserialize` with
-`std::runtime_error` (`"Failed to deserialize grove: bad magic (not a format 0.3 grove stream)"`
+`std::runtime_error` (`"Failed to deserialize grove: bad magic (not a format 0.4 grove stream)"`
 on the current build).
 
 ::::
@@ -116,7 +136,7 @@ on the current build).
 :sync: py
 
 `serialize(path)` / `Grove.deserialize(path)` have not changed across these versions. pygenogrove
-0.8.0 and later write and read format 0.3; a file of an older format fails in `deserialize` with
+0.10.0 and later write and read format 0.4; a file of an older format fails in `deserialize` with
 `RuntimeError`.
 
 ::::
@@ -135,7 +155,7 @@ reading the grove. A file written by `serialize` directly has **no** such header
 |---|---|---|---|
 | 0 | 4 | `magic` = `"GROV"` | inspectable via `xxd` |
 | 4 | 1 | `format_major` = 0 | pre-1.0; any change may break compatibility |
-| 5 | 1 | `format_minor` = 3 | see [Format versions](#format-versions-and-compatibility) |
+| 5 | 1 | `format_minor` = 4 | see [Format versions](#format-versions-and-compatibility) |
 | 6 | 1 | `lib_major` | informational |
 | 7 | 1 | `lib_minor` | informational |
 | 8 | 1 | `lib_patch` | informational |
@@ -206,10 +226,10 @@ pygenogrove has no header API, and **a CLI-built index cannot currently be read 
 `Grove.deserialize()` expects a bare grove stream, and although `GroveView.open()` can skip the
 header with `data_offset=12`, the CLI saves its keys and edge labels in a different form than the
 Python views expect (the CLI uses the C++ `interval` key and text edge labels; `BedGroveView` and
-`GffGroveView` expect `GenomicCoordinate` keys and edges with no label). The file does not record
-its types, so such an open reads the blocks wrongly instead of failing with an error. Views bound to the CLI's types are requested in
-[pygenogrove#117](https://github.com/genogrove/pygenogrove/issues/117), and a type check in the
-stream in [genogrove#593](https://github.com/genogrove/genogrove/issues/593).
+`GffGroveView` expect `GenomicCoordinate` keys and edges with no label). The key kinds differ, so
+such an open fails with a `RuntimeError` (see [Type check on read](#type-check-on-read)). Views
+bound to the CLI's types are requested in
+[pygenogrove#117](https://github.com/genogrove/pygenogrove/issues/117).
 
 Until then, build the index from Python and read it with the matching view. The example needs a
 BED file called `features.bed` in the current directory (any BED file with `chr1` records works):
