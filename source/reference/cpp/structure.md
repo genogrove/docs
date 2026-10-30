@@ -49,7 +49,7 @@ returned from functions (e.g., `grove::deserialize()`) and stored in containers.
 
 ## grove_view
 
-`grove_view` is a **read-only, partial reader** over a serialized format 0.3 `.gg`: it loads only
+`grove_view` is a **read-only, partial reader** over a serialized format 0.4 `.gg`: it loads only
 the blocks a query walks instead of deserializing the whole file, complementing the eager `grove`
 (see {doc}`the partial reading guide </guide/serialization/partial_reading>`). It is **non-copyable and non-movable**
 (it owns the file handle and a zlib state) — obtain one by value from the static `open()` factory,

@@ -173,7 +173,7 @@ block
   and `block_count()` count them. See {doc}`serialization/format`.
 
 format version
-  The version of the `.gg` layout, currently 0.3. A genogrove build reads exactly one format;
+  The version of the `.gg` layout, currently 0.4. A genogrove build reads exactly one format;
   older files must be regenerated. See {doc}`serialization/format`.
 
 view

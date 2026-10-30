@@ -440,7 +440,7 @@ stream {term}`overload`. Where the C++ tab puts several objects in one file, a P
 one file per object.
 
 **Errors.** `Grove.deserialize` raises `RuntimeError` (an {term}`exception`) if the file cannot be
-opened, is not a format 0.3 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if
+opened, is not a format 0.4 grove, or is corrupt or truncated. `serialize` raises `RuntimeError` if
 the file cannot be opened or written. `Registry.deserialize` raises `RuntimeError` on a truncated or
 corrupt file and leaves the registry as it was.
 
