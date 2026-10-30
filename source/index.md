@@ -40,7 +40,7 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // Insert sorted by chromosome
-            // to_interval() converts half-open [start, end) to the closed key
+            // to_interval() converts half-open [start, end) to the closed key [start, end - 1]
             features.insert_data(
                 entry.chrom,
                 entry.to_interval(),

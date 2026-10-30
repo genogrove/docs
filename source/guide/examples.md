@@ -235,8 +235,9 @@ version stores the whole `GffEntry`.
 The input can be **GTF or GFF3**. The example groups exons by `get_transcript_id()`. It reads the
 GTF `transcript_id` attribute, and in GFF3 the `Parent` attribute of the exon (genogrove 0.27.0 and
 pygenogrove 0.10.0 and later). One case needs more: a GFF3 exon that belongs to several transcripts
-lists several `Parent` ids, and `get_transcript_id()` then returns nothing, so the exon would land
-under `"unknown"`. Use `get_parent_ids()` for those exons; the note after each program shows how.
+lists several `Parent` ids (for example `Parent=t1,t2`), and `get_transcript_id()` then returns
+nothing, so the exon would land under `"unknown"`. Use `get_parent_ids()` for those exons; the note
+after each program shows the lines to change.
 
 :::::{tab-set}
 
@@ -332,15 +333,23 @@ int main() {
 line. Edges and `get_neighbors` are explained in {doc}`graph/building` and {doc}`graph/navigating`.
 
 For a GFF3 exon shared by several transcripts, `get_parent_ids()` returns every `Parent` id. File
-the one key under each of them, in place of the two lines that store `exon_key` and the strand
-under `transcript_id`:
+the one key under each of them. In the program, replace the last two lines of the `for` loop (the
+`push_back` and the `transcript_strand` line) with this loop. An exon without a `Parent`, such as a
+GTF exon, has an empty list, so the loop falls back to `transcript_id`:
 
 ```cpp
-for (const auto& parent : entry.get_parent_ids()) {
+auto parents = entry.get_parent_ids();
+if (parents.empty()) parents.push_back(transcript_id);
+for (const auto& parent : parents) {
     transcript_exons[parent].push_back(exon_key);
     transcript_strand[parent] = entry.strand.value_or('+');
 }
 ```
+
+A shared exon is one key with edges from every transcript that contains it. For that key,
+`get_neighbors(exon)` returns the next exons of all of those transcripts, so the count in the last
+loop mixes them. The order of the exons in `transcript_exons[parent]` is the order of one
+transcript.
 
 ::::
 
@@ -391,12 +400,19 @@ exon. `GffGrove` edges carry no metadata; use the universal `Grove` when an edge
 (see {doc}`graph/building`).
 
 For a GFF3 exon shared by several transcripts, `get_parent_ids()` returns every `Parent` id. File
-the one key under each of them, in place of the line that appends `key` under `get_transcript_id()`:
+the one key under each of them. In the program, replace the line
+`transcript_exons[e.get_transcript_id() or "unknown"].append(key)` with this loop. An exon without
+a `Parent`, such as a GTF exon, has an empty list, so the loop falls back to `get_transcript_id()`:
 
 ```python
-for parent in e.get_parent_ids():
+for parent in e.get_parent_ids() or [e.get_transcript_id() or "unknown"]:
     transcript_exons[parent].append(key)
 ```
+
+A shared exon is one key with edges from every transcript that contains it. For that key,
+`get_neighbors(exon)` returns the next exons of all of those transcripts, so the count in the last
+loop mixes them. The order of the exons in `transcript_exons[parent]` is the order of one
+transcript.
 
 ::::
 

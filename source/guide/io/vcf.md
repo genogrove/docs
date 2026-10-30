@@ -143,10 +143,12 @@ Methods:
   base sequence: `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation
   containing `[` or `]`, and the empty string; such alleles are excluded from `is_snp()` /
   `is_indel()`
-- `gdt::interval to_interval() const` — the grove key `[start, end - 1]`. It does not check: a
-  parsed record always has `end > start`, but a hand-built record with `end <= start` wraps around
-  to a huge number
-- `gdt::genomic_coordinate to_coordinate() const` — the same key, unstranded (`.`)
+- `gdt::interval to_interval() const` — the grove key `[start, end - 1]`. It does not check the
+  record. A parsed record always has `end > start`. A record that your own code creates, not a
+  reader, can break this rule: with `0 < end <= start` the key constructor throws
+  `std::invalid_argument`, and with `end == 0` the key is a huge number that the constructor accepts
+- `gdt::genomic_coordinate to_coordinate() const` — the same key, unstranded (strand `.`, which
+  means none)
 
 Reading one INFO field, with `v` from the reading loop above:
 
@@ -191,7 +193,7 @@ Methods:
   record; `True` for anything that is not a plain base sequence: `<…>` alleles (`<*>`,
   `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation containing `[` or `]`, and the empty
   string; such alleles are excluded from `is_snp()` / `is_indel()`
-- `to_coordinate()` — the grove key as an unstranded `GenomicCoordinate('.', start, end - 1)`
+- `to_coordinate()` — the grove key as an unstranded `GenomicCoordinate('.', start, end - 1)` (strand `.` means none)
   ({term}`0-based closed`); raises `ValueError` for a record that spans no reference bases
   (`end <= start`)
 - `to_dict()` — the record's core fields as a JSON-ready `dict`, for use as a `Grove`

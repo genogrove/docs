@@ -188,7 +188,8 @@ Helpers: `get_strand()` (`'+'` / `'-'`, `'.'` for an unmapped read), `is_primary
 
 Grove key: `gdt::interval to_interval() const` returns `[start, end - 1]`, and
 `gdt::genomic_coordinate to_coordinate() const` returns the same key with the strand from the FLAG.
-Both throw `std::invalid_argument` when `consumes_reference()` is false.
+Both throw `std::invalid_argument` when `consumes_reference()` is false (the read covers no
+chromosome bases).
 
 Reading one tag, with `aln` from the reading loop above (`NH` is the number of reported alignments
 for the read):
@@ -293,9 +294,9 @@ for name in reader.get_reference_names():   # list of @SQ names
 
 A record whose CIGAR consumes no reference bases (unmapped, pure soft-clip `100S`, hard-clip-only
 secondary alignments) has `end == start`, so `end - 1` would wrap around to a huge number (the
-positions are unsigned). The key conversions (C++ `to_interval()` and `to_coordinate()`, Python `to_coordinate()`) refuse
-such a record and throw instead (`std::invalid_argument` in C++, `ValueError` in Python), but skip those records with `consumes_reference()` first so the
-loop keeps going.
+positions are unsigned). The key conversions refuse such a record and throw instead. In C++,
+`to_interval()` and `to_coordinate()` throw `std::invalid_argument`. In Python, `to_coordinate()`
+raises `ValueError`. Skip those records with `consumes_reference()` first, so the loop keeps going.
 
 :::::{tab-set}
 

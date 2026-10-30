@@ -128,11 +128,12 @@ Methods:
 
 - `is_gtf()`, `is_gff3()` — the detected format
 - `get_attribute(key)` and the named attribute helpers — see [Attributes](#attributes)
-- `gdt::interval to_interval() const` — the grove key `[start - 1, end - 1]`. It does not check: a
-  hand-built record with `start == 0` wraps around to a huge number. Parsed records always have
-  `start >= 1`
+- `gdt::interval to_interval() const` — the grove key `[start - 1, end - 1]`. It does not check the
+  record. Parsed records always have `start >= 1`. A record that your own code creates, not a reader,
+  can break this rule: with `start == 0` and `end > 0` the key constructor throws
+  `std::invalid_argument`, and with `end == 0` the key is a huge number that the constructor accepts
 - `gdt::genomic_coordinate to_coordinate() const` — the same key with the strand from column 7 (`?`
-  and no strand both become `.`)
+  and no strand both become `.`; `?` means an unknown strand)
 - `serialize(os)`, `static deserialize(is)` — binary {term}`serialization`, so a
   `grove<gdt::interval, gio::gff_entry>` (a grove whose {term}`payload` is the whole record) can be
   saved to disk directly; this is what the {term}`CLI`'s `idx` command writes for GFF input (see
@@ -179,6 +180,10 @@ Methods:
 Column 9 is parsed into a key → value map. Helpers look up the common keys and paper over the
 GFF3/GTF naming differences. Semicolons inside quoted GTF values (`gene_name "a;b"`) are kept as
 part of the value; GFF3 writes a literal semicolon inside a value as `%3B` (a percent-encoded character), as the spec requires.
+
+In GFF3, `Parent=` names the feature that a line belongs to. An exon line has the transcript as its
+parent, and a transcript line has the gene. A line can list several parents, separated by commas
+(`Parent=t1,t2`).
 
 :::::{tab-set}
 

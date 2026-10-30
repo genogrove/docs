@@ -84,8 +84,8 @@ They are not {term}`thread-safe`; a call from another thread while `__next__` (t
 
 Readers keep each format's **native** convention. Grove {term}`keys <key>` are
 **{term}`0-based closed`** `[start, end]`. Every record type converts itself: call `to_interval()`
-for an unstranded key or `to_coordinate()` for a key that also carries the strand. The table shows
-what the call does:
+for an unstranded key or `to_coordinate()` for a key that also carries the strand (`+` or `-` for
+the DNA strand, `.` for none). The table shows what the call does:
 
 | Format | Native | Grove key |
 |---|---|---|
@@ -113,14 +113,19 @@ g.insert_data(entry.seqid, entry.to_interval(), data);
 ```
 
 `bed_entry`, `gff_entry`, `sam_entry` and `vcf_entry` all have two members:
-`gdt::interval to_interval() const` and `gdt::genomic_coordinate to_coordinate() const`. The
+`gdt::interval to_interval() const` and `gdt::genomic_coordinate to_coordinate() const` (`const`
+means the call does not change the record). The
 coordinate form adds the strand: BED column 6, GFF column 7 (`?` and no strand become `.`), the SAM
 FLAG, and `.` for VCF. An unset BED strand is `.`.
 
-Two records have no closed form, so their conversion throws `std::invalid_argument`: a `bed_entry`
-with `end <= start`, and a `sam_entry` that uses no reference bases (check `consumes_reference()`
-first). The GFF and VCF conversions do not check. Parsed records always satisfy them, but a record
-you build by hand with `start == 0` (GFF) or `end <= start` (VCF) wraps around to a huge number.
+Two records have no closed form, so their conversion throws `std::invalid_argument` (the program
+stops with an error unless your code catches it): a `bed_entry` with `end <= start`, and a
+`sam_entry` that uses no reference bases (check `consumes_reference()` first). The GFF and VCF
+conversions do not check the record themselves. Parsed records always satisfy their rules. A record
+that your own code creates, not a reader, can break them. Then the key constructor throws
+`std::invalid_argument` for most such records, for example GFF `start == 0` with `end > 0`, or VCF
+`0 < end <= start`. Only a zero endpoint (GFF `end == 0`, VCF `end == 0`) gives a huge key that the
+constructor accepts.
 
 ::::
 
@@ -144,7 +149,7 @@ for e in pg.GffReader("annotations.gtf.gz"):
 
 bed_g = pg.Grove(100)
 for e in pg.BedReader("peaks.bed"):
-    bed_g.insert(e.chrom, e.to_coordinate(), e.name or "unnamed")   # the key, built by hand
+    bed_g.insert(e.chrom, e.to_coordinate(), e.name or "unnamed")   # the key, passed explicitly
 
 g = pg.Grove(100)
 for aln in pg.BamReader("reads.bam"):
@@ -163,8 +168,8 @@ the same way, while the typed groves store the whole record. The key conversion 
 `BedEntry.to_coordinate()` raises `ValueError` if `end <= start`, and `GffEntry.to_coordinate()`
 raises it if `start < 1` or `end < start`. `SamEntry.to_coordinate()` raises it for a read that
 uses no reference bases (check `consumes_reference()` first), and `VcfEntry.to_coordinate()` raises
-it if the record spans no reference bases. So the Python calls check where the C++ GFF and VCF calls
-do not. `BedEntry.to_coordinate()` and `GffEntry.to_coordinate()` exist in pygenogrove 0.10.0 and
+it if the record spans no reference bases. So the Python calls check every record, including the
+zero-endpoint cases that the C++ GFF and VCF calls accept. `BedEntry.to_coordinate()` and `GffEntry.to_coordinate()` exist in pygenogrove 0.10.0 and
 later.
 
 ::::

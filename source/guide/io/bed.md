@@ -128,7 +128,7 @@ optional fields — and all fields are plain members you can read and assign.
 Methods:
 
 - `gdt::interval to_interval() const` — the grove key `[start, end - 1]`; throws
-  `std::invalid_argument` if `end <= start`, because an empty record has no closed form
+  `std::invalid_argument` (the program stops with an error) if `end <= start`, because an empty record has no closed form
 - `gdt::genomic_coordinate to_coordinate() const` — the same key with the strand from column 6
   (`.` when the strand is absent); throws like `to_interval()`
 - `serialize(os)`, `static deserialize(is)` — binary {term}`serialization`, so a
@@ -168,7 +168,7 @@ and assign it.
 Methods:
 
 - `to_coordinate()` — the grove key as a `GenomicCoordinate` `[start, end - 1]`, with the strand from
-  column 6 (`'.'` when absent); raises `ValueError` if `end <= start` (pygenogrove 0.10.0 and later).
+  column 6 (`'.'` when absent); raises `ValueError` (the script stops with an error) if `end <= start` (pygenogrove 0.10.0 and later).
   `BedGrove.insert(index, entry)` calls it for you and stores the record as the payload (see
   {doc}`/guide/grove/loading_data`)
 

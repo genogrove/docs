@@ -142,8 +142,7 @@ g.insert(e.chrom, e.to_coordinate(), e.name or "unknown")
 
 A GTF gene line carries a `gene_id` attribute. A GFF3 gene line carries `ID` instead.
 `get_gene_id()` reads both: it returns `gene_id` when present and, in GFF3, the `ID` of a `gene`
-feature. In genogrove 0.26.x and earlier it read `gene_id` only, so a GFF3 file loaded no genes and
-printed no error. (In Python the same change comes with pygenogrove 0.10.0.)
+feature.
 
 :::::{tab-set}
 
@@ -219,6 +218,11 @@ A record with `start == 0` or `end < start` raises `ValueError` from `insert`. A
 
 :::::
 
+### Older versions
+
+In genogrove 0.26.x and earlier, `get_gene_id()` read `gene_id` only, so a GFF3 file loaded no genes
+and printed no error. The GFF3 fallback comes with genogrove 0.27.0 and pygenogrove 0.10.0.
+
 ## Loading BAM/SAM files
 
 :::::{tab-set}
@@ -247,7 +251,7 @@ int main() {
         gio::bam_reader reader("alignments.bam", opts);
         for (const auto& entry : reader) {
             // A read whose CIGAR uses no reference bases (for example a pure soft clip, 100S)
-            // has end == start, so to_interval() would throw. Skip such reads.
+            // has end == start, so to_interval() would stop with an error (it throws). Skip such reads.
             if (!entry.consumes_reference()) continue;
             // qname is the read name; it is the payload
             my_grove.insert_data(entry.chrom,
