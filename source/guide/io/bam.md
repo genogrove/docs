@@ -6,8 +6,8 @@ been given; CRAM needs its reference genome available to htslib. For CRAM in Pyt
 file to BAM first (`samtools view -b`). Decompression is done by htslib, the samtools library.
 Positions come out **0-based half-open** `[start, end)`: SAM's 1-based POS is converted, and `end` is where the alignment stops on the chromosome, computed from the CIGAR
 operations that consume reference bases (those that advance along the chromosome). The CIGAR is
-the string that lists how a read lines up with the reference, such as `50M` for 50 matching bases. Convert with
-`end - 1` for a {term}`grove` {term}`key` (see {doc}`index`). Filtering by SAM FLAG — unmapped,
+the string that lists how a read lines up with the reference, such as `50M` for 50 matching bases. `to_interval()` and
+`to_coordinate()` subtract 1 from `end` to give a {term}`grove` {term}`key` (see {doc}`index`). Filtering by SAM FLAG — unmapped,
 **secondary** (an alternative placement of a read), **supplementary** (a further piece of a split
 read), **QC-fail** (the sequencer marked the read as low quality), **duplicate** — and by MAPQ (the
 mapping quality, a number from 0 to 255 where a higher value means a more certain placement)
@@ -186,6 +186,10 @@ for aln in strict:                                                        # iter
 Helpers: `get_strand()` (`'+'` / `'-'`, `'.'` for an unmapped read), `is_primary()`,
 `is_mapped()`, `consumes_reference()`, `cigar_string_repr()`.
 
+Grove key: `gdt::interval to_interval() const` returns `[start, end - 1]`, and
+`gdt::genomic_coordinate to_coordinate() const` returns the same key with the strand from the FLAG.
+Both throw `std::invalid_argument` when `consumes_reference()` is false.
+
 Reading one tag, with `aln` from the reading loop above (`NH` is the number of reported alignments
 for the read):
 
@@ -289,7 +293,9 @@ for name in reader.get_reference_names():   # list of @SQ names
 
 A record whose CIGAR consumes no reference bases (unmapped, pure soft-clip `100S`, hard-clip-only
 secondary alignments) has `end == start`, so `end - 1` would wrap around to a huge number (the
-positions are unsigned). Skip those records with `consumes_reference()` first.
+positions are unsigned). The key conversions (C++ `to_interval()` and `to_coordinate()`, Python `to_coordinate()`) refuse
+such a record and throw instead (`std::invalid_argument` in C++, `ValueError` in Python), but skip those records with `consumes_reference()` first so the
+loop keeps going.
 
 :::::{tab-set}
 
@@ -311,7 +317,7 @@ int main() {
     gio::bam_reader reader("alignments.bam");
     for (const auto& aln : reader) {
         if (!aln.consumes_reference()) continue;     // skip records with end == start
-        g.insert_data(aln.chrom, gdt::interval(aln.start, aln.end - 1), aln.qname);
+        g.insert_data(aln.chrom, aln.to_interval(), aln.qname);
     }
     return 0;
 }

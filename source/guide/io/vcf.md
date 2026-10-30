@@ -6,9 +6,9 @@ alternative bases), `QUAL` (confidence), `FILTER` (`PASS` or the reason a call f
 (extra facts about the site). Optional per-sample columns (`FORMAT` and one column per sample) hold
 each sample's genotype, such as `0/1`. A SNP is a change of one base. One reader handles plain VCF, block-compressed (`bgzip`) VCF
 and binary BCF, and tells them apart itself. Coordinates are **0-based half-open**:
-`start = POS - 1` and `end = start + len(REF)`, so a SNP spans one base. Convert with `end - 1`
-for a {term}`grove` {term}`key` — the same rule as BED and BAM, not the GFF one (see
-{doc}`index`).
+`start = POS - 1` and `end = start + len(REF)`, so a SNP spans one base. `to_interval()` and
+`to_coordinate()` subtract 1 from `end` to give a {term}`grove` {term}`key` — the same rule as BED
+and BAM, not the GFF one (see {doc}`index`).
 
 The snippets read `calls.vcf.gz`; substitute any VCF or BCF file. If you have none, save these lines
 (the columns are tab-separated) as `calls.vcf` and use that name:
@@ -143,9 +143,10 @@ Methods:
   base sequence: `<…>` alleles (`<*>`, `<NON_REF>`, `<DEL>`, …), `*`, `.`, breakend notation
   containing `[` or `]`, and the empty string; such alleles are excluded from `is_snp()` /
   `is_indel()`
-
-There is no coordinate helper on the C++ record; build the grove key with
-`gdt::interval(v.start, v.end - 1)`.
+- `gdt::interval to_interval() const` — the grove key `[start, end - 1]`. It does not check: a
+  parsed record always has `end > start`, but a hand-built record with `end <= start` wraps around
+  to a huge number
+- `gdt::genomic_coordinate to_coordinate() const` — the same key, unstranded (`.`)
 
 Reading one INFO field, with `v` from the reading loop above:
 
@@ -322,7 +323,7 @@ int main() {
                                                      // 100 = tree order, a good default
     // {.skip_filtered = true} sets one option and leaves the rest at their defaults
     for (const auto& v : gio::vcf_reader("calls.vcf.gz", {.skip_filtered = true})) {
-        g.insert_data(v.chrom, gdt::interval(v.start, v.end - 1), v.id);
+        g.insert_data(v.chrom, v.to_interval(), v.id);
     }
     return 0;
 }

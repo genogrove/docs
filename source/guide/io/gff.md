@@ -3,8 +3,8 @@
 GFF3 and GTF files hold gene annotations, one feature (gene, transcript, exon, …) per line. One
 reader handles both: it detects the format from the attribute column — the ninth column, written
 `key=value` in GFF3 and `key "value"` in GTF. Plain and gzip/bgzip-compressed (`.gz`) files are
-detected automatically. Coordinates are **1-based closed** `[start, end]`; convert with
-`start - 1`, `end - 1` for a {term}`grove` {term}`key` (see {doc}`index`).
+detected automatically. Coordinates are **1-based closed** `[start, end]`; `to_interval()` and
+`to_coordinate()` subtract 1 from both ends to give a {term}`grove` {term}`key` (see {doc}`index`).
 
 The snippets read `annotations.gtf.gz`; substitute any GFF3 or GTF file. If you have none, save these
 two tab-separated lines as `annotations.gtf` and use that name:
@@ -128,13 +128,15 @@ Methods:
 
 - `is_gtf()`, `is_gff3()` — the detected format
 - `get_attribute(key)` and the named attribute helpers — see [Attributes](#attributes)
+- `gdt::interval to_interval() const` — the grove key `[start - 1, end - 1]`. It does not check: a
+  hand-built record with `start == 0` wraps around to a huge number. Parsed records always have
+  `start >= 1`
+- `gdt::genomic_coordinate to_coordinate() const` — the same key with the strand from column 7 (`?`
+  and no strand both become `.`)
 - `serialize(os)`, `static deserialize(is)` — binary {term}`serialization`, so a
   `grove<gdt::interval, gio::gff_entry>` (a grove whose {term}`payload` is the whole record) can be
   saved to disk directly; this is what the {term}`CLI`'s `idx` command writes for GFF input (see
   {doc}`/cli`)
-
-There is no coordinate helper on the C++ record; build the grove key with
-`gdt::interval(e.start - 1, e.end - 1)`.
 
 ::::
 
@@ -163,9 +165,10 @@ Methods:
 
 - `is_gtf()`, `is_gff3()` — the detected format
 - `get_attribute(key)` and the named attribute helpers — see [Attributes](#attributes)
-
-There is no `to_coordinate()` on `GffEntry`: `GffGrove.insert(index, entry)` derives the grove key
-from the record, which becomes the payload (see {doc}`/guide/grove/loading_data`).
+- `to_coordinate()` — the grove key as a `GenomicCoordinate` `[start - 1, end - 1]`, with the strand
+  from column 7 (`?` and no strand both become `'.'`); raises `ValueError` if `start < 1` or
+  `end < start` (pygenogrove 0.10.0 and later). `GffGrove.insert(index, entry)` calls it for you and
+  stores the record as the payload (see {doc}`/guide/grove/loading_data`)
 
 ::::
 
@@ -184,8 +187,9 @@ part of the value; GFF3 writes a literal semicolon inside a value as `%3B` (a pe
 
 | Helper | Returns | Looks up |
 |---|---|---|
-| `get_gene_id()` | `std::optional<std::string>` | `gene_id` |
-| `get_transcript_id()` | `std::optional<std::string>` | `transcript_id` |
+| `get_gene_id()` | `std::optional<std::string>` | `gene_id`; in GFF3, the `ID` of a `gene` feature, or the single `Parent` of an `mRNA`, `transcript`, `lnc_RNA`, `ncRNA`, `rRNA` or `tRNA` feature |
+| `get_transcript_id()` | `std::optional<std::string>` | `transcript_id`; in GFF3, the single `Parent` of an `exon`, `CDS`, `five_prime_UTR`, `three_prime_UTR` or `UTR` feature (empty when there are several parents) |
+| `get_parent_ids()` | `std::vector<std::string>` | the GFF3 `Parent` attribute, split at commas; empty when absent |
 | `get_exon_number()` | `std::optional<int>` | `exon_number` |
 | `get_gene_name()` | `std::optional<std::string>` | `gene_name`, then GFF3 `Name` |
 | `get_gene_biotype()` | `std::optional<std::string>` | `gene_biotype`, `gene_type`, `biotype` |
@@ -208,8 +212,9 @@ if (auto it = entry.attributes.find("ID"); it != entry.attributes.end()) {
 
 | Helper | Returns | Looks up |
 |---|---|---|
-| `get_gene_id()` | `Optional[str]` | `gene_id` |
-| `get_transcript_id()` | `Optional[str]` | `transcript_id` |
+| `get_gene_id()` | `Optional[str]` | `gene_id`; in GFF3, the `ID` of a `gene` feature, or the single `Parent` of an `mRNA`, `transcript`, `lnc_RNA`, `ncRNA`, `rRNA` or `tRNA` feature |
+| `get_transcript_id()` | `Optional[str]` | `transcript_id`; in GFF3, the single `Parent` of an `exon`, `CDS`, `five_prime_UTR`, `three_prime_UTR` or `UTR` feature (`None` when there are several parents) |
+| `get_parent_ids()` | `list[str]` | the GFF3 `Parent` attribute, split at commas; empty when absent |
 | `get_exon_number()` | `Optional[int]` | `exon_number` |
 | `get_gene_name()` | `Optional[str]` | `gene_name`, then GFF3 `Name` |
 | `get_gene_biotype()` | `Optional[str]` | `gene_biotype`, `gene_type`, `biotype` |
@@ -294,7 +299,7 @@ int main() {
     for (const auto& e : reader) {
         auto gene_id = e.get_gene_id();
         if (e.type != "gene" || !gene_id) continue;  // skip anything but genes with an ID
-        g.insert_data(e.seqid, gdt::interval(e.start - 1, e.end - 1), *gene_id);   // *: the ID
+        g.insert_data(e.seqid, e.to_interval(), *gene_id);   // *: the ID
     }
     return 0;
 }

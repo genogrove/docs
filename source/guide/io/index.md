@@ -83,7 +83,9 @@ They are not {term}`thread-safe`; a call from another thread while `__next__` (t
 ## Coordinates: converting to grove keys
 
 Readers keep each format's **native** convention. Grove {term}`keys <key>` are
-**{term}`0-based closed`** `[start, end]`, so convert when inserting:
+**{term}`0-based closed`** `[start, end]`. Every record type converts itself: call `to_interval()`
+for an unstranded key or `to_coordinate()` for a key that also carries the strand. The table shows
+what the call does:
 
 | Format | Native | Grove key |
 |---|---|---|
@@ -103,20 +105,31 @@ payloads; see {doc}`/guide/grove/index`), `entry` the record from a reader loop 
 namespace gdt = genogrove::data_type;            // alias for the key types
 namespace gst = genogrove::structure;            // alias for the grove
 
-// BED / BAM / VCF: subtract 1 from end
-g.insert_data(entry.chrom, gdt::interval(entry.start, entry.end - 1), data);
+// BED / BAM / VCF record: the call subtracts 1 from end
+g.insert_data(entry.chrom, entry.to_interval(), data);
 
-// GFF / GTF: subtract 1 from both
-g.insert_data(entry.seqid, gdt::interval(entry.start - 1, entry.end - 1), data);
+// GFF / GTF record: the call subtracts 1 from both start and end
+g.insert_data(entry.seqid, entry.to_interval(), data);
 ```
+
+`bed_entry`, `gff_entry`, `sam_entry` and `vcf_entry` all have two members:
+`gdt::interval to_interval() const` and `gdt::genomic_coordinate to_coordinate() const`. The
+coordinate form adds the strand: BED column 6, GFF column 7 (`?` and no strand become `.`), the SAM
+FLAG, and `.` for VCF. An unset BED strand is `.`.
+
+Two records have no closed form, so their conversion throws `std::invalid_argument`: a `bed_entry`
+with `end <= start`, and a `sam_entry` that uses no reference bases (check `consumes_reference()`
+first). The GFF and VCF conversions do not check. Parsed records always satisfy them, but a record
+you build by hand with `start == 0` (GFF) or `end <= start` (VCF) wraps around to a huge number.
 
 ::::
 
 ::::{tab-item} {{ py_tab }}
 :sync: py
 
-The typed `BedGrove` / `GffGrove` do the conversion for you: `insert(index, entry)` derives the
-key from the record's native coordinates. `SamEntry` and `VcfEntry` provide `to_coordinate()`.
+Every record type has `to_coordinate()`, which returns the `GenomicCoordinate` key with the
+strand. The typed `BedGrove` / `GffGrove` call it for you: `insert(index, entry)` derives the key
+from the record's native coordinates.
 
 ```python
 import pygenogrove as pg
@@ -128,6 +141,10 @@ for e in pg.BedReader("peaks.bed"):
 gff = pg.GffGrove(100)
 for e in pg.GffReader("annotations.gtf.gz"):
     gff.insert(e.seqid, e)                              # 1-based closed -> 0-based closed
+
+bed_g = pg.Grove(100)
+for e in pg.BedReader("peaks.bed"):
+    bed_g.insert(e.chrom, e.to_coordinate(), e.name or "unnamed")   # the key, built by hand
 
 g = pg.Grove(100)
 for aln in pg.BamReader("reads.bam"):
@@ -143,8 +160,12 @@ for v in pg.VcfReader("calls.vcf.gz"):
 The C++ fragment above stores a string as payload (`data`); the BAM and VCF lines store the read name and the ID
 the same way, while the typed groves store the whole record. The key conversion is the same.
 
-Converting by hand: `pg.GenomicCoordinate(strand, e.start, e.end - 1)` for BED/BAM/VCF and
-`pg.GenomicCoordinate(strand, e.start - 1, e.end - 1)` for GFF.
+`BedEntry.to_coordinate()` raises `ValueError` if `end <= start`, and `GffEntry.to_coordinate()`
+raises it if `start < 1` or `end < start`. `SamEntry.to_coordinate()` raises it for a read that
+uses no reference bases (check `consumes_reference()` first), and `VcfEntry.to_coordinate()` raises
+it if the record spans no reference bases. So the Python calls check where the C++ GFF and VCF calls
+do not. `BedEntry.to_coordinate()` and `GffEntry.to_coordinate()` exist in pygenogrove 0.10.0 and
+later.
 
 ::::
 
