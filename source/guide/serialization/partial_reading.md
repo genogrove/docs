@@ -389,8 +389,9 @@ All raise `TypeError` on `None`.
 - **Key pointers** a view returns point into its block cache and are valid only while the view is
   alive.
 - Requires a **{term}`format <format version>` 0.4** `.gg` (genogrove v0.27.0+; see
-  {doc}`format`). Match the template arguments to the grove that wrote the file; the stream does
-  not record them.
+  {doc}`format`). Match the template arguments to the grove that wrote the file. `grove_view::open`
+  throws `std::runtime_error` if the key kind or the payload or edge-metadata presence differs
+  ({doc}`format`); it does not check the payload or edge type itself.
 
 ::::
 
@@ -406,7 +407,8 @@ All raise `TypeError` on `None`.
   A `Key` keeps its view alive for as long as you hold it.
 - Requires a **{term}`format <format version>` 0.4** `.gg` (genogrove v0.27.0+, pygenogrove 0.10.0+;
   see {doc}`format`).
-  Match the view class to the grove class that wrote the file; the file does not record it.
+  Match the view class to the grove class that wrote the file. `open` raises `RuntimeError` if the key
+  kind or the payload or edge-metadata presence differs ({doc}`format`); it does not check the class itself.
 
 ::::
 
