@@ -2,6 +2,16 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-10-29
+
+### Added
+- C++ reference: entries for `file_reader` and `file_reader_iterator` in `io.md`, and a new Utility page for the little-endian I/O helpers in `le_io.hpp` (`wire_scalar`, `write_le`, `read_le`, `write_size`, `read_size`), with a lead sentence on each new entry ([#281](https://github.com/genogrove/docs/pull/281), closes [#280](https://github.com/genogrove/docs/issues/280))
+- Serialization format page: a "Type check on read" section that describes the stream type tag (key kind, payload present, edge metadata present), the `std::runtime_error` / `RuntimeError` on a mismatch with an example message, and what the tag does not record ([#281](https://github.com/genogrove/docs/pull/281), closes [#275](https://github.com/genogrove/docs/issues/275))
+
+### Changed
+- Docs updated to genogrove v0.27.0: the version in `conf.py`, the README badge, the `cli.md` title and the `installation.md` example output ([#281](https://github.com/genogrove/docs/pull/281), closes [#278](https://github.com/genogrove/docs/issues/278))
+- Serialization guide: the current `.gg` format is 0.4 (version table with a new 0.4 row, the no-back-compat warning, the error message, the header table, the `grove_view` requirements, the C++ structure reference and the glossary); the notes that said the stream records no types now say what the type tag records, and the CLI-index-from-Python note says the open fails with `RuntimeError` ([#281](https://github.com/genogrove/docs/pull/281), closes [#275](https://github.com/genogrove/docs/issues/275))
+
 ## 2026-10-28
 
 ### Added
