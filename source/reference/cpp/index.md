@@ -1,6 +1,6 @@
 # C++ API Reference
 
-The C++ library is organized into three main namespaces:
+The C++ library is organized into four main namespaces:
 
 ```{toctree}
 :caption: Namespaces
@@ -9,6 +9,7 @@ The C++ library is organized into three main namespaces:
 structure
 data_type
 io
+utility
 ```
 
 ## Structure
@@ -28,3 +29,9 @@ Genomic data type definitions and utilities.
 File readers and parsers for genomic file formats.
 
 {doc}`io`
+
+## Utility
+
+Little-endian serialization helpers used by the `.gg` format.
+
+{doc}`utility`

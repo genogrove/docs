@@ -250,7 +250,7 @@ print(len(hits), hits[0].data)      # 1 FOO
 ```python
 import pygenogrove as pg
 print(pg.__version__)             # the pygenogrove package version, e.g. "0.9.2"
-print(pg.__genogrove_version__)   # the genogrove C++ library it was built against, e.g. "0.26.4"
+print(pg.__genogrove_version__)   # the genogrove C++ library it was built against, e.g. "0.27.0"
 ```
 
 ::::
