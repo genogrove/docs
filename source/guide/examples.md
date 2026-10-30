@@ -38,10 +38,10 @@ int main() {
     try {
         for (const auto& entry : reader) {
             // Insert into grove (organized by chromosome)
-            // Convert half-open [start, end) to closed [start, end - 1]
+            // to_interval() converts half-open [start, end) to the closed key [start, end - 1]
             features.insert_data(
                 entry.chrom,
-                gdt::interval(entry.start, entry.end - 1),
+                entry.to_interval(),
                 entry.name.value_or("unnamed")
             );
         }
@@ -144,12 +144,10 @@ int main() {
             // Only process gene features
             if (entry.type != "gene") continue;
 
-            // Create genomic coordinate with strand (GFF is 1-based inclusive;
-            // shift to the grove's 0-based closed keys). GFF allows '?' for an
-            // unknown strand; the coordinate type does not, so treat it as '.'.
-            char strand = entry.strand.value_or('.');
-            if (strand == '?') strand = '.';
-            gdt::genomic_coordinate coord{strand, entry.start - 1, entry.end - 1};
+            // Create the genomic coordinate with strand. to_coordinate() shifts GFF's
+            // 1-based inclusive range to the grove's 0-based closed key, and maps the
+            // unknown strand '?' (which the coordinate type does not allow) to '.'.
+            gdt::genomic_coordinate coord = entry.to_coordinate();
 
             // Extract annotation info
             GeneAnnotation annot{
@@ -234,10 +232,12 @@ answer "which exon comes next?". The program prints one line per transcript and 
 has a downstream neighbour. The C++ version stores the transcript id as the payload; the Python
 version stores the whole `GffEntry`.
 
-The input must be **GTF**: the example groups exons by `get_transcript_id()`, which reads the GTF
-`transcript_id` attribute. GFF3 exons name their transcript in `Parent` instead, so on a GFF3 file
-every exon would land under `"unknown"`; use `get_attribute("Parent")` there (the helpers are to
-become format-aware, see [genogrove#594](https://github.com/genogrove/genogrove/issues/594)).
+The input can be **GTF or GFF3**. The example groups exons by `get_transcript_id()`. It reads the
+GTF `transcript_id` attribute, and in GFF3 the `Parent` attribute of the exon (genogrove 0.27.0 and
+pygenogrove 0.10.0 and later). One case needs more: a GFF3 exon that belongs to several transcripts
+lists several `Parent` ids (for example `Parent=t1,t2`), and `get_transcript_id()` then returns
+nothing, so the exon would land under `"unknown"`. Use `get_parent_ids()` for those exons; the note
+after each program shows the lines to change.
 
 :::::{tab-set}
 
@@ -276,11 +276,11 @@ int main() {
 
             auto transcript_id = entry.get_transcript_id().value_or("unknown");
 
-            // Insert exon (GTF is 1-based inclusive; shift to 0-based closed).
+            // Insert exon (GTF is 1-based inclusive; to_interval() shifts to 0-based closed).
             // This time the returned key handle is kept: edges are added between handles.
             auto* exon_key = transcripts.insert_data(
                 entry.seqid,
-                gdt::interval(entry.start - 1, entry.end - 1),
+                entry.to_interval(),
                 transcript_id
             );
 
@@ -332,6 +332,25 @@ int main() {
 `interval` keys carry no strand, so the transcript's strand is remembered separately from the GTF
 line. Edges and `get_neighbors` are explained in {doc}`graph/building` and {doc}`graph/navigating`.
 
+For a GFF3 exon shared by several transcripts, `get_parent_ids()` returns every `Parent` id. File
+the one key under each of them. In the program, replace the last two lines of the `for` loop (the
+`push_back` and the `transcript_strand` line) with this loop. An exon without a `Parent`, such as a
+GTF exon, has an empty list, so the loop falls back to `transcript_id`:
+
+```cpp
+auto parents = entry.get_parent_ids();
+if (parents.empty()) parents.push_back(transcript_id);
+for (const auto& parent : parents) {
+    transcript_exons[parent].push_back(exon_key);
+    transcript_strand[parent] = entry.strand.value_or('+');
+}
+```
+
+A shared exon is one key with edges from every transcript that contains it. For that key,
+`get_neighbors(exon)` returns the next exons of all of those transcripts, so the count in the last
+loop mixes them. The order of the exons in `transcript_exons[parent]` is the order of one
+transcript.
+
 ::::
 
 ::::{tab-item} {{ py_tab }}
@@ -379,6 +398,21 @@ for transcript_id, exons in sorted(transcript_exons.items()):   # sorted by id, 
 The key's coordinate carries the strand, so each transcript's direction is read from its first
 exon. `GffGrove` edges carry no metadata; use the universal `Grove` when an edge needs a label
 (see {doc}`graph/building`).
+
+For a GFF3 exon shared by several transcripts, `get_parent_ids()` returns every `Parent` id. File
+the one key under each of them. In the program, replace the line
+`transcript_exons[e.get_transcript_id() or "unknown"].append(key)` with this loop. An exon without
+a `Parent`, such as a GTF exon, has an empty list, so the loop falls back to `get_transcript_id()`:
+
+```python
+for parent in e.get_parent_ids() or [e.get_transcript_id() or "unknown"]:
+    transcript_exons[parent].append(key)
+```
+
+A shared exon is one key with edges from every transcript that contains it. For that key,
+`get_neighbors(exon)` returns the next exons of all of those transcripts, so the count in the last
+loop mixes them. The order of the exons in `transcript_exons[parent]` is the order of one
+transcript.
 
 ::::
 

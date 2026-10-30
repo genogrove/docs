@@ -4,7 +4,8 @@ BED files list genomic intervals with up to nine optional columns. The reader ac
 BED12 and files that **mix** record widths: a shorter line after a longer one simply has the extra
 fields absent (nothing carries over from the previous record). Plain and gzip/bgzip-compressed
 (`.gz`) files are detected automatically. Coordinates are **0-based half-open** `[start, end)`;
-convert with `end - 1` for a {term}`grove` {term}`key` (see {doc}`index`).
+`to_interval()` and `to_coordinate()` convert a record to a {term}`grove` {term}`key` (see
+{doc}`index`).
 
 The snippets read `genes.bed.gz`; substitute any BED file. If you have none, save these three tab-separated
 lines as `genes.bed` and use that name:
@@ -126,12 +127,15 @@ optional fields — and all fields are plain members you can read and assign.
 
 Methods:
 
+- `gdt::interval to_interval() const` — the grove key `[start, end - 1]`; throws
+  `std::invalid_argument` (the program stops with an error) if `end <= start`, because an empty record has no closed form
+- `gdt::genomic_coordinate to_coordinate() const` — the same key with the strand from column 6
+  (`.` when the strand is absent); throws like `to_interval()`
 - `serialize(os)`, `static deserialize(is)` — binary {term}`serialization`, so a
   `grove<gdt::interval, gio::bed_entry>` (a grove whose {term}`payload` is the whole record) can be
   saved to disk directly; this is what the {term}`CLI`'s `idx` command writes (see {doc}`/cli`)
 
-Otherwise the fields are the record: there is no coordinate helper, so build the grove key with
-`gdt::interval(e.start, e.end - 1)`.
+Otherwise the fields are the record.
 
 ::::
 
@@ -161,8 +165,12 @@ afterwards. `repr(entry)` shows the record. Assigning an empty or multi-characte
 assigned by copy, so `entry.blocks.sizes.append(1)` does not change the record — build a new list
 and assign it.
 
-There is no `to_coordinate()` on `BedEntry`: `BedGrove.insert(index, entry)` derives the grove key
-from the record, which becomes the payload (see {doc}`/guide/grove/loading_data`).
+Methods:
+
+- `to_coordinate()` — the grove key as a `GenomicCoordinate` `[start, end - 1]`, with the strand from
+  column 6 (`'.'` when absent); raises `ValueError` (the script stops with an error) if `end <= start` (pygenogrove 0.10.0 and later).
+  `BedGrove.insert(index, entry)` calls it for you and stores the record as the payload (see
+  {doc}`/guide/grove/loading_data`)
 
 ::::
 
@@ -176,7 +184,7 @@ from the record, which becomes the payload (see {doc}`/guide/grove/loading_data`
 :sync: cpp
 
 The grove, its {term}`order` (the `100`) and `insert_data` are explained in {doc}`/guide/grove/index`.
-Convert the half-open end:
+`to_interval()` converts the half-open end for you:
 
 ```cpp
 #include <genogrove/io/bed_reader.hpp>
@@ -193,7 +201,7 @@ int main() {
     gio::bed_reader reader("genes.bed.gz");
     for (const auto& e : reader) {
         // payload: the name column, or "unnamed" when the line had none
-        g.insert_data(e.chrom, gdt::interval(e.start, e.end - 1), e.name.value_or("unnamed"));
+        g.insert_data(e.chrom, e.to_interval(), e.name.value_or("unnamed"));
     }
     return 0;
 }

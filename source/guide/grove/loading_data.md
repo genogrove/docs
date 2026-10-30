@@ -31,8 +31,10 @@ so every load converts:
 - BED and BAM records are 0-based half-open `[start, end)`: the key is `[start, end - 1]`.
 - GFF/GTF records are 1-based closed `[start, end]`: the key is `[start - 1, end - 1]`.
 
-The C++ examples do this by hand. In Python, the typed groves `BedGrove` and `GffGrove` do it for
-you when you insert a whole record (see {ref}`loading-typed-groves`).
+You do not write this arithmetic. Every record type converts itself: `to_interval()` (C++) returns
+the key, and `to_coordinate()` returns the key with the strand (C++ and Python). In Python, the
+typed groves `BedGrove` and `GffGrove` also call it for you when you insert a whole record (see
+{ref}`loading-typed-groves`).
 
 ## Loading BED files
 
@@ -67,10 +69,10 @@ int main() {
     try {
         gio::bed_reader reader("genes.bed.gz");
         for (const auto& entry : reader) {
-            // BED is half-open [start, end); the grove key is closed, so use end - 1.
+            // to_interval() turns BED's half-open [start, end) into the grove's closed key.
             // The name column is optional in BED: fall back to "unknown" when absent
             my_grove.insert_data(entry.chrom,
-                                gdt::interval(entry.start, entry.end - 1),
+                                entry.to_interval(),
                                 entry.name.value_or("unknown"));
         }
     } catch (const std::runtime_error& e) {
@@ -124,12 +126,12 @@ for hit in hits:                         # hit.data is the BED record, hit.value
 A file that cannot be opened raises `RuntimeError` when the reader is created. A line that cannot
 be parsed raises it during the loop. A record with `end <= start` raises `ValueError` from `insert`.
 `len(hits)` counts the hits, as `results.get_keys().size()` does in C++. If you only need one field
-as the payload, use the universal `Grove` and build the key yourself (`e.strand or "."` means
-"the strand, or `.` when the column is absent"):
+as the payload, use the universal `Grove` and pass the key from `to_coordinate()` (its strand is
+`.` when the column is absent):
 
 ```python
 g = pg.Grove(100)
-g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1), e.name or "unknown")
+g.insert(e.chrom, e.to_coordinate(), e.name or "unknown")
 ```
 
 ::::
@@ -138,8 +140,9 @@ g.insert(e.chrom, pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1), e.n
 
 ## Loading GFF/GTF files
 
-A GTF gene line carries a `gene_id` attribute. A GFF3 gene line carries `ID` instead. The examples
-below accept both, because a GFF3 file would otherwise load no genes and print no error.
+A GTF gene line carries a `gene_id` attribute. A GFF3 gene line carries `ID` instead.
+`get_gene_id()` reads both: it returns `gene_id` when present and, in GFF3, the `ID` of a `gene`
+feature.
 
 :::::{tab-set}
 
@@ -163,15 +166,15 @@ int main() {
         gio::gff_reader reader("annotations.gff.gz");
         for (const auto& entry : reader) {
             // Keep gene features that carry an ID; the ID is the payload.
-            // GTF uses the gene_id attribute, GFF3 uses ID. Each lookup returns an optional:
+            // get_gene_id() reads gene_id (GTF) or ID (GFF3) and returns an optional:
             // `!id` means the attribute is absent, and `*id` reads the value.
             auto id = entry.get_gene_id();
-            if (!id) id = entry.get_attribute("ID");
             if (entry.type != "gene" || !id) continue;
 
-            // GFF coordinates are 1-based inclusive — shift both to the grove's 0-based closed keys
+            // GFF coordinates are 1-based inclusive — to_interval() shifts both to the
+            // grove's 0-based closed key
             my_grove.insert_data(entry.seqid,
-                                gdt::interval(entry.start - 1, entry.end - 1),
+                                entry.to_interval(),
                                 *id);
         }
     } catch (const std::runtime_error& e) {
@@ -200,7 +203,7 @@ g = pg.GffGrove(100)
 
 try:
     for e in pg.GffReader("annotations.gff.gz"):
-        gene_id = e.get_gene_id() or e.get_attribute("ID")   # GTF: gene_id, GFF3: ID; None if absent
+        gene_id = e.get_gene_id()                            # GTF: gene_id, GFF3: ID; None if absent
         if e.type == "gene" and gene_id:
             g.insert(e.seqid, e)
 except (RuntimeError, ValueError) as err:
@@ -214,6 +217,11 @@ A record with `start == 0` or `end < start` raises `ValueError` from `insert`. A
 ::::
 
 :::::
+
+### Older versions
+
+In genogrove 0.26.x and earlier, `get_gene_id()` read `gene_id` only, so a GFF3 file loaded no genes
+and printed no error. The GFF3 fallback comes with genogrove 0.27.0 and pygenogrove 0.10.0.
 
 ## Loading BAM/SAM files
 
@@ -243,11 +251,11 @@ int main() {
         gio::bam_reader reader("alignments.bam", opts);
         for (const auto& entry : reader) {
             // A read whose CIGAR uses no reference bases (for example a pure soft clip, 100S)
-            // has end == start, so end - 1 would be invalid. Skip such reads.
+            // has end == start, so to_interval() would stop with an error (it throws). Skip such reads.
             if (!entry.consumes_reference()) continue;
             // qname is the read name; it is the payload
             my_grove.insert_data(entry.chrom,
-                                 gdt::interval(entry.start, entry.end - 1),
+                                 entry.to_interval(),
                                  entry.qname);
         }
     } catch (const std::runtime_error& e) {
@@ -353,7 +361,7 @@ int main() {
             // data[chrom] is that chromosome's list (created on first use);
             // emplace_back builds one (interval, name) pair at the end of the list
             data[entry.chrom].emplace_back(
-                gdt::interval(entry.start, entry.end - 1),
+                entry.to_interval(),
                 entry.name.value_or("unknown"));
         }
     } catch (const std::runtime_error& e) {
@@ -393,7 +401,7 @@ g = pg.Grove(100)
 by_chrom = {}
 try:
     for e in pg.BedReader("large_dataset.bed.gz"):
-        coord = pg.GenomicCoordinate(e.strand or ".", e.start, e.end - 1)
+        coord = e.to_coordinate()
         by_chrom.setdefault(e.chrom, []).append((coord, e.name or "unknown"))
 except (RuntimeError, ValueError) as err:
     print("Error:", err)
@@ -448,9 +456,8 @@ int main() {
         gio::bed_reader reader("genes.bed.gz");
         for (const auto& entry : reader) {
             // inside the loop: one insert for each record
-            // the strand column is optional in BED: '.' when absent
-            gdt::genomic_coordinate key{entry.strand.value_or('.'), entry.start, entry.end - 1};
-            records.insert_data(entry.chrom, key, entry);
+            // to_coordinate(): the strand column is optional in BED, '.' when absent
+            records.insert_data(entry.chrom, entry.to_coordinate(), entry);
         }
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << "\n";
@@ -526,12 +533,12 @@ the record's strand so that strand-aware queries behave:
 entry = pg.BedEntry("chr1", 1000, 2000)       # BED coordinates: 0-based, half-open
 entry.name = "BRCA1"
 entry.strand = "+"
-key = g.insert("chr1", pg.GenomicCoordinate("+", 1000, 1999), entry)
+key = g.insert("chr1", entry.to_coordinate(), entry)   # GenomicCoordinate("+", 1000, 1999)
 
 print(key.value.start, key.data.name)         # 1000 BRCA1
 ```
 
-For a `GffEntry` the coordinates are 1-based, so the key is `[start - 1, end - 1]`. The fields of both
+For a `GffEntry` the coordinates are 1-based, so `to_coordinate()` gives `[start - 1, end - 1]`. The fields of both
 record types are listed in {doc}`/guide/io/bed` and {doc}`/guide/io/gff`.
 
 ::::
