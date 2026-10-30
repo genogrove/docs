@@ -5,11 +5,16 @@ All notable changes to the genogrove documentation project will be documented in
 ## 2026-10-30
 
 ### Added
+- Reader record conversions: `to_interval()` and `to_coordinate()` on BED, GFF, SAM/BAM and VCF records (C++), and `to_coordinate()` in Python, with the strand source and the throwing rules for each record type; the loading snippets, the examples and the front page use them instead of hand-written coordinate arithmetic ([#283](https://github.com/genogrove/docs/pull/283), closes [#276](https://github.com/genogrove/docs/issues/276), closes [#279](https://github.com/genogrove/docs/issues/279))
+- GFF3-aware ID helpers: `get_gene_id()` and `get_transcript_id()` fall back to the GFF3 `ID` and `Parent` attributes, the new `get_parent_ids()` returns every `Parent` id, and the transcript graph example shows how to file a shared exon under each transcript ([#283](https://github.com/genogrove/docs/pull/283), closes [#274](https://github.com/genogrove/docs/issues/274), closes [#279](https://github.com/genogrove/docs/issues/279))
 - Serialization guide: a "Portability across platforms" section that lists what is portable in a `.gg` file (integers, enums, `float`, `double`, and `std::size_t` positions as 8 bytes) and what is not (`long`, `unsigned long`, `wchar_t`, `long double`, and plain structs written as raw bytes), with the fix for each, and the step to re-create indexes written by genogrove 0.26.x or earlier ([#282](https://github.com/genogrove/docs/pull/282), closes [#277](https://github.com/genogrove/docs/issues/277))
 
 ### Fixed
 - Serialization guide: the custom key type example writes `start` and `end` with `write_size` and `read_size` instead of raw `size_t` bytes; the custom data type examples use `serializer<double>` (Option 1) and a concrete `serialization_traits` specialization with `write_le` and `read_le` (Option 2), and both now show their includes; the "What is saved" list no longer says `gio::thick_info` serializes automatically, because it has its own `serialize` and `deserialize` ([#282](https://github.com/genogrove/docs/pull/282), closes [#277](https://github.com/genogrove/docs/issues/277))
 - Custom key types guide: the persistence paragraph tells users to write each field with a fixed-width type and points to the portability section ([#282](https://github.com/genogrove/docs/pull/282))
+
+### Changed
+- The Python docs build and the version examples use pygenogrove 0.10.0 (`requirements.txt`, `conf.py`, `installation.md`) ([#283](https://github.com/genogrove/docs/pull/283), closes [#279](https://github.com/genogrove/docs/issues/279))
 
 ## 2026-10-29
 
