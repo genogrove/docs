@@ -146,12 +146,12 @@ All built-in {term}`key types <key type>` (`interval`, `genomic_coordinate`, `nu
 the common data types are serialized automatically:
 
 - **Numbers and strings** — `int`, `double`, `uint32_t` and `std::string` are saved without extra
-  code
+  code, in a fixed byte order (see [Portability](#portability-across-platforms))
 - **`gio::bed_entry`** (with its nested `gio::block_info`) and **`gio::gff_entry`** — member
   `serialize` / `deserialize` provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted
   directly (the {doc}`CLI </cli>`'s `idx` indexes are groves of this kind with a `std::string` edge
-  type — see {doc}`format`). `gio::rgb_color` and `gio::thick_info` are trivially copyable and
-  serialize automatically.
+  type — see {doc}`format`). `gio::thick_info` has its own `serialize` / `deserialize`; `gio::rgb_color` holds three
+  single-byte fields, so it is saved as raw bytes.
 
 Any other key or data type needs a small amount of code — see [Custom key types](#custom-key-types)
 and [Custom data types](#custom-data-types) below.
@@ -332,6 +332,35 @@ your own key type is a C++ feature.
 
 :::::
 
+## Portability across platforms
+
+A `.gg` file reads the same on every platform for the types below. The library writes them in a
+fixed layout, so a file written on Linux opens on macOS or Windows, and the other way round. The
+Python bindings write the same layout.
+
+- **Integers, enums, `float` and `double`** are written little-endian (least significant byte
+  first) at their own width.
+- **Positions** held in a `std::size_t` (the start and end of an `interval` or `genomic_coordinate`,
+  BED and GFF coordinates, BED12 block sizes and starts) are always written as 8 bytes. Reading a
+  value that does not fit the `std::size_t` of the reading platform throws `std::runtime_error`.
+
+Four cases are **not** portable. Check your own key, payload and edge-metadata types for them:
+
+- **`long`, `unsigned long` and `wchar_t`** take the width of the platform: 8 bytes on Linux and
+  macOS, 4 bytes on Windows and on 32-bit Linux. A file that holds one of them reads wrongly on a
+  platform with a different width, and no error is raised. Use `int32_t`, `uint64_t` and the other
+  fixed-width types instead.
+- **`long double`** has no fixed width. It is written as raw bytes and is not portable.
+- **A plain struct** (a trivially copyable type with no `serialize` member) is written as the raw
+  bytes of its memory layout. If a field is wider than one byte, the file is not portable. Add
+  `serialize` and `deserialize` members, or specialise `serialization_traits`, as in
+  [Custom data types](#custom-data-types). `gio::thick_info` is the library's own example.
+- **A custom key type** follows the same rule as a payload: write each field with a fixed-width
+  type.
+
+Indexes written by genogrove 0.26.x or earlier use the older layout and do not load in 0.27.0.
+Create them again; see {doc}`format`.
+
 ## Custom data types
 
 :::::{tab-set}
@@ -342,7 +371,8 @@ your own key type is a C++ feature.
 For a custom payload type there are two options.
 
 **Option 1: member methods.** Add `serialize` and a static `deserialize` to your type, as for a key
-type. `gdt::serializer<T>` writes and reads the built-in types for you:
+type. `gdt::serializer<T>` writes and reads the built-in types for you, with a fixed byte order, so
+use it for every field instead of `os.write` on the raw bytes:
 
 ```cpp
 struct Annotation {
@@ -351,14 +381,12 @@ struct Annotation {
 
     void serialize(std::ostream& os) const {
         genogrove::data_type::serializer<std::string>::write(os, name);
-        os.write(reinterpret_cast<const char*>(&score), sizeof(score));
+        genogrove::data_type::serializer<double>::write(os, score);   // fixed byte order
     }
 
     [[nodiscard]] static Annotation deserialize(std::istream& is) {
         auto name = genogrove::data_type::serializer<std::string>::read(is);
-        double score;
-        is.read(reinterpret_cast<char*>(&score), sizeof(score));
-        if (!is) throw std::runtime_error("Failed to deserialize Annotation");
+        auto score = genogrove::data_type::serializer<double>::read(is);
         return {std::move(name), score};
     }
 };
@@ -369,17 +397,31 @@ the two functions outside the type instead:
 
 ```cpp
 #include <genogrove/data_type/serialization_traits.hpp>
+#include <genogrove/utility/le_io.hpp>
+
+struct ThirdPartyType {            // pretend you cannot add members to this type
+    std::int32_t id;
+    double weight;
+};
 
 template<>
 struct genogrove::data_type::serialization_traits<ThirdPartyType> {
     static void serialize(std::ostream& os, const ThirdPartyType& value) {
-        // write fields to os
+        genogrove::utility::write_le(os, value.id);       // one call for each field
+        genogrove::utility::write_le(os, value.weight);
     }
 
     static ThirdPartyType deserialize(std::istream& is) {
-        // read fields from is and return constructed object
+        ThirdPartyType value{};
+        genogrove::utility::read_le(is, value.id);
+        genogrove::utility::read_le(is, value.weight);
+        if (!is) throw std::runtime_error("Failed to deserialize ThirdPartyType");
+        return value;
     }
 };
+
+// For a count or a position held in a std::size_t, use write_size(os, n) and read_size(is, n):
+// they always use 8 bytes.
 ```
 
 ::::

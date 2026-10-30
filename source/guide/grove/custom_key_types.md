@@ -105,7 +105,9 @@ requires it) or in an unordered container such as `std::unordered_set`. Of the b
 To save a grove keyed by your type to a file ({term}`serialization`), the type additionally needs a
 `serialize(std::ostream&) const` member and a static `deserialize(std::istream&)` factory — a
 function that builds a value from a {term}`stream` — see the
-{doc}`serialization guide </guide/serialization/index>`.
+{doc}`serialization guide </guide/serialization/index>`. Write every field with a fixed-width type
+(`int32_t`, `uint64_t`, `double`); `long` and `wchar_t` change width between platforms, so a file
+that holds them is not portable (see [Portability](../serialization/index.md#portability-across-platforms)).
 
 ::::
 
