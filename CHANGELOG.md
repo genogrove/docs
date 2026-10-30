@@ -2,6 +2,15 @@
 
 All notable changes to the genogrove documentation project will be documented in this file.
 
+## 2026-10-30
+
+### Added
+- Serialization guide: a "Portability across platforms" section that lists what is portable in a `.gg` file (integers, enums, `float`, `double`, and `std::size_t` positions as 8 bytes) and what is not (`long`, `unsigned long`, `wchar_t`, `long double`, and plain structs written as raw bytes), with the fix for each, and the step to re-create indexes written by genogrove 0.26.x or earlier ([#282](https://github.com/genogrove/docs/pull/282), closes [#277](https://github.com/genogrove/docs/issues/277))
+
+### Fixed
+- Serialization guide: the custom key type example writes `start` and `end` with `write_size` and `read_size` instead of raw `size_t` bytes; the custom data type examples use `serializer<double>` (Option 1) and a concrete `serialization_traits` specialization with `write_le` and `read_le` (Option 2), and both now show their includes; the "What is saved" list no longer says `gio::thick_info` serializes automatically, because it has its own `serialize` and `deserialize` ([#282](https://github.com/genogrove/docs/pull/282), closes [#277](https://github.com/genogrove/docs/issues/277))
+- Custom key types guide: the persistence paragraph tells users to write each field with a fixed-width type and points to the portability section ([#282](https://github.com/genogrove/docs/pull/282))
+
 ## 2026-10-29
 
 ### Added
