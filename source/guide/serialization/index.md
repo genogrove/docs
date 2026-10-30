@@ -146,12 +146,14 @@ All built-in {term}`key types <key type>` (`interval`, `genomic_coordinate`, `nu
 the common data types are serialized automatically:
 
 - **Numbers and strings** — `int`, `double`, `uint32_t` and `std::string` are saved without extra
-  code, in a fixed byte order (see [Portability](#portability-across-platforms))
+  code, in a fixed byte order, so the bytes are the same on every computer (see
+  [Portability](#portability-across-platforms))
 - **`gio::bed_entry`** (with its nested `gio::block_info`) and **`gio::gff_entry`** — member
   `serialize` / `deserialize` provided, so a `grove<gdt::interval, gio::bed_entry>` can be persisted
   directly (the {doc}`CLI </cli>`'s `idx` indexes are groves of this kind with a `std::string` edge
-  type — see {doc}`format`). `gio::thick_info` has its own `serialize` / `deserialize`; `gio::rgb_color` holds three
-  single-byte fields, so it is saved as raw bytes.
+  type — see {doc}`format`). The BED helper types follow the same rule: `gio::thick_info` (the
+  thick start and end of a BED record) has its own `serialize` / `deserialize`, and `gio::rgb_color`
+  (the item colour) holds three single bytes, which need no byte order, so it is saved as they are.
 
 Any other key or data type needs a small amount of code — see [Custom key types](#custom-key-types)
 and [Custom data types](#custom-data-types) below.
@@ -164,7 +166,8 @@ and [Custom data types](#custom-data-types) below.
 Nothing needs to be declared. Payloads of the universal `Grove` (and `NumericGrove` / `KmerGrove`)
 are JSON values and are stored as JSON text; `BedGrove` / `GffGrove` store their `BedEntry` /
 `GffEntry` records in the same binary form the C++ library uses. Edge metadata is stored the same
-way as payloads.
+way as payloads. A file from `serialize` reads the same on every operating system with pygenogrove
+0.10.0 or later.
 
 ::::
 
@@ -295,19 +298,21 @@ A {doc}`custom key type </guide/grove/custom_key_types>` must provide a `seriali
 and a static `deserialize` factory:
 
 ```cpp
+#include <genogrove/utility/le_io.hpp>
+
 struct CustomInterval {
     size_t start;
     size_t end;
 
     void serialize(std::ostream& os) const {
-        os.write(reinterpret_cast<const char*>(&start), sizeof(start));
-        os.write(reinterpret_cast<const char*>(&end), sizeof(end));
+        genogrove::utility::write_size(os, start);   // always 8 bytes
+        genogrove::utility::write_size(os, end);
     }
 
     [[nodiscard]] static CustomInterval deserialize(std::istream& is) {
         CustomInterval ci;
-        is.read(reinterpret_cast<char*>(&ci.start), sizeof(ci.start));
-        is.read(reinterpret_cast<char*>(&ci.end), sizeof(ci.end));
+        genogrove::utility::read_size(is, ci.start);
+        genogrove::utility::read_size(is, ci.end);
         if (!is) throw std::runtime_error("Failed to deserialize CustomInterval");
         return ci;
     }
@@ -317,7 +322,8 @@ struct CustomInterval {
 ```
 
 `[[nodiscard]]` ({term}`nodiscard`) makes the compiler warn if a caller ignores the returned value;
-the `reinterpret_cast<const char*>` lets `write` and `read` see a number as its raw bytes.
+`write_size` and `read_size` save a position or a count in 8 bytes, whatever the size of `size_t` on
+the computer. Section [Portability](#portability-across-platforms) explains why.
 
 ::::
 
@@ -334,32 +340,40 @@ your own key type is a C++ feature.
 
 ## Portability across platforms
 
-A `.gg` file reads the same on every platform for the types below. The library writes them in a
-fixed layout, so a file written on Linux opens on macOS or Windows, and the other way round. The
-Python bindings write the same layout.
+This section is for C++ code that writes its own types. If you only use the built-in types or
+pygenogrove, you do nothing: a `.gg` file reads the same on every operating system, so a file
+written on Linux opens on macOS or Windows, and the other way round. Files from pygenogrove 0.10.0
+and later have the same layout, because pygenogrove calls the C++ library.
 
-- **Integers, enums, `float` and `double`** are written little-endian (least significant byte
-  first) at their own width.
-- **Positions** held in a `std::size_t` (the start and end of an `interval` or `genomic_coordinate`,
-  BED and GFF coordinates, BED12 block sizes and starts) are always written as 8 bytes. Reading a
-  value that does not fit the `std::size_t` of the reading platform throws `std::runtime_error`.
+These types are portable. The library writes them in a fixed layout:
 
-Four cases are **not** portable. Check your own key, payload and edge-metadata types for them:
+- **Integers, enums (named constants), `float` and `double`** are written little-endian (least
+  significant byte first) at their own width.
+- **Positions** held in a `std::size_t` (the integer type C++ uses for positions and sizes) are
+  always written as 8 bytes. This covers the start and end of an `interval` or `genomic_coordinate`,
+  BED and GFF coordinates, and the block sizes and starts of a BED12 record. If a value does not fit
+  the `std::size_t` of the computer that reads the file, the load stops with a `std::runtime_error`.
 
-- **`long`, `unsigned long` and `wchar_t`** take the width of the platform: 8 bytes on Linux and
-  macOS, 4 bytes on Windows and on 32-bit Linux. A file that holds one of them reads wrongly on a
-  platform with a different width, and no error is raised. Use `int32_t`, `uint64_t` and the other
-  fixed-width types instead.
-- **`long double`** has no fixed width. It is written as raw bytes and is not portable.
-- **A plain struct** (a trivially copyable type with no `serialize` member) is written as the raw
-  bytes of its memory layout. If a field is wider than one byte, the file is not portable. Add
-  `serialize` and `deserialize` members, or specialise `serialization_traits`, as in
-  [Custom data types](#custom-data-types). `gio::thick_info` is the library's own example.
+These cases are **not** portable. Check your own key, payload and edge-metadata types for them:
+
+- **`long` and `unsigned long`** take the width of the platform: 8 bytes on Linux and macOS, 4 bytes
+  on Windows and on 32-bit Linux. **`wchar_t`** is 4 bytes on Linux and macOS and 2 bytes on Windows.
+  A file that holds one of these types reads wrongly on a platform with a different width, and the
+  library gives no error. Use `int32_t` (always 4 bytes), `uint64_t` (always 8 bytes) and the other
+  fixed-width types instead. If your types hold none of these, you are not affected.
+- **`long double`** has no fixed width. It is written as raw bytes (copied exactly as it sits in
+  memory) and is not portable.
+- **A plain struct** (a struct made only of plain numbers, with no `serialize` member) is written as
+  raw bytes. If a field is wider than one byte, the file is not portable. Add `serialize` and
+  `deserialize` members, or write a `serialization_traits` specialisation (a set of two functions
+  that you provide for a type you cannot change), as in [Custom data types](#custom-data-types).
+  `gio::thick_info` is the library's own example.
 - **A custom key type** follows the same rule as a payload: write each field with a fixed-width
-  type.
+  type, and write a position with `write_size`, as the `CustomInterval` example above does.
 
 Indexes written by genogrove 0.26.x or earlier use the older layout and do not load in 0.27.0.
-Create them again; see {doc}`format`.
+Create them again: run `genogrove idx` on the source file again (see the {doc}`CLI page </cli>`), or
+save the grove again from your program. See {doc}`format` for the format versions.
 
 ## Custom data types
 
@@ -372,9 +386,14 @@ For a custom payload type there are two options.
 
 **Option 1: member methods.** Add `serialize` and a static `deserialize` to your type, as for a key
 type. `gdt::serializer<T>` writes and reads the built-in types for you, with a fixed byte order, so
-use it for every field instead of `os.write` on the raw bytes:
+use it for every field instead of `os.write` on the raw bytes. It comes from
+`<genogrove/data_type/serialization_traits.hpp>`:
 
 ```cpp
+#include <genogrove/data_type/serialization_traits.hpp>
+#include <string>
+#include <utility>
+
 struct Annotation {
     std::string name;
     double score;
@@ -393,11 +412,15 @@ struct Annotation {
 ```
 
 **Option 2: specialise `serialization_traits`.** For a third-party type you cannot modify, provide
-the two functions outside the type instead:
+the two functions outside the type instead. Put the specialisation at file scope (outside `main`),
+before the code that saves or loads a grove with this type:
 
 ```cpp
+#include <cstdint>
+#include <iostream>
+#include <stdexcept>
 #include <genogrove/data_type/serialization_traits.hpp>
-#include <genogrove/utility/le_io.hpp>
+#include <genogrove/utility/le_io.hpp>   // write_le / read_le: "le" is little-endian
 
 struct ThirdPartyType {            // pretend you cannot add members to this type
     std::int32_t id;
